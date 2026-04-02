@@ -1,3 +1,7 @@
+> **\[ARCHIVED\]** This is a historical milestone record. The current authoritative product contract is [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_CONTRACT.md).
+
+---
+
 # Phase 1 Finale: CLI Tool Routing (Minimal)
 
 Complete Phase 1 by routing CLI tools through RuntimeOrchestrator instead of direct Process() calls.

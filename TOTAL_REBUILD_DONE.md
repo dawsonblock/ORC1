@@ -1,3 +1,7 @@
+> **\[ARCHIVED\]** This is a historical milestone record. The current authoritative product contract is [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_CONTRACT.md).
+
+---
+
 # Runtime Architecture Rebuild: COMPLETE
 
 ## Highlights of Phases 4-7

@@ -1,18 +1,30 @@
 import Foundation
 
-/// The ONLY layer allowed to produce side effects in Oracle-OS.
+/// Verified execution layer — the policy-checked gateway for **Tier-2 reversible**
+/// and **Tier-3 destructive** side effects in Oracle-OS.
+///
+/// Side-effect taxonomy (three tiers):
+///   Tier 1 — Read-only: AXScanner, VisionScanner, memory queries.
+///             No VerifiedExecutor involvement required.
+///   Tier 2 — Reversible: UI automation (click, type, hotkey, scroll, focus, window).
+///             MUST route through VerifiedExecutor.execute().
+///   Tier 3 — Destructive / persistent: file writes, shell escapes, recipe saves,
+///             architecture mutations. MUST route through VerifiedExecutor.execute().
+///
+/// Note: Persistence writes (Tier 3) originate from Persistence-namespaced stores.
+/// The vision sidecar (Tier 1) is called directly from VisionScanner — no executor
+/// involvement because it is read-only.
 ///
 /// INVARIANTS:
 ///   - Executor observes and acts, but does NOT commit state
 ///   - Executor returns ExecutionOutcome with events and artifacts only
 ///   - CommitCoordinator is the ONLY entity that writes committed state
-///   - All side effects MUST route through this actor's execute() method
-///   - No other component may call shell escapes, FileManager.write(), or mutate state
+///   - Tier-2 and Tier-3 effects MUST route through this actor's execute() method
 ///
 /// ENFORCEMENT:
 ///   - All CLI tools, planners, routers MUST use RuntimeOrchestrator.submitIntent()
-///   - Bypassing this path is an architectural violation
-///   - Governance tests verify all side effects route through here
+///   - Bypassing this path for Tier-2/3 effects is an architectural violation
+///   - Governance tests verify Tier-2/3 effects route through here
 public actor VerifiedExecutor {
     private let policyEngine: PolicyEngine
     private let commandRouter: CommandRouter

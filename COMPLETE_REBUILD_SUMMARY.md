@@ -1,3 +1,7 @@
+> **\[ARCHIVED\]** This is a historical milestone record. The current authoritative product contract is [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_CONTRACT.md).
+
+---
+
 ════════════════════════════════════════════════════════════════════════════════
        SINGLE-HARD-PATH RUNTIME: ALL PHASES COMPLETE (1-7)
 ════════════════════════════════════════════════════════════════════════════════
