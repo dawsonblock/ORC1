@@ -1,0 +1,4 @@
+Sources/OracleOS/Execution/PreconditionsValidator.swift:24:             "modify", "modifyFile", "open_file",
+Sources/OracleOS/Execution/PreconditionsValidator.swift:30:            if (command.kind == "modify" || command.kind == "modifyFile") && state.isGitDirty {
+Sources/OracleOS/Execution/SafetyValidator.swift:8:        "modifyFile", "launchApp", "openURL", "runBuild"
+Sources/OracleOS/Execution/Routing/CodeRouter.swift:228:        case "modifyFile":

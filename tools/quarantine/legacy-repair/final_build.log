@@ -1,0 +1,64 @@
+[0/1] Planning build
+Building for production...
+[0/5] Write swift-version--58304C5D6DBC2206.txt
+[2/6] Compiling OracleOS IntentAPI.swift
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/MCP/MCPDispatch.swift:85:23: error: passing closure as a 'sending' parameter risks causing data races between main actor-isolated code and concurrent execution of the closure [#SendingClosureRisksDataRace]
+ 83 |         do {
+ 84 |             responseWrapper = try await withThrowingTaskGroup(of: ResultWrapper.self) { group in
+ 85 |                 group.addTask {
+    |                       `- error: passing closure as a 'sending' parameter risks causing data races between main actor-isolated code and concurrent execution of the closure [#SendingClosureRisksDataRace]
+ 86 |                     let result: [String: Any]
+ 87 |                     if toolName == "oracle_screenshot" {
+ 88 |                         result = await handleScreenshot(args)
+    |                                        `- note: closure captures 'args' which is accessible to main actor-isolated code
+ 89 |                     } else {
+ 90 |                         let toolResult = await dispatch(tool: toolName, args: args)
+
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/MCP/MCPDispatch.swift:88:40: error: sending 'args' risks causing data races [#SendingRisksDataRace]
+ 86 |                     let result: [String: Any]
+ 87 |                     if toolName == "oracle_screenshot" {
+ 88 |                         result = await handleScreenshot(args)
+    |                                        |- error: sending 'args' risks causing data races [#SendingRisksDataRace]
+    |                                        `- note: sending task-isolated 'args' to main actor-isolated static method 'handleScreenshot' risks causing data races between main actor-isolated and task-isolated uses
+ 89 |                     } else {
+ 90 |                         let toolResult = await dispatch(tool: toolName, args: args)
+
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/MCP/MCPDispatch.swift:88:40: error: non-Sendable '[String : Any]'-typed result can not be returned from main actor-isolated static method 'handleScreenshot' to nonisolated context
+ 86 |                     let result: [String: Any]
+ 87 |                     if toolName == "oracle_screenshot" {
+ 88 |                         result = await handleScreenshot(args)
+    |                                        `- error: non-Sendable '[String : Any]'-typed result can not be returned from main actor-isolated static method 'handleScreenshot' to nonisolated context
+ 89 |                     } else {
+ 90 |                         let toolResult = await dispatch(tool: toolName, args: args)
+
+Swift.Dictionary:1:23: note: generic struct 'Dictionary' does not conform to the 'Sendable' protocol
+1 | @frozen public struct Dictionary<Key, Value> where Key : Hashable {
+  |                       `- note: generic struct 'Dictionary' does not conform to the 'Sendable' protocol
+2 |     public typealias Element = (key: Key, value: Value)
+3 |     @inlinable public init(_immutableCocoaDictionary: __owned AnyObject)
+
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/MCP/MCPDispatch.swift:90:48: error: sending 'args' risks causing data races [#SendingRisksDataRace]
+ 88 |                         result = await handleScreenshot(args)
+ 89 |                     } else {
+ 90 |                         let toolResult = await dispatch(tool: toolName, args: args)
+    |                                                |- error: sending 'args' risks causing data races [#SendingRisksDataRace]
+    |                                                `- note: sending task-isolated 'args' to main actor-isolated static method 'dispatch(tool:args:)' risks causing data races between main actor-isolated and task-isolated uses
+ 91 |                         result = await formatResult(toolResult, toolName: toolName)
+ 92 |                     }
+
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/MCP/MCPDispatch.swift:91:40: error: non-Sendable '[String : Any]'-typed result can not be returned from main actor-isolated static method 'formatResult(_:toolName:)' to nonisolated context
+ 89 |                     } else {
+ 90 |                         let toolResult = await dispatch(tool: toolName, args: args)
+ 91 |                         result = await formatResult(toolResult, toolName: toolName)
+    |                                        `- error: non-Sendable '[String : Any]'-typed result can not be returned from main actor-isolated static method 'formatResult(_:toolName:)' to nonisolated context
+ 92 |                     }
+ 93 |                     return ResultWrapper(payload: result)
+
+Swift.Dictionary:1:23: note: generic struct 'Dictionary' does not conform to the 'Sendable' protocol
+1 | @frozen public struct Dictionary<Key, Value> where Key : Hashable {
+  |                       `- note: generic struct 'Dictionary' does not conform to the 'Sendable' protocol
+2 |     public typealias Element = (key: Key, value: Value)
+3 |     @inlinable public init(_immutableCocoaDictionary: __owned AnyObject)
+
+[#SendingClosureRisksDataRace]: <https://docs.swift.org/compiler/documentation/diagnostics/sending-closure-risks-data-race>
+[#SendingRisksDataRace]: <https://docs.swift.org/compiler/documentation/diagnostics/sending-risks-data-race>

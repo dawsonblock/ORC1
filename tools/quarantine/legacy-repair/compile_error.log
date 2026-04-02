@@ -1,0 +1,51 @@
+Building for debugging...
+[0/9] Write swift-version--58304C5D6DBC2206.txt
+[2/6] Compiling OracleOSTests ExecutionBoundaryEnforcementTests.swift
+/Users/dawsonblock/Downloads/Oracle-OS-main/Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift:17:9: [1;31merror: [1;39mswitch must be exhaustive[0;0m
+ [0;36m15 |[0;0m 
+ [0;36m16 |[0;0m         // Verify all cases are typed:
+ [0;36m17 |[0;0m         switch payload {
+    [0;36m|[0;0m         |- [1;31merror: [1;39mswitch must be exhaustive[0;0m
+    [0;36m|[0;0m         |- [1;39mnote: [1;39madd missing case: '.diagnostic(_)'[0;0m
+    [0;36m|[0;0m         |- [1;39mnote: [1;39madd missing case: '.envSetup(_)'[0;0m
+    [0;36m|[0;0m         |- [1;39mnote: [1;39madd missing case: '.hostService(_)'[0;0m
+    [0;36m|[0;0m         |- [1;39mnote: [1;39madd missing case: '.inference(_)'[0;0m
+    [0;36m|[0;0m         `- [1;39mnote: [1;39madd missing cases[0;0m
+ [0;36m18 |[0;0m         case .build(_):
+ [0;36m19 |[0;0m             XCTAssertTrue(true)
+[3/6] Compiling OracleOSTests CommitDurabilityTests.swift
+/Users/dawsonblock/Downloads/Oracle-OS-main/Tests/OracleOSTests/Governance/CommitDurabilityTests.swift:188:16: [1;31merror: [1;39mtype 'TestEventReducer' does not conform to protocol 'EventReducer'[0;0m
+[0;36m186 |[0;0m     func sequenceCount() -> Int { return events.count }
+[0;36m187 |[0;0m }
+[0;36m188 |[0;0m private struct TestEventReducer: EventReducer {
+    [0;36m|[0;0m                |- [1;31merror: [1;39mtype 'TestEventReducer' does not conform to protocol 'EventReducer'[0;0m
+    [0;36m|[0;0m                `- [1;39mnote: [1;39madd stubs for conformance[0;0m
+[0;36m189 |[0;0m     func reduce(event: EventEnvelope, into state: WorldStateModel) throws {}
+[0;36m190 |[0;0m     func canHandle(domain: IntentDomain) -> Bool { return true }
+
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/Events/EventReducer.swift:6:10: [1;39mnote: [1;39mprotocol requires function 'apply(events:to:)' with type '([EventEnvelope], inout WorldStateModel) -> ()'[0;0m
+[0;36m4 |[0;0m /// INVARIANT: apply() must be a pure function — same input always yields same output.
+[0;36m5 |[0;0m public protocol EventReducer: Sendable {
+[0;36m6 |[0;0m     func apply(events: [EventEnvelope], to state: inout WorldStateModel)
+  [0;36m|[0;0m          `- [1;39mnote: [1;39mprotocol requires function 'apply(events:to:)' with type '([EventEnvelope], inout WorldStateModel) -> ()'[0;0m
+[0;36m7 |[0;0m }
+[0;36m8 |[0;0m 
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[4/6] Emitting module OracleOSTests
+/Users/dawsonblock/Downloads/Oracle-OS-main/Tests/OracleOSTests/Governance/CommitDurabilityTests.swift:188:16: [1;31merror: [1;39mtype 'TestEventReducer' does not conform to protocol 'EventReducer'[0;0m
+[0;36m186 |[0;0m     func sequenceCount() -> Int { return events.count }
+[0;36m187 |[0;0m }
+[0;36m188 |[0;0m private struct TestEventReducer: EventReducer {
+    [0;36m|[0;0m                |- [1;31merror: [1;39mtype 'TestEventReducer' does not conform to protocol 'EventReducer'[0;0m
+    [0;36m|[0;0m                `- [1;39mnote: [1;39madd stubs for conformance[0;0m
+[0;36m189 |[0;0m     func reduce(event: EventEnvelope, into state: WorldStateModel) throws {}
+[0;36m190 |[0;0m     func canHandle(domain: IntentDomain) -> Bool { return true }
+
+/Users/dawsonblock/Downloads/Oracle-OS-main/Sources/OracleOS/Events/EventReducer.swift:6:10: [1;39mnote: [1;39mprotocol requires function 'apply(events:to:)' with type '([EventEnvelope], inout WorldStateModel) -> ()'[0;0m
+[0;36m4 |[0;0m /// INVARIANT: apply() must be a pure function — same input always yields same output.
+[0;36m5 |[0;0m public protocol EventReducer: Sendable {
+[0;36m6 |[0;0m     func apply(events: [EventEnvelope], to state: inout WorldStateModel)
+  [0;36m|[0;0m          `- [1;39mnote: [1;39mprotocol requires function 'apply(events:to:)' with type '([EventEnvelope], inout WorldStateModel) -> ()'[0;0m
+[0;36m7 |[0;0m }
+[0;36m8 |[0;0m 
+error: fatalError

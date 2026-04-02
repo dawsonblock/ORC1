@@ -1,0 +1,100 @@
+✔ Suite "Knowledge Promotion" passed after 0.475 seconds.
+✔ Suite "State Abstraction Engine" passed after 0.475 seconds.
+✔ Suite "Strategy-Scoped Memory Bias" passed after 0.475 seconds.
+✔ Suite "Planning Graph Engine" passed after 0.475 seconds.
+✔ Suite "Critic Loop" passed after 0.475 seconds.
+✔ Suite "Browser Automation" passed after 0.475 seconds.
+✔ Suite "Execution Enforcement" passed after 0.475 seconds.
+✔ Suite "Dialog Storm Tasks" passed after 0.476 seconds.
+✔ Suite "Reasoning Engine" passed after 0.475 seconds.
+✔ Suite "Browser Bridge" passed after 0.476 seconds.
+✔ Suite "Patch Failure Tasks" passed after 0.476 seconds.
+✔ Suite "Upgrade Benchmarks" passed after 0.476 seconds.
+✔ Suite "Search — CandidateGenerator" passed after 0.476 seconds.
+✔ Suite "Search — SearchController" passed after 0.476 seconds.
+✔ Test "Project memory query exposes typed planning records" passed after 0.467 seconds.
+✔ Test "Known-good patterns can narrow an ambiguous repair back to direct execution" passed after 0.469 seconds.
+✔ Test "Rejected approaches bias CodePlanner toward experiments" passed after 0.479 seconds.
+✔ Test "Root cause analyzer ranks source file above tests and unrelated files" passed after 0.495 seconds.
+✔ Test "Code query engine traces a failing test back to likely source" passed after 0.520 seconds.
+✔ Test "Runtime diagnostics builder surfaces persisted repository indexes" passed after 0.538 seconds.
+✔ Test "Planner normalizes legacy 'unknown' app to nil" passed after 0.699 seconds.
+✔ Test "Planner normalizes empty action-intent app to nil" passed after 0.699 seconds.
+✔ Test "UnifiedElement codable round trip" passed after 0.708 seconds.
+✔ Test "ActionResult encodes verification and elapsed time" passed after 0.708 seconds.
+✔ Test "Planning state abstraction is stable across small observation drift" passed after 0.708 seconds.
+✔ Test "Trace event codable round trip" passed after 0.708 seconds.
+✔ Test kernelBootstrapReturnsCompleteKernel() passed after 0.705 seconds.
+✔ Test "TraceEvent compatibility initializer still works" passed after 0.708 seconds.
+✔ Test "Candidate graph accumulates repeated verified transitions" passed after 0.708 seconds.
+✔ Test "Action verifier checks focus and value" passed after 0.707 seconds.
+✔ Test "Recipe with valid constraints passes validation" passed after 0.707 seconds.
+✔ Test "Recipe with negative retries fails validation" passed after 0.706 seconds.
+✔ Test "Action verifier matches query-based focus, app, window, and URL" passed after 0.707 seconds.
+✔ Test "Recipe with unknown postcondition kind fails validation" passed after 0.707 seconds.
+✔ Test "Legacy trace payloads still decode" passed after 0.708 seconds.
+✔ Test "Bundled recipes still decode with extended schema" passed after 0.706 seconds.
+✔ Test "Policy blocks terminal interaction by default" passed after 0.706 seconds.
+✔ Test "Recipe with valid postconditions passes validation" passed after 0.706 seconds.
+✔ Test "Recipe with negative duration fails validation" passed after 0.706 seconds.
+✔ Test "Observation hash is stable" passed after 0.707 seconds.
+✔ Test "Observation fusion prefers stronger sources and preserves confidence" passed after 0.709 seconds.
+✔ Test "Policy requires approval for send actions in browser contexts" passed after 0.707 seconds.
+✔ Test "Approval receipts are single use" passed after 0.707 seconds.
+✔ Test stateSnapshotIsImmutableValue() passed after 0.707 seconds.
+✔ Test "Legacy validate() returns Bool for valid recipe" passed after 0.708 seconds.
+✔ Test "ToolResult missing action_result key is detectable as bypass" passed after 0.705 seconds.
+✔ Test "ActionResult with executedThroughExecutor=false fails boundary contract" passed after 0.705 seconds.
+✔ Test snapshotStoreTracksSnapshots() passed after 0.707 seconds.
+✔ Test "Recipe with empty postcondition kind fails validation" passed after 0.707 seconds.
+✔ Test "GraphStore persists eligible stable edges and action contracts" passed after 0.703 seconds.
+✔ Test "ActionResult can carry executedThroughExecutor stamp" passed after 0.705 seconds.
+✔ Test "Planner reuses candidate graph edge before exploration" passed after 0.703 seconds.
+✔ Test "GraphStore records failures without promoting edge" passed after 0.703 seconds.
+✔ Test "Policy allows low-risk focus in confirm-risky mode" passed after 0.707 seconds.
+✔ Test "Promotion freezes when global verified success rate is too low" passed after 0.703 seconds.
+✔ Test "ActionResult with executedThroughExecutor=true passes boundary contract" passed after 0.705 seconds.
+✔ Test "Planner prefers workflow retrieval before stable graph reuse" passed after 0.703 seconds.
+✔ Test "Workflow promotion policy rejects experiment and recovery evidence" passed after 0.703 seconds.
+✔ Test "Stable edges demote after repeated failures" passed after 0.703 seconds.
+✔ Test "Exploration decisions carry explicit fallback reasons" passed after 0.703 seconds.
+✔ Test "AgentLoop idles without submitting when intake is empty" passed after 0.703 seconds.
+✔ Test "ActionResult executed_through_executor absent in dict defaults to false" passed after 0.705 seconds.
+✔ Test "Planning-failure responses are marked as non-executed" passed after 0.702 seconds.
+✔ Test "Build with DOM ID uses exact match" passed after 0.700 seconds.
+✔ Test "ActionResult executed_through_executor round-trips through toDict" passed after 0.704 seconds.
+✔ Test "Build with query and role" passed after 0.700 seconds.
+✔ Test "ToolResult with stamped action_result passes detection" passed after 0.705 seconds.
+✔ Test "fromQuery convenience" passed after 0.700 seconds.
+✔ Test "DOM ID takes priority over query" passed after 0.700 seconds.
+✔ Test "Graph planner returns multi-step stable path before exploration" passed after 0.703 seconds.
+✔ Test "Build with query sets computedNameContains" passed after 0.701 seconds.
+✔ Test "No mismatch when expectations are empty" passed after 0.699 seconds.
+✔ Test "Mismatch when expected element is absent" passed after 0.698 seconds.
+✔ Test "Mismatch when window title does not match" passed after 0.698 seconds.
+✔ Test "No mismatch when all expected elements present" passed after 0.698 seconds.
+✔ Test "RuntimeExecutionDriver emits structured action_result payload" passed after 0.702 seconds.
+✔ Test "Reconciliation consistent when all postconditions pass" passed after 0.698 seconds.
+✔ Test "ClickSkill fails on ambiguous targets instead of picking first element" passed after 0.702 seconds.
+✔ Test "Mismatch when URL does not match" passed after 0.698 seconds.
+✔ Test "Reconciliation reports passed and failed checks" passed after 0.698 seconds.
+✔ Suite "Safe Runtime" passed after 0.712 seconds.
+✔ Suite "Core Contracts" passed after 0.713 seconds.
+✔ Test "No mismatch when app matches" passed after 0.699 seconds.
+✔ Suite "Execution Kernel Boundary" passed after 0.712 seconds.
+✔ Suite "Recipe Schema Validation" passed after 0.713 seconds.
+✔ Test "Mismatch when expected app differs" passed after 0.698 seconds.
+✔ Suite "RuntimeExecutionDriver Boundary" passed after 0.712 seconds.
+✔ Test "AgentLoop keeps delegating through orchestrator even when responses fail" passed after 0.702 seconds.
+✔ Test "AgentLoop submits exactly one intent through orchestrator" passed after 0.702 seconds.
+✔ Suite "Environment Monitor" passed after 0.712 seconds.
+✔ Suite "LocatorBuilder Tests" passed after 0.712 seconds.
+✔ Suite "Graph Aware Loop" passed after 0.712 seconds.
+✔ Test commitCoordinatorHasReducers() passed after 0.707 seconds.
+✔ Suite RuntimeKernelBootstrapTests passed after 0.713 seconds.
+✔ Test "Repository indexer reuses persisted snapshot until repository changes" passed after 0.808 seconds.
+✔ Suite "Code Intelligence" passed after 0.819 seconds.
+✔ Test "Experiment manager isolates candidate worktrees and keeps main workspace unchanged" passed after 5.782 seconds.
+✔ Test "Experiment manager prefers structurally safer passing patch" passed after 5.850 seconds.
+✔ Suite "Digital Engineer Layer" passed after 5.859 seconds.
+✔ Test run with 638 tests in 92 suites passed after 5.861 seconds.
