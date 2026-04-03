@@ -87,45 +87,45 @@ jobs:
       SELECTOR: ${{ steps.deploy-and-expose.outputs.selector }}
 
     steps:
-    - name: Check for required secrets
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const secrets = {
-            OPENSHIFT_SERVER: `${{ secrets.OPENSHIFT_SERVER }}`,
-            OPENSHIFT_TOKEN: `${{ secrets.OPENSHIFT_TOKEN }}`,
-          };
+      - name: Check for required secrets
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const secrets = {
+              OPENSHIFT_SERVER: `${{ secrets.OPENSHIFT_SERVER }}`,
+              OPENSHIFT_TOKEN: `${{ secrets.OPENSHIFT_TOKEN }}`,
+            };
 
-          const GHCR = "ghcr.io";
-          if (`${{ env.IMAGE_REGISTRY }}`.startsWith(GHCR)) {
-            core.info(`Image registry is ${GHCR} - no registry password required`);
-          }
-          else {
-            core.info("A registry password is required");
-            secrets["IMAGE_REGISTRY_PASSWORD"] = `${{ secrets.IMAGE_REGISTRY_PASSWORD }}`;
-          }
-
-          const missingSecrets = Object.entries(secrets).filter(([ name, value ]) => {
-            if (value.length === 0) {
-              core.error(`Secret "${name}" is not set`);
-              return true;
+            const GHCR = "ghcr.io";
+            if (`${{ env.IMAGE_REGISTRY }}`.startsWith(GHCR)) {
+              core.info(`Image registry is ${GHCR} - no registry password required`);
             }
-            core.info(`✔️ Secret "${name}" is set`);
-            return false;
-          });
+            else {
+              core.info("A registry password is required");
+              secrets["IMAGE_REGISTRY_PASSWORD"] = `${{ secrets.IMAGE_REGISTRY_PASSWORD }}`;
+            }
 
-          if (missingSecrets.length > 0) {
-            core.setFailed(`❌ At least one required secret is not set in the repository. \n` +
-              "You can add it using:\n" +
-              "GitHub UI: https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-a-repository \n" +
-              "GitHub CLI: https://cli.github.com/manual/gh_secret_set \n" +
-              "Also, refer to https://github.com/redhat-actions/oc-login#getting-started-with-the-action-or-see-example");
-          }
-          else {
-            core.info(`✅ All the required secrets are set`);
-          }
+            const missingSecrets = Object.entries(secrets).filter(([ name, value ]) => {
+              if (value.length === 0) {
+                core.error(`Secret "${name}" is not set`);
+                return true;
+              }
+              core.info(`✔️ Secret "${name}" is set`);
+              return false;
+            });
 
-    - name: Check out repository
+            if (missingSecrets.length > 0) {
+              core.setFailed(`❌ At least one required secret is not set in the repository. \n` +
+                "You can add it using:\n" +
+                "GitHub UI: https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-a-repository \n" +
+                "GitHub CLI: https://cli.github.com/manual/gh_secret_set \n" +
+                "Also, refer to https://github.com/redhat-actions/oc-login#getting-started-with-the-action-or-see-example");
+            }
+            else {
+              core.info(`✅ All the required secrets are set`);
+            }
+
+      - name: Check out repository
       uses: actions/checkout@v4
 
     - name: Determine app name
