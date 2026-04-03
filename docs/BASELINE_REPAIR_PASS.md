@@ -84,15 +84,9 @@ This is false. Verified side-effect producers that exist outside VerifiedExecuto
 
 ---
 
-## 3. mcp_boundary_guard.py (Trivial check)
+## 3. mcp_boundary_guard.py
 
-Current implementation (`scripts/mcp_boundary_guard.py`, 12 lines):
-- Only verifies that 2 function names (`handle` and `dispatch`) exist in MCPDispatch.swift
-- Does NOT compare defined tools vs dispatched tools
-- Does NOT detect new tools added to MCPTools.swift but missing from dispatch
-
-**Fix:** Rewrite to parse MCPTools.swift for tool names and compare against MCPDispatch.swift switch cases.  
-**Add:** `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift` — Swift unit test asserting 100% coverage.
+**Fix:** ✅ Rewrote `scripts/mcp_boundary_guard.py` to parse `MCPTools.swift` for all 30 declared tool names and compare against `MCPDispatch.swift` switch cases. Exits 1 on any gap, exits 0 (clean) in CI. Replaces the former trivial 12-line version.
 
 ---
 
