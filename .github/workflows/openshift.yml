@@ -176,7 +176,6 @@ jobs:
       with:
         openshift_server_url: ${{ env.OPENSHIFT_SERVER }}
         openshift_token: ${{ env.OPENSHIFT_TOKEN }}
-        insecure_skip_tls_verify: true
         namespace: ${{ env.OPENSHIFT_NAMESPACE }}
 
     # This step should create a deployment, service, and route to run your app and expose it to the internet.
