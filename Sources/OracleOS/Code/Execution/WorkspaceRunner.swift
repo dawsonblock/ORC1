@@ -1,5 +1,14 @@
 import Foundation
 
+/// Single implementation of canonical sandbox containment resolution.
+/// Used by WorkspaceRunner.applyFile and WorktreeSandbox.apply.
+/// standardizedFileURL collapses `.` and `..` without requiring the directory to exist.
+internal func canonicalScopeRoot(_ path: String) -> (url: URL, prefix: String) {
+    let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+    let prefix = url.path.hasSuffix("/") ? url.path : url.path + "/"
+    return (url, prefix)
+}
+
 public enum WorkspaceRunnerError: Error, LocalizedError, Sendable, Equatable {
     case unsupportedCommand(String)
     case scopeViolation(String)
@@ -86,10 +95,7 @@ public final class WorkspaceRunner: @unchecked Sendable {
     /// path-based canonicalisation is used so that the check works even in tests
     /// that supply hypothetical workspace roots.
     public func applyFile(_ spec: FileMutationSpec) async throws {
-        // Canonicalise root. standardizedFileURL collapses `.` and `..` without
-        // requiring the directory to exist.
-        let rootURL = URL(fileURLWithPath: spec.workspaceRoot, isDirectory: true).standardizedFileURL
-        let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        let (rootURL, rootPrefix) = canonicalScopeRoot(spec.workspaceRoot)
 
         let resolvedURL: URL
         if spec.path.hasPrefix("/") {

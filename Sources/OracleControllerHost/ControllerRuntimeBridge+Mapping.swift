@@ -23,6 +23,10 @@ extension ControllerRuntimeBridge {
             failureClass: actionData?[ActionResultKey.failureClass] as? String,
             method: method,
             elapsedMs: elapsedMs,
+            // NOTE: The following trace sub-keys ("session_id", "step_id", "agent_kind",
+            // "planner_family") are not populated by RuntimeExecutionDriver, which only
+            // writes TraceResultKey.cycleID / TraceResultKey.intentID. These reads always
+            // return nil — known unresolved producer-consumer mismatch.
             traceSessionID: traceData?["session_id"] as? String,
             traceStepID: traceData?["step_id"] as? Int,
             resultingObservation: map(observation),
@@ -45,16 +49,16 @@ extension ControllerRuntimeBridge {
 
     func mapRecipeRunResult(recipeName: String, totalStepsFallback: Int, result: ToolResult) -> RecipeRunResultDocument {
         let data = result.data ?? [:]
-        let stepsCompleted = data["steps_completed"] as? Int ?? 0
-        let totalSteps = data["total_steps"] as? Int ?? totalStepsFallback
-        let stepResults = (data["step_results"] as? [[String: Any]] ?? []).map { stepData in
+        let stepsCompleted = data[RecipeResultKey.stepsCompleted] as? Int ?? 0
+        let totalSteps = data[RecipeResultKey.totalSteps] as? Int ?? totalStepsFallback
+        let stepResults = (data[RecipeResultKey.stepResults] as? [[String: Any]] ?? []).map { stepData in
             RecipeRunStepResult(
-                id: stepData["step"] as? Int ?? 0,
-                action: stepData["action"] as? String ?? "step",
-                success: stepData["success"] as? Bool ?? false,
-                durationMs: stepData["duration_ms"] as? Int ?? 0,
-                error: stepData["error"] as? String,
-                note: stepData["note"] as? String
+                id: stepData[RecipeResultKey.stepIndex] as? Int ?? 0,
+                action: stepData[RecipeResultKey.stepAction] as? String ?? "step",
+                success: stepData[RecipeResultKey.stepSuccess] as? Bool ?? false,
+                durationMs: stepData[RecipeResultKey.stepDurationMs] as? Int ?? 0,
+                error: stepData[RecipeResultKey.stepError] as? String,
+                note: stepData[RecipeResultKey.stepNote] as? String
             )
         }
 
@@ -66,9 +70,9 @@ extension ControllerRuntimeBridge {
             error: result.error,
             traceSessionID: sessionID,
             stepResults: stepResults,
-            paused: (data["pending_approval"] as? Bool) == true,
-            pendingApprovalRequestID: data["approval_request_id"] as? String,
-            resumeToken: data["resume_token"] as? String
+            paused: (data[RecipeResultKey.pendingApproval] as? Bool) == true,
+            pendingApprovalRequestID: data[ActionResultKey.approvalRequestID] as? String,
+            resumeToken: data[RecipeResultKey.resumeToken] as? String
         )
     }
 

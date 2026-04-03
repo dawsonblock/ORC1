@@ -54,6 +54,7 @@ public enum VisionBridge {
         private var _state: SidecarState = .stopped
         private var _process: (any BackgroundProcess)?
         private var _hasCompletedFirstGround = false
+        private var _configuredAdapter: (any ProcessAdapter)?
 
         var state: SidecarState {
             get { lock.lock(); defer { lock.unlock() }; return _state }
@@ -70,6 +71,11 @@ public enum VisionBridge {
             set { lock.lock(); defer { lock.unlock() }; _hasCompletedFirstGround = newValue }
         }
 
+        var configuredAdapter: (any ProcessAdapter)? {
+            get { lock.lock(); defer { lock.unlock() }; return _configuredAdapter }
+            set { lock.lock(); defer { lock.unlock() }; _configuredAdapter = newValue }
+        }
+
         /// Atomically transition from an expected state to a new state.
         /// Returns true if the transition was performed.
         @discardableResult
@@ -83,6 +89,14 @@ public enum VisionBridge {
     }
 
     private static let lifecycle = SidecarLifecycle()
+
+    /// Called by RuntimeBootstrap to inject the shared process adapter.
+    /// If not called before the first startSidecar(), a fresh DefaultProcessAdapter
+    /// is used as fallback — this preserves existing behaviour when VisionBridge is
+    /// used outside the bootstrapped runtime.
+    public static func configure(processAdapter: any ProcessAdapter) {
+        lifecycle.configuredAdapter = processAdapter
+    }
 
     // MARK: - Health Check
 
@@ -231,7 +245,7 @@ public enum VisionBridge {
             return false
         }
 
-        let adapter = DefaultProcessAdapter()
+        let adapter: any ProcessAdapter = lifecycle.configuredAdapter ?? DefaultProcessAdapter()
 
         // Strategy 1: Use oracle-vision launcher script (handles venv/Python resolution)
         if let launcher = findOracleVisionBinary() {

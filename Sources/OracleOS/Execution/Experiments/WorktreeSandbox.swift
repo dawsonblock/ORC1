@@ -61,15 +61,14 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
 
     public func apply(_ candidate: CandidatePatch) throws {
         let relativePath = candidate.workspaceRelativePath
-        // Enforce sandbox containment — same canonical check pattern as WorkspaceRunner.applyFile.
+        // Enforce sandbox containment — uses the shared canonicalScopeRoot helper (WorkspaceRunner.swift).
         // Reject absolute paths and traversal sequences before canonicalisation.
         guard !relativePath.hasPrefix("/"), !relativePath.contains("../") else {
             throw NSError(domain: "WorktreeSandbox", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Candidate path '\(relativePath)' is not a valid sandbox-relative path"
             ])
         }
-        let sandboxURL = URL(fileURLWithPath: sandboxPath, isDirectory: true).standardizedFileURL
-        let sandboxPrefix = sandboxURL.path.hasSuffix("/") ? sandboxURL.path : sandboxURL.path + "/"
+        let (sandboxURL, sandboxPrefix) = canonicalScopeRoot(sandboxPath)
         let resolvedURL = sandboxURL.appendingPathComponent(relativePath).standardizedFileURL
         guard resolvedURL.path.hasPrefix(sandboxPrefix) else {
             throw NSError(domain: "WorktreeSandbox", code: 1, userInfo: [

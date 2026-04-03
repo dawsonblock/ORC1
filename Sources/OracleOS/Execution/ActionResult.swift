@@ -25,6 +25,30 @@ public enum ActionResultKey {
     public static let codeExecution = "code_execution"
 }
 
+/// Typed constants for keys in the trace sub-object produced by RuntimeExecutionDriver.
+public enum TraceResultKey {
+    public static let cycleID  = "cycle_id"
+    public static let intentID = "intent_id"
+}
+
+/// Typed constants for recipe-run result dictionary keys.
+/// Producer: RecipeEngine. Consumer: ControllerRuntimeBridge+Mapping.mapRecipeRunResult.
+public enum RecipeResultKey {
+    public static let stepsCompleted    = "steps_completed"
+    public static let totalSteps        = "total_steps"
+    public static let stepResults       = "step_results"
+    public static let pendingApproval   = "pending_approval"
+    public static let approvalRequestID = "approval_request_id"
+    public static let resumeToken       = "resume_token"
+    // Step sub-object keys
+    public static let stepIndex         = "step"
+    public static let stepAction        = "action"
+    public static let stepSuccess       = "success"
+    public static let stepDurationMs    = "duration_ms"
+    public static let stepError         = "error"
+    public static let stepNote          = "note"
+}
+
 public struct ActionResult: Sendable, Codable {
     public let success: Bool
     public let verified: Bool

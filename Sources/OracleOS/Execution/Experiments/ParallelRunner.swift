@@ -35,6 +35,7 @@ public final class ParallelRunner: @unchecked Sendable {
                         experimentsRoot: experimentsRoot,
                         adapter: workspaceRunner.processAdapter
                     )
+                    defer { sandbox.cleanup(using: workspaceRunner.processAdapter) }
                     try sandbox.apply(candidate)
 
                     var results: [CommandResult] = []

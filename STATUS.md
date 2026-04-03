@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-02 (repair pass 5)  
+**Last updated:** 2026-04-02 (repair pass 6)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -57,6 +57,17 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 4. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
 ---
+
+## Repair Pass 6 — Closed Holes
+
+| Item | File(s) | Status |
+|---|---|---|
+| Duplicate canonical containment logic | `WorkspaceRunner.swift`, `WorktreeSandbox.swift` | Fixed — `canonicalScopeRoot(_:)` extracted as module-internal helper; both call sites use it |
+| Sandbox cleanup never called | `ParallelRunner.swift` | Fixed — `defer { sandbox.cleanup(using:) }` added; every experiment path now cleans its worktree |
+| Raw string keys in recipe mapping | `ActionResult.swift`, `ControllerRuntimeBridge+Mapping.swift`, `RuntimeExecutionDriver.swift` | Fixed — `TraceResultKey` and `RecipeResultKey` enums added; all 14 raw string key uses replaced |
+| VisionBridge mints its own process adapter | `VisionBridge.swift`, `RuntimeBootstrap.swift` | Fixed — `VisionBridge.configure(processAdapter:)` added; `RuntimeBootstrap` wires the shared adapter; fallback to `DefaultProcessAdapter()` preserved for out-of-runtime use |
+| Doc overclaims on experiment path | `README.md`, `ARCHITECTURE.md` | Fixed — removed "replay the winner"; VerifiedExecutor universality narrowed; experiment bypass documented |
+| Stale milestone files mislead readers | `COMPLETE_REBUILD_SUMMARY.md`, `TOTAL_REBUILD_DONE.md`, `PHASE_*_DONE.md`, `PHASES_1_2_DONE.md` | Archived — `[ARCHIVED]` header prepended; `STATUS.md` is the authoritative current state |
 
 ## Repair Pass 5 — Closed Holes
 

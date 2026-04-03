@@ -68,7 +68,7 @@ Code, build, test, and commit — scoped to your workspace, no unsafe shell auto
 
 - **Repository intelligence** — index structure, symbols, dependencies, and test suites
 - **Workspace-scoped runner** — file edits, builds, tests, and safe git ops only
-- **Bounded experiments** — fan out candidate fixes across isolated git worktrees, rank by test passage and diff size, replay the winner
+- **Bounded experiments** — fan out candidate fixes across isolated git worktrees, rank by test passage and diff quality
 - **Project memory** — canonical engineering memory (not chat memory) covering decisions, open problems, rejected approaches, and known-good patterns
 
 ### Shared Substrate
@@ -122,6 +122,8 @@ And every action follows the same loop:
 ```
 Observe → Abstract → Plan → Gate → Execute → Trace → Learn
 ```
+
+> **Note:** The experiment subsystem (`oracle_experiment_search`) is a privileged side path that bypasses this spine by design. Experiment candidates run in isolated git worktrees evaluated by `ParallelRunner`, not through `RuntimeOrchestrator` or `VerifiedExecutor`. No experiment result is automatically replayed through the main execution path.
 
 Ambiguous states fail closed. The system is deliberately slow to overclaim.
 

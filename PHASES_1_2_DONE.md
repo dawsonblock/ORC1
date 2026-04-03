@@ -1,3 +1,8 @@
+> **[ARCHIVED — historical milestone record]**
+> This file documents past implementation phases. It does not reflect current code truth.
+> The authoritative current state is STATUS.md.
+---
+
 ════════════════════════════════════════════════════════════════════════════════
               SINGLE-HARD-PATH RUNTIME: PHASES 1-2 COMPLETE
 ════════════════════════════════════════════════════════════════════════════════

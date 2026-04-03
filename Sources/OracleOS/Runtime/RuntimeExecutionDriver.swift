@@ -207,8 +207,8 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             "method": "intent-api",
             ActionResultKey.actionResult: actionResult,
             ActionResultKey.trace: [
-                "cycle_id": response.cycleID.uuidString,
-                "intent_id": response.intentID.uuidString,
+                TraceResultKey.cycleID: response.cycleID.uuidString,
+                TraceResultKey.intentID: response.intentID.uuidString,
             ] as [String: Any],
         ]
         if let snapshotID = response.snapshotID {

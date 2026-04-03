@@ -10,6 +10,8 @@ Oracle OS has one execution spine:
 
 `surface -> RuntimeOrchestrator -> Policy -> VerifiedExecutor -> Critic -> Trace -> runtime-managed graph/memory/recovery update`
 
+This spine covers all main-path execution. The experiment subsystem (`oracle_experiment_search`) is a privileged side path that bypasses this spine by design: it dispatches directly from `MCPDispatch` to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`, without involving `RuntimeOrchestrator` or `VerifiedExecutor`.
+
 Surfaces:
 
 - Controller
@@ -193,8 +195,11 @@ Responsibilities:
 - event emission for `CommitCoordinator`
 - comprehensive failure classification for recovery
 
-This is the execution truth boundary. Every side effect must flow through
-``VerifiedExecutor`` — the only layer allowed to produce side effects.
+This is the execution truth boundary. Every main-path side effect must flow through
+``VerifiedExecutor``. The experiment subsystem (`oracle_experiment_search`) is explicitly
+exempt: it runs candidate patches in isolated git worktrees dispatched directly from
+`MCPDispatch`, without involving `VerifiedExecutor` or `RuntimeOrchestrator`. The isolation
+guarantee for experiments comes from the worktree boundary, not policy approval.
 ``VerifiedExecutor`` returns ``ExecutionOutcome`` with events and artifacts;
 ``CommitCoordinator`` is the only entity that writes committed state, returning
 ``CommitReceipt`` as immutable proof of the commit.
