@@ -296,7 +296,9 @@ struct DigitalEngineerLayerTests {
 
         #expect(replay?.id == selected.candidate.id)
         #expect(selected.succeeded)
-        #expect(FileManager.default.fileExists(atPath: selected.sandboxPath))
+        // sandboxPath records where the worktree was; ParallelRunner.defer cleans it up
+        // after each candidate finishes, so the directory is gone by this point.
+        #expect(!selected.sandboxPath.isEmpty, "Sandbox path must have been recorded")
         #expect(FileManager.default.fileExists(atPath: manager.resultsURL(for: spec).path))
         #expect(try manager.loadResults(for: spec).count == results.count)
         #expect((try String(contentsOf: filePath, encoding: .utf8)) == baseline)

@@ -32,7 +32,9 @@ final class MCPToolCoverageTests: XCTestCase {
     }
 
     private func declaredToolNames(in toolsSource: String) -> [String] {
-        let pattern = #"name:\s*"(oracle_\w+)""#
+        // MCPTools.swift declares each tool as:  name: MCPToolName.<property>
+        // We extract the property name and verify dispatch references MCPToolName.<property>.
+        let pattern = #"name:\s*MCPToolName\.(\w+)"#
         let regex = try! NSRegularExpression(pattern: pattern)
         let range = NSRange(toolsSource.startIndex..., in: toolsSource)
         return regex.matches(in: toolsSource, range: range).compactMap { match in
@@ -43,24 +45,32 @@ final class MCPToolCoverageTests: XCTestCase {
 
     // MARK: - Tests
 
-    /// Every oracle_* tool in MCPTools.swift must appear as a quoted string in MCPDispatch.swift.
+    /// Every oracle_* tool in MCPTools.swift must appear as MCPToolName.xxx in MCPDispatch*.swift.
     func testAllDeclaredToolsAreDispatched() throws {
         let toolsSource    = try readSource("Sources/OracleOS/MCP/MCPTools.swift")
-        let dispatchSource = try readSource("Sources/OracleOS/MCP/MCPDispatch.swift")
+        // Combine all dispatch files so extensions (+Recipes, +Memory, etc.) are included.
+        let dispatchFiles  = [
+            "Sources/OracleOS/MCP/MCPDispatch.swift",
+            "Sources/OracleOS/MCP/MCPDispatch+Recipes.swift",
+            "Sources/OracleOS/MCP/MCPDispatch+Memory.swift",
+            "Sources/OracleOS/MCP/MCPDispatch+Workflow.swift",
+            "Sources/OracleOS/MCP/MCPDispatch+Architecture.swift",
+        ]
+        let dispatchSource = dispatchFiles.compactMap { try? readSource($0) }.joined(separator: "\n")
 
         let declared = declaredToolNames(in: toolsSource)
         XCTAssertFalse(declared.isEmpty, "MCPTools.swift must declare at least one tool")
 
         var missing: [String] = []
         for name in declared {
-            if !dispatchSource.contains("\"\(name)\"") {
+            if !dispatchSource.contains("MCPToolName.\(name)") {
                 missing.append(name)
             }
         }
 
         XCTAssertTrue(
             missing.isEmpty,
-            "MCPDispatch.swift is missing cases for \(missing.count) tool(s): \(missing.joined(separator: ", "))"
+            "MCPDispatch is missing cases for \(missing.count) tool(s): \(missing.joined(separator: ", "))"
         )
     }
 

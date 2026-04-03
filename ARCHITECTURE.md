@@ -574,7 +574,7 @@ Only reusable knowledge is eligible for canonical long-term storage.
 - `DomainEvent` is the typed event contract; `DomainEventCodec` decodes events
 - reducers are idempotent — applying same events twice yields same state
 - `StateSnapshot` holds `WorldModelSnapshot` (immutable value type)
-- `RuntimeBootstrap.makeDefault()` is the canonical kernel factory
+- `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical kernel factory (async — replaces unavailable `makeDefault`)
 - MCP and Controller Host use `RuntimeBootstrap`, not manual coordinator construction
 - `RuntimeOrchestrator` follows four phases: decide → execute → commit → evaluate
 - legacy `performAction` bridges and `VerifiedActionExecutor` paths are removed from runtime flow
@@ -592,6 +592,6 @@ Only reusable knowledge is eligible for canonical long-term storage.
 
 ## Known Boundaries
 
-- experiments may gather evidence in isolated worktrees, but their results only become promotable knowledge after replay through the main runtime
+- experiments may gather evidence in isolated worktrees; `replaySelected()` returns the winning `CandidatePatch?` but there is no code path that automatically submits it through `RuntimeOrchestrator` — promotion to the main runtime does not exist yet and must be done manually by the caller if at all
 - recovery remains a first-class tracked mode, but not yet a promotable nominal control path
 - architecture review is advisory-first; its hard-fail behavior is enforced through tests and governance checks rather than autonomous blocking

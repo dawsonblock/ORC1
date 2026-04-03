@@ -16,13 +16,13 @@ class CommitDurabilityTests: XCTestCase {
                 id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 type: .code,
                 payload: .build(BuildSpec(workspaceRoot: "/tmp")),
-                metadata: CommandMetadata(intentID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!)
+                metadata: CommandMetadata(intentID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, source: "test")
             ),
             Command(
                 id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 type: .code,
                 payload: .test(TestSpec(workspaceRoot: "/tmp")),
-                metadata: CommandMetadata(intentID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!)
+                metadata: CommandMetadata(intentID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, source: "test")
             ),
         ]
 

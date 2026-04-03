@@ -20,7 +20,7 @@ final class ExecutionBoundaryTests: XCTestCase {
         
         let action = UIAction(name: "clickElement", app: "Browser", domID: "login-btn")
         let payload = CommandPayload.ui(action)
-        let command = Command(type: .ui, payload: payload, metadata: CommandMetadata(intentID: UUID()))
+        let command = Command(type: .ui, payload: payload, metadata: CommandMetadata(intentID: UUID(), source: "test"))
         
         let result = try await executor.execute(command)
         XCTAssertNotNil(result)

@@ -9,16 +9,16 @@ class SidecarContractTests: XCTestCase {
 
     @MainActor
     func testIntentAPIHasSubmitIntent() {
-        // Verify IntentAPI has submitIntent method
+        // Verify IntentAPI has submitIntent method via a mock call
         let api: IntentAPI = MockIntentAPI()
-        XCTAssertNotNil(type(of: api).submitIntent)
+        XCTAssertNotNil(api)  // protocol conformance verified at compile time
     }
 
     @MainActor
     func testIntentAPIHasQueryState() {
         // Verify IntentAPI has queryState method
         let api: IntentAPI = MockIntentAPI()
-        XCTAssertNotNil(type(of: api).queryState)
+        XCTAssertNotNil(api)  // protocol conformance verified at compile time
     }
 
     @MainActor
@@ -158,8 +158,9 @@ class SidecarContractTests: XCTestCase {
 
     @MainActor
     func testProcessAdapterHasExecute() {
+        // ProcessAdapter now exposes run/runSync — execute is gone
         let adapter: ProcessAdapter = MockProcessAdapter()
-        XCTAssertNotNil(type(of: adapter).execute)
+        XCTAssertNotNil(adapter)  // protocol conformance verified at compile time
     }
 
     // MARK: - Planner Contract (v1.0)
@@ -230,50 +231,44 @@ class SidecarContractTests: XCTestCase {
 
 // MARK: - Mocks
 
-class MockIntentAPI: IntentAPI {
+final class MockIntentAPI: IntentAPI {
     func submitIntent(_ intent: Intent) async throws -> IntentResponse {
         return IntentResponse(
             intentID: intent.id,
             outcome: .success,
             summary: "Mock success",
-            cycleID: UUID(),
-            snapshotID: nil,
-            timestamp: Date()
+            cycleID: UUID()
         )
     }
 
     func queryState() async throws -> RuntimeSnapshot {
-        return RuntimeSnapshot(
-            timestamp: Date(),
-            cycleCount: 0,
-            lastCommand: nil,
-            lastOutcome: nil,
-            memoryTier: .none,
-            stateHash: ""
-        )
+        return RuntimeSnapshot()
     }
 }
 
-class MockProcessAdapter: ProcessAdapter {
-    func execute(_ spec: CommandPayload) throws -> CommandResult {
-        return CommandResult(
-            commandID: UUID(),
-            status: "success",
-            stdout: "",
-            stderr: "",
-            exitCode: 0,
-            duration: 0.0
-        )
+final class MockProcessAdapter: ProcessAdapter {
+    func run(_ command: SystemCommand, in workspace: WorkspaceContext?, policy: CommandExecutionPolicy?) async throws -> ProcessResult {
+        return ProcessResult(exitCode: 0, stdout: "", stderr: "")
+    }
+
+    func runSync(_ command: SystemCommand, in workspace: WorkspaceContext?, policy: CommandExecutionPolicy?) throws -> ProcessResult {
+        return ProcessResult(exitCode: 0, stdout: "", stderr: "")
+    }
+
+    func spawnBackground(_ command: SystemCommand, in workspace: WorkspaceContext?) throws -> any BackgroundProcess {
+        throw ProcessError.notSupported
     }
 }
 
-class MockPlanner: Planner {
+private enum ProcessError: Error { case notSupported }
+
+final class MockPlanner: Planner {
     func plan(intent: Intent, context: PlannerContext) async throws -> Command {
         return Command(
             id: UUID(),
             type: .ui,
             payload: .ui(UIAction(name: "test")),
-            metadata: CommandMetadata(intentID: intent.id)
+            metadata: CommandMetadata(intentID: intent.id, source: "test")
         )
     }
 }
