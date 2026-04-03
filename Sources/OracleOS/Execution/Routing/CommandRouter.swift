@@ -1,7 +1,6 @@
 import Foundation
 
 public struct CommandRouter: @unchecked Sendable {
-    private let systemRouter: SystemRouter
     private let uiRouter: UIRouter
     private let codeRouter: CodeRouter
 
@@ -10,7 +9,6 @@ public struct CommandRouter: @unchecked Sendable {
         workspaceRunner: WorkspaceRunner? = nil,
         repositoryIndexer: RepositoryIndexer
     ) {
-        self.systemRouter = SystemRouter(workspaceRunner: workspaceRunner)
         self.uiRouter = UIRouter(automationHost: automationHost)
         self.codeRouter = CodeRouter(
             workspaceRunner: workspaceRunner,
@@ -23,8 +21,6 @@ public struct CommandRouter: @unchecked Sendable {
         policyDecision: PolicyDecision
     ) async throws -> ExecutionOutcome {
         switch command.type {
-        case .system:
-            return try await systemRouter.execute(command, policyDecision: policyDecision)
         case .ui:
             return try await uiRouter.execute(command, policyDecision: policyDecision)
         case .code:

@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-03 (repair pass 7)  
+**Last updated:** 2025-07-16 (ORC1-main-5 — honesty pass)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -53,13 +53,27 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 
 1. **Remaining `[String: Any]` occurrences** in some areas of the codebase. Key boundary `ControllerRuntimeBridge+Mapping.swift` now uses `ActionResultKey` and `CodeExecutionResultKey` typed constants throughout. The `code_execution` sub-dict is still `[String: Any]` structurally — a `ToolResult.data` architecture limitation, not a key-management issue. See `AUDIT.md` for full classification.
 2. **`agentKind` / `plannerFamily` always nil in `ActionRunResult`:** `RuntimeExecutionDriver` only writes `TraceResultKey.cycleID` / `TraceResultKey.intentID` to the trace dict. `ControllerRuntimeBridge+Mapping` reads `traceData?["agent_kind"]` and `traceData?["planner_family"]`, which are never written. Both fields are always nil — known producer-consumer mismatch. Fix requires adding these fields to the intent response shape or the trace producer. No workaround exists.
-3. **MCPDispatch.swift is 690 lines** mixing routing, timeout, result formatting, and all 28 tool implementations. Should be split into per-domain typed adapters.
-4. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
+3. **`MCPDispatch.swift` line count has been reduced** from earlier versions to ~359 lines. Routing, timeout, and tool dispatch remain in one file; splitting is not currently blocking.  
+4. **CI is wired.** `.github/workflows/ci.yml` (build + swift test + mcp_boundary_guard) and `.github/workflows/architecture.yml` (architecture_guard.py) are present and run on every push and pull request.
 5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
 ---
 
-## Repair Pass 7 — Closed Holes
+## ORC1-main-5 Honesty Pass — Changes Made
+
+| Item | File(s) | Status |
+|---|---|---|
+| STATUS.md stale known issues (MCPDispatch line count, CI claim) | `STATUS.md` | Fixed |
+| ARCHITECTURE.md overclaim that ALL CLI uses RuntimeBootstrap | `ARCHITECTURE.md` | Fixed — CLI diagnostic commands (Doctor, SetupWizard) intentionally bypass bootstrap |
+| RuntimeContext doc comment contradicted its own contents | `Sources/OracleOS/Runtime/RuntimeContext.swift` | Fixed — doc accurately lists what is and isn't exposed, and what is forbidden |
+| `CommandType.system` dead taxonomy | `Sources/OracleOS/Core/Command/Command.swift` | Removed — enum had 3 cases; `.system` was never emitted by any planner; `planSystemIntent` always produced `.ui` commands |
+| `SystemRouter.swift` dead router | `Sources/OracleOS/Execution/Routing/SystemRouter.swift` | Replaced with tombstone comment explaining the removal |
+| `CommandRouter.swift` dead `.system` branch | `Sources/OracleOS/Execution/Routing/CommandRouter.swift` | Removed — `systemRouter` property and `.system` case removed from init and execute |
+| `fix_all.js`, `fixm.js` repair debris scripts | root | Removed — one-shot scripts from prior repair passes, already fully applied |
+
+---
+
+
 
 | Item | File(s) | Status |
 |---|---|---|

@@ -40,7 +40,9 @@ public struct Command: Sendable, Codable {
 }
 
 public enum CommandType: String, Sendable, Codable {
-    case system
+    // NOTE: .system was removed — it was dead taxonomy. SystemRouter accepted type .system
+    // but returned failureOutcome for every payload case. No planner ever emitted type .system
+    // (planSystemIntent always produces .ui commands). See SystemRouter.swift tombstone.
     case ui
     case code
 }

@@ -1,14 +1,21 @@
 import Foundation
 
-/// RuntimeContext provides read-side facades and peripheral services for the runtime environment.
-/// NOTE: This is NOT the authoritative execution kernel. RuntimeContainer owns execution authority.
-/// RuntimeContext MUST NOT expose execution-capable or execution-adjacent services.
-/// Execution-adjacent services (policyEngine, workspaceRunner, repositoryIndexer) are FORBIDDEN here.
-/// RuntimeContext provides only read-side access, tracing, and integration helpers.
+/// RuntimeContext provides read-side facades, peripheral services, and integration adapters
+/// for the runtime environment. It is NOT the authoritative execution kernel — that role
+/// belongs to RuntimeContainer and the VerifiedExecutor/CommitCoordinator/CommandRouter
+/// spine that RuntimeContainer owns.
 ///
-/// IMPORTANT: RuntimeContext must receive services from RuntimeContainer.
-/// Do NOT create services here that should be shared across the runtime.
-/// Do NOT add policyEngine, workspaceRunner, or repositoryIndexer back to this class.
+/// What this class exposes:
+/// - Observability: traceRecorder, traceStore, artifactWriter, metricsRecorder, telemetry
+/// - State stores: approvalStore, graphStore, memoryStore, stateAbstraction
+/// - Analysis and evaluation: criticLoop, architectureEngine, recoveryEngine, experimentManager
+/// - External adapters: automationHost (AX automation snapshots), browserController
+/// - Index/search: stateMemoryIndex, searchController, stateAbstractionEngine
+///
+/// What is FORBIDDEN here (guarded by @available(*, unavailable)):
+///   policyEngine, workspaceRunner, repositoryIndexer
+/// These three own the policy-checked execution path and must remain in RuntimeContainer.
+/// Do NOT add them back here.
 @MainActor
 public final class RuntimeContext {
     // MARK: - Configuration

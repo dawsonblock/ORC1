@@ -56,8 +56,14 @@ Responsibilities:
 - fail closed on policy ambiguity
 
 `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical kernel factory.
-All entry points (MCP, Controller Host, CLI) must use this async factory to obtain
-a fully-wired `BootstrappedRuntime` with recovery already completed.
+MCP (`oracle mcp`) and the Controller Host use this async factory to obtain a
+fully-wired `BootstrappedRuntime` with recovery already completed.
+
+**CLI diagnostic exception:** `oracle setup` (SetupWizard) and `oracle doctor` (Doctor)
+intentionally bypass the bootstrapped runtime — they construct `DefaultProcessAdapter()`
+directly for interactive/diagnostic shell commands. They run outside the policy-checked
+execution spine by design. See the EXECUTION AUTHORITY NOTE comments at the top of
+`Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift`.
 
 The `BootstrappedRuntime` bundle contains:
 
