@@ -1,4 +1,6 @@
 > **[ARCHIVED]** This document covers repair passes 1–3. Passes 4–6 are recorded in [STATUS.md](STATUS.md). The current authoritative state is STATUS.md.
+>
+> The build and test statements below are historical claims from that repair pass, not current certification. Re-run [scripts/verify-build.sh](scripts/verify-build.sh) or local `swift build` / `swift test` in a supported environment for current evidence.
 
 ---
 
@@ -6,7 +8,7 @@
 
 **Completed:** 2026-04-03  
 **Branch:** `main`  
-**Build status at completion:** `swift build` → Build complete!
+**Historical build note:** `swift build` completed in the environment used during that pass. This is not current proof for the repo today.
 
 ---
 
@@ -52,7 +54,7 @@ Split `Sources/OracleControllerHost/AXScanner.swift` into:
 - `AXScanner+Browser.swift` — browser DOM integration
 - `AXScanner+Internal.swift` — private helpers (made internal for cross-file extension)
 
-Build verified: **Build complete! 8.50s**
+Historical build note: **Build completed in that pass environment (8.50s)**
 
 ### Step 9 — Monolith file decompositions
 
@@ -82,7 +84,7 @@ Build verified: **Build complete! 8.50s**
 
 **Access control fix:** `private` on class members that need cross-file extension access was changed to `internal` (Swift default). Affected: `hostClient`, `productEnvironmentManager` in `ControllerStore`, and all `private func` helpers moved to extension files.
 
-Build verified: **Build complete! 4.24s**
+Historical build note: **Build completed in that pass environment (4.24s)**
 
 ### Step 10 — Vision Sidecar Contract
 Created `Sources/OracleOS/Contracts/VisionSidecarContract.swift` — typed Swift boundary contract for the vision sidecar HTTP API:

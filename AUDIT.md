@@ -125,7 +125,7 @@ STATUS.md's claim of 4 open violations is stale — already resolved.
 ## 6. Diagnostics / Proof Gaps
 
 - `Diagnostics/` folder contains logs showing `swift: command not found`. These are not valid build evidence.
-- `BASELINE.md` claims `swift build -c release → Build complete` and 638 tests passing — but no reproducible script to regenerate this evidence exists.
+- `BASELINE.md` previously claimed numeric build/test proof more strongly than the repo justified. This was narrowed: baseline docs now describe the verification path and explicitly state that archived diagnostics logs are not valid proof artifacts.
 - CI is live. `.github/workflows/` contains 7 workflow files: `ci.yml`, `architecture.yml`, `apisec-scan.yml`, `codeql.yml`, `controller-release.yml`, `frogbot-scan-and-fix.yml`, `frogbot-scan-pr.yml`. Guard scripts are wired into CI.
 - Governance tests exist and appear real. They primarily use source-file text scanning, not type-import checks.
 
@@ -138,4 +138,4 @@ STATUS.md's claim of 4 open violations is stale — already resolved.
 3. **DONE:** Rewrite STATUS.md — open-issue claims resolved; current reality stated.
 4. **DONE:** `ControllerRuntimeBridge+Mapping.swift` reclassified Category 2; Category 3 leaks do not exist.
 5. **DONE:** MCPDispatch refactor — per-domain extensions extracted; dispatch is now route-only (359 lines).
-6. **OPEN:** Add `scripts/verify-build.sh` that runs `swift build` and `swift test` and records output.
+6. **DONE:** `scripts/verify-build.sh` exists and records build/test output. Remaining gap: checked-in historical logs are still not current proof unless regenerated in a supported environment.

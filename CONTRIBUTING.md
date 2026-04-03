@@ -37,7 +37,12 @@ cd Oracle-OS
 swift build
 ```
 
-**All major refactors must run `swift test --filter OracleOSEvals` and pass the baseline.**
+For substantial runtime or architecture changes, run at least:
+
+- `swift test`
+- the relevant focused suites for the area you changed
+
+`OracleOSEvals` is useful coverage, but it is not the only meaningful gate and should not be treated as a magic baseline certifier.
 
 Requirements:
 
