@@ -25,6 +25,8 @@
 # 👋 Visit our GitHub organization at https://github.com/redhat-actions/ to see our actions and provide feedback.
 
 name: OpenShift
+permissions:
+  contents: read
 
 env:
   # 🖊️ EDIT your repository secrets to log into your OpenShift cluster and set up the context.
