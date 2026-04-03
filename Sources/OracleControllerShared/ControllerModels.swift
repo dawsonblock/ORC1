@@ -261,8 +261,6 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
     public let failureClass: String?
     public let method: String?
     public let elapsedMs: Double
-    public let traceSessionID: String?
-    public let traceStepID: Int?
     public let resultingObservation: ObservationSnapshot?
     public let approvalRequestID: String?
     public let approvalStatus: String?
@@ -270,8 +268,6 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
     public let appProtectionProfile: String?
     public let blockedByPolicy: Bool
     public let policyMode: String?
-    public let agentKind: String?
-    public let plannerFamily: String?
     public let commandCategory: String?
     public let commandSummary: String?
     public let workspaceRelativePath: String?
@@ -288,8 +284,6 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         failureClass: String? = nil,
         method: String? = nil,
         elapsedMs: Double,
-        traceSessionID: String? = nil,
-        traceStepID: Int? = nil,
         resultingObservation: ObservationSnapshot? = nil,
         approvalRequestID: String? = nil,
         approvalStatus: String? = nil,
@@ -297,8 +291,6 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         appProtectionProfile: String? = nil,
         blockedByPolicy: Bool = false,
         policyMode: String? = nil,
-        agentKind: String? = nil,
-        plannerFamily: String? = nil,
         commandCategory: String? = nil,
         commandSummary: String? = nil,
         workspaceRelativePath: String? = nil,
@@ -314,8 +306,6 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         self.failureClass = failureClass
         self.method = method
         self.elapsedMs = elapsedMs
-        self.traceSessionID = traceSessionID
-        self.traceStepID = traceStepID
         self.resultingObservation = resultingObservation
         self.approvalRequestID = approvalRequestID
         self.approvalStatus = approvalStatus
@@ -323,8 +313,6 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         self.appProtectionProfile = appProtectionProfile
         self.blockedByPolicy = blockedByPolicy
         self.policyMode = policyMode
-        self.agentKind = agentKind
-        self.plannerFamily = plannerFamily
         self.commandCategory = commandCategory
         self.commandSummary = commandSummary
         self.workspaceRelativePath = workspaceRelativePath

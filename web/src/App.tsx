@@ -1,3 +1,7 @@
+// DEV SCAFFOLDING — NOT CONNECTED TO RUNTIME
+// All data below (status, metrics, counts) is hardcoded mock data.
+// This component has no API connection to the Swift OracleOS runtime.
+// See web/README.md for details.
 import { useState, useEffect } from 'react';
 import { 
   Activity, Zap, Shield, RotateCcw, 
@@ -14,7 +18,7 @@ function App() {
     memory: { size: '4.2MB', schemas: 12, relations: 856, freshness: 'High' }
   });
 
-  // Mock real-time updates for visual effect while backend connects
+  // Mock animation — not real runtime data. Backend connection not implemented.
   useEffect(() => {
     const timer = setInterval(() => {
       setMetrics(prev => ({

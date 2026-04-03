@@ -112,10 +112,12 @@ STATUS.md's claim of 4 open violations is stale — already resolved.
 
 ## 5. Overloaded Translation Files
 
-| File | Lines | Problem |
-|------|-------|---------|
-| `Sources/OracleOS/MCP/MCPDispatch.swift` | 690 | Mixes routing, timeout management, result formatting, and all 28 tool implementations in one file. **Phase 5 target**: extract per-domain handlers to `MCPDispatch+Recipes.swift`, `MCPDispatch+Memory.swift`, `MCPDispatch+Architecture.swift`, `MCPDispatch+Workflow.swift`. |
-| `Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift` | 343 | Mixed mapping concerns. Reclassified Category 2 — recipeDictionary is a serialization shim, ToolResult.data access is inherently dynamic. |
+**Status: extraction completed.**
+
+| File | Lines | Note |
+|------|-------|------|
+| `Sources/OracleOS/MCP/MCPDispatch.swift` | 359 | Per-domain extensions split: `MCPDispatch+Architecture.swift`, `MCPDispatch+Memory.swift`, `MCPDispatch+Recipes.swift`, `MCPDispatch+Workflow.swift` exist. Dispatch file is now route-only. |
+| `Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift` | 343 | Mixed mapping concerns. Reclassified Category 2 — `recipeDictionary` is a serialization shim, `ToolResult.data` access is inherently dynamic. |
 | `Sources/OracleOS/MCP/MCPTools.swift` | 399 | Tool schema declarations — large but single-purpose; acceptable. |
 
 ---
@@ -124,16 +126,16 @@ STATUS.md's claim of 4 open violations is stale — already resolved.
 
 - `Diagnostics/` folder contains logs showing `swift: command not found`. These are not valid build evidence.
 - `BASELINE.md` claims `swift build -c release → Build complete` and 638 tests passing — but no reproducible script to regenerate this evidence exists.
-- No CI configuration file (`.github/workflows/`) was found. CI enforcement of guard scripts is documented but not wired.
+- CI is live. `.github/workflows/` contains 7 workflow files: `ci.yml`, `architecture.yml`, `apisec-scan.yml`, `codeql.yml`, `controller-release.yml`, `frogbot-scan-and-fix.yml`, `frogbot-scan-pr.yml`. Guard scripts are wired into CI.
 - Governance tests exist and appear real. They primarily use source-file text scanning, not type-import checks.
 
 ---
 
 ## Recommended Action Order
 
-1. **DONE (this file):** Produce audit.
-2. **Reconcile ARCHITECTURE_RULES.md:** Remove ghost coordinators and `CoordinatorBoundaryTests`. Rename `TaskGraph` → `TaskLedger`, `TraceStore` → live equivalent. No new abstractions.
-3. **Rewrite STATUS.md:** Remove open-issue claims that are resolved. State only current reality.
-4. **Category 3 leaks:** Eliminate `[String:Any]` in `ControllerRuntimeBridge+Mapping.swift`, `VisionBridge.swift`, `DiagnosticsWriter.swift`.
-5. **MCPDispatch refactor:** Extract per-domain result builders into typed adapters; keep dispatch() as route-only.
-6. **Proof path:** Add `scripts/verify-build.sh` that runs `swift build` and `swift test` and records output.
+1. **DONE:** Produce audit.
+2. **DONE:** Reconcile ARCHITECTURE_RULES.md — ghost coordinators removed, `CoordinatorBoundaryTests` reference removed, `TaskGraph` → `TaskLedger`, `TraceStore` → live equivalents, module ownership table reflects live code.
+3. **DONE:** Rewrite STATUS.md — open-issue claims resolved; current reality stated.
+4. **DONE:** `ControllerRuntimeBridge+Mapping.swift` reclassified Category 2; Category 3 leaks do not exist.
+5. **DONE:** MCPDispatch refactor — per-domain extensions extracted; dispatch is now route-only (359 lines).
+6. **OPEN:** Add `scripts/verify-build.sh` that runs `swift build` and `swift test` and records output.

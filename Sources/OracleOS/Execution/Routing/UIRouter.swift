@@ -1,12 +1,11 @@
 import AppKit
 import Foundation
 
+// UIRouter: executes UI commands by dispatching to Actions.perform* directly.
+// AutomationHost is NOT the UI execution authority — it is an observation/snapshot
+// tool used only by ControllerRuntimeBridge for AX snapshots.
 public struct UIRouter: @unchecked Sendable {
-    private let automationHost: AutomationHost?
-
-    init(automationHost: AutomationHost?) {
-        self.automationHost = automationHost
-    }
+    init() {}
 
     public func execute(
         _ command: Command,
@@ -15,12 +14,6 @@ public struct UIRouter: @unchecked Sendable {
         guard command.type == .ui else {
             throw RouterError.invalidRoute(expected: .ui, actual: command.type)
         }
-
-        #if DEBUG
-        if let automationHost = automationHost {
-            NSLog("UIRouter executing with automation host: \(automationHost)")
-        }
-        #endif
 
         guard case .ui(let action) = command.payload else {
             return CommandRouter.failureOutcome(

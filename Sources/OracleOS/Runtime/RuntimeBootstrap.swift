@@ -72,7 +72,6 @@ public enum RuntimeBootstrap {
         let repositoryIndexer = RepositoryIndexer(processAdapter: processAdapter)
 
         let commandRouter = CommandRouter(
-            automationHost: nil,
             workspaceRunner: workspaceRunner,
             repositoryIndexer: repositoryIndexer
         )

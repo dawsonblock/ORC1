@@ -14,7 +14,7 @@ but not bypassed, duplicated, or replaced without updating this document:
 |--------|------|
 | `VerifiedExecutor` | Only path for environment-changing actions (`execute(_:)` trust boundary) |
 | `CommitCoordinator` | Only path for committed state writes (returns `CommitReceipt`) |
-| `RuntimeBootstrap` | Canonical kernel factory (`makeDefault()` wires all dependencies) |
+| `RuntimeBootstrap` | Canonical kernel factory (`makeBootstrappedRuntime()` wires all dependencies) |
 | `DomainEvent` | Typed event contract for reducer-safe decoding |
 | `StateSnapshot` | Immutable state capture (holds `WorldModelSnapshot` value type) |
 | `CriticLoop` | Post-action evaluation and failure classification |

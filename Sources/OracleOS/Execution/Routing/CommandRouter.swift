@@ -5,11 +5,10 @@ public struct CommandRouter: @unchecked Sendable {
     private let codeRouter: CodeRouter
 
     public init(
-        automationHost: AutomationHost? = nil,
         workspaceRunner: WorkspaceRunner? = nil,
         repositoryIndexer: RepositoryIndexer
     ) {
-        self.uiRouter = UIRouter(automationHost: automationHost)
+        self.uiRouter = UIRouter()
         self.codeRouter = CodeRouter(
             workspaceRunner: workspaceRunner,
             repositoryIndexer: repositoryIndexer

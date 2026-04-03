@@ -46,7 +46,6 @@ class TransitionalArtifactRemovalTests: XCTestCase {
         let policyEngine = PolicyEngine.shared
         let processAdapter = DefaultProcessAdapter(policyEngine: policyEngine)
         let commandRouter = CommandRouter(
-            automationHost: nil,
             workspaceRunner: WorkspaceRunner(processAdapter: processAdapter),
             repositoryIndexer: RepositoryIndexer(processAdapter: processAdapter)
         )

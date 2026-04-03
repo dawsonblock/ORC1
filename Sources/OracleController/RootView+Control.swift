@@ -382,12 +382,6 @@ struct ControlInspectorView: View {
                         KVRow(key: "Request", value: result.request.displayTitle)
                         KVRow(key: "Message", value: result.message ?? "No message")
                         KVRow(key: "Elapsed", value: "\(Int(result.elapsedMs)) ms", monospaced: true)
-                        if let agentKind = result.agentKind {
-                            KVRow(key: "Agent", value: agentKind)
-                        }
-                        if let plannerFamily = result.plannerFamily {
-                            KVRow(key: "Planner", value: plannerFamily)
-                        }
                         if let commandCategory = result.commandCategory {
                             KVRow(key: "Command", value: commandCategory)
                         }
@@ -420,9 +414,6 @@ struct ControlInspectorView: View {
                         }
                         if result.blockedByPolicy {
                             KVRow(key: "Policy", value: "Blocked before execution")
-                        }
-                        if let traceStepID = result.traceStepID {
-                            KVRow(key: "Trace Step", value: "#\(traceStepID)", monospaced: true)
                         }
                     } else {
                         EmptyStateView(

@@ -23,12 +23,6 @@ extension ControllerRuntimeBridge {
             failureClass: actionData?[ActionResultKey.failureClass] as? String,
             method: method,
             elapsedMs: elapsedMs,
-            // NOTE: The following trace sub-keys are not populated by RuntimeExecutionDriver,
-            // which only writes TraceResultKey.cycleID / TraceResultKey.intentID.
-            // Affected keys: "session_id", "step_id", "agent_kind", "planner_family".
-            // All four reads always return nil — known unresolved producer-consumer mismatch.
-            traceSessionID: traceData?["session_id"] as? String,
-            traceStepID: traceData?["step_id"] as? Int,
             resultingObservation: map(observation),
             approvalRequestID: actionData?[ActionResultKey.approvalRequestID] as? String ?? result.data?[ActionResultKey.approvalRequestID] as? String,
             approvalStatus: actionData?[ActionResultKey.approvalStatus] as? String ?? result.data?[ActionResultKey.approvalStatus] as? String,
@@ -36,8 +30,6 @@ extension ControllerRuntimeBridge {
             appProtectionProfile: actionData?[ActionResultKey.appProtectionProfile] as? String,
             blockedByPolicy: actionData?[ActionResultKey.blockedByPolicy] as? Bool ?? false,
             policyMode: (actionData?[ActionResultKey.policyDecision] as? [String: Any])?["policy_mode"] as? String,
-            agentKind: traceData?["agent_kind"] as? String,
-            plannerFamily: traceData?["planner_family"] as? String,
             commandCategory: codeData?[CodeExecutionResultKey.commandCategory] as? String,
             commandSummary: codeData?[CodeExecutionResultKey.commandSummary] as? String,
             workspaceRelativePath: codeData?[CodeExecutionResultKey.workspaceRelativePath] as? String,

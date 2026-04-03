@@ -165,7 +165,6 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
         let processAdapter = DefaultProcessAdapter(policyEngine: policyEngine)
         
         let commandRouter = CommandRouter(
-            automationHost: nil,
             workspaceRunner: WorkspaceRunner(processAdapter: processAdapter),
             repositoryIndexer: RepositoryIndexer(processAdapter: processAdapter)
         )
