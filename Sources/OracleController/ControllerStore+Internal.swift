@@ -190,6 +190,10 @@ extension ControllerStore {
         return nil
     }
 
+    var currentMonitorApp: String? {
+        monitorAppName.nilIfBlank
+    }
+
     func requestForApprovedAction(from request: ActionRequest, approvalRequestID: String) -> ActionRequest {
         ActionRequest(
             kind: request.kind,

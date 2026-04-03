@@ -16,6 +16,9 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
+      - name: MCP boundary guard
+        run: python3 scripts/mcp_boundary_guard.py
+
       - name: Build
         run: swift build
 
