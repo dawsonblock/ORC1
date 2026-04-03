@@ -145,6 +145,7 @@ public enum ActionKind: String, Codable, Sendable, CaseIterable, Identifiable {
 
 public enum ActionRunDisposition: String, Sendable, Equatable {
     case awaitingApproval
+    case rejected
     case blockedByPolicy
     case verifiedExecution
     case observed
@@ -344,6 +345,9 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         if isApprovalPending {
             return .awaitingApproval
         }
+        if approvalStatus == "rejected" || failureClass == "approval_rejected" {
+            return .rejected
+        }
         if blockedByPolicy {
             return .blockedByPolicy
         }
@@ -360,6 +364,8 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         switch disposition {
         case .awaitingApproval:
             return "Awaiting Approval"
+        case .rejected:
+            return "Rejected"
         case .blockedByPolicy:
             return "Blocked"
         case .verifiedExecution:
@@ -377,6 +383,8 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         switch disposition {
         case .awaitingApproval:
             return "Awaiting approval before runtime execution"
+        case .rejected:
+            return "Approval rejected before runtime execution"
         case .blockedByPolicy:
             return "Blocked before execution by policy"
         case .verifiedExecution:
@@ -398,6 +406,8 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         switch disposition {
         case .awaitingApproval:
             return "Action awaiting approval before runtime execution."
+        case .rejected:
+            return message ?? "Action approval was rejected."
         case .blockedByPolicy:
             return "Action blocked by policy before execution."
         case .observed:
@@ -409,6 +419,34 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         case .failed:
             return message ?? "Action failed."
         }
+    }
+
+    public func rejectedApprovalResult(message: String = "Action approval was rejected.") -> ActionRunResult {
+        ActionRunResult(
+            id: id,
+            request: request,
+            success: false,
+            verified: false,
+            message: message,
+            failureClass: "approval_rejected",
+            verificationStatus: verificationStatus,
+            method: method,
+            elapsedMs: elapsedMs,
+            resultingObservation: resultingObservation,
+            approvalRequestID: approvalRequestID,
+            approvalStatus: "rejected",
+            protectedOperation: protectedOperation,
+            appProtectionProfile: appProtectionProfile,
+            blockedByPolicy: false,
+            executedThroughExecutor: false,
+            policyMode: policyMode,
+            commandCategory: commandCategory,
+            commandSummary: commandSummary,
+            workspaceRelativePath: workspaceRelativePath,
+            buildResultSummary: buildResultSummary,
+            testResultSummary: testResultSummary,
+            patchID: patchID
+        )
     }
 }
 
@@ -1260,6 +1298,38 @@ public struct RecipeRunResultDocument: Codable, Sendable, Equatable {
         self.paused = paused
         self.pendingApprovalRequestID = pendingApprovalRequestID
         self.resumeToken = resumeToken
+    }
+
+    public var statusLabel: String {
+        if paused {
+            return "Awaiting Approval"
+        }
+        return success ? "Succeeded" : "Failed"
+    }
+
+    public var summaryText: String {
+        if paused {
+            return "Recipe awaiting approval before execution continues."
+        }
+        if success {
+            return "Recipe completed."
+        }
+        return error ?? "Recipe failed."
+    }
+
+    public func rejectedApprovalResult(message: String = "Recipe approval was rejected.") -> RecipeRunResultDocument {
+        RecipeRunResultDocument(
+            recipeName: recipeName,
+            success: false,
+            stepsCompleted: stepsCompleted,
+            totalSteps: totalSteps,
+            error: message,
+            traceSessionID: traceSessionID,
+            stepResults: stepResults,
+            paused: false,
+            pendingApprovalRequestID: nil,
+            resumeToken: nil
+        )
     }
 }
 

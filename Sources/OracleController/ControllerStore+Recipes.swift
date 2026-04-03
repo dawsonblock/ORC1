@@ -139,7 +139,7 @@ extension ControllerStore {
             let response = try await send(.init(command: .runRecipe, recipeName: recipeName, recipeParams: params))
             if let recipeRun = response.recipeRun {
                 latestRecipeRun = recipeRun
-                inlineMessage = recipeRun.paused ? "Recipe paused pending approval." : (recipeRun.success ? "Recipe completed." : "Recipe failed.")
+                inlineMessage = recipeRun.summaryText
                 if let approvals = response.approvals {
                     approvalQueue = approvals
                 }

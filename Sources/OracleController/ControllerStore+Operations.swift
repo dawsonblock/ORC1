@@ -109,9 +109,7 @@ extension ControllerStore {
             if let approvals = response.approvals {
                 approvalQueue = approvals
             }
-            if latestRecipeRun?.pendingApprovalRequestID == approval.id {
-                inlineMessage = "Recipe approval rejected."
-            }
+            markRejectedApproval(approval)
         } catch {
             errorMessage = error.localizedDescription
         }

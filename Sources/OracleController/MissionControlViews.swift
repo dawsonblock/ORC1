@@ -28,11 +28,17 @@ struct ControllerStatusBar: View {
 
     private var runtimeValue: String {
         guard let health = store.health else { return "Loading" }
-        return health.permissions.allSatisfy { $0.granted } ? "Ready" : "Needs attention"
+        if !health.controllerConnected {
+            return "Disconnected"
+        }
+        return health.permissions.allSatisfy { $0.granted } ? "Connected" : "Attention"
     }
 
     private var runtimeTone: StatusBadge.Tone {
         guard let health = store.health else { return .neutral }
+        if !health.controllerConnected {
+            return .warning
+        }
         return health.permissions.allSatisfy { $0.granted } ? .good : .warning
     }
 

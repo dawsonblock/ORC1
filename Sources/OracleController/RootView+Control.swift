@@ -176,6 +176,10 @@ struct ControlWorkspaceView: View {
                     }
                 }
 
+                Text("Manual Action sends runtime work through the host bridge. Setup, diagnostics, and help buttons here are controller-local support tools.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+
                 if let inlineMessage = store.inlineMessage, !inlineMessage.isEmpty {
                     Text(inlineMessage)
                         .font(.system(size: 12, weight: .medium))
@@ -190,12 +194,12 @@ struct ApprovalQueueCard: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Approvals", subtitle: "Per-action safety gate for risky operations") {
+        PanelCard("Approvals", subtitle: "Pending runtime approval requests") {
             if store.approvalQueue.isEmpty {
                 EmptyStateView(
                     systemImage: "checkmark.shield",
                     title: "No Pending Approvals",
-                    message: "Blocked or risky actions will appear here for explicit approval."
+                    message: "Only actions paused awaiting approval appear here. Policy-blocked or rejected actions stay in the action result view."
                 )
                 .frame(height: 180)
             } else {
@@ -438,6 +442,8 @@ private func tone(for result: ActionRunResult) -> StatusBadge.Tone {
     switch result.disposition {
     case .awaitingApproval:
         return .warning
+    case .rejected:
+        return .danger
     case .blockedByPolicy:
         return .danger
     case .verifiedExecution:

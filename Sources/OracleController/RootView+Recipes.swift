@@ -288,12 +288,15 @@ struct RecipeInspectorView: View {
                     if let latestRecipeRun = store.latestRecipeRun {
                         HStack {
                             StatusBadge(
-                                label: latestRecipeRun.paused ? "Paused" : (latestRecipeRun.success ? "Succeeded" : "Failed"),
+                                label: latestRecipeRun.statusLabel,
                                 tone: latestRecipeRun.paused ? .warning : (latestRecipeRun.success ? .good : .danger)
                             )
                             Text("\(latestRecipeRun.stepsCompleted)/\(latestRecipeRun.totalSteps) steps")
                                 .font(.system(size: 12, design: .monospaced))
                         }
+                        Text(latestRecipeRun.summaryText)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                         if let pendingApprovalRequestID = latestRecipeRun.pendingApprovalRequestID {
                             KVRow(key: "Pending Approval", value: pendingApprovalRequestID, monospaced: true)
                         }

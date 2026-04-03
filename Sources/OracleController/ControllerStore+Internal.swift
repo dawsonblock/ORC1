@@ -162,6 +162,35 @@ extension ControllerStore {
         }
     }
 
+    func replaceRecordedAction(_ action: ActionRunResult) {
+        currentActionResult = action
+
+        if let index = recentActions.firstIndex(where: { $0.id == action.id }) {
+            recentActions[index] = action
+            return
+        }
+
+        recentActions.insert(action, at: 0)
+        if recentActions.count > 8 {
+            recentActions = Array(recentActions.prefix(8))
+        }
+    }
+
+    func markRejectedApproval(_ approval: ApprovalRequestDocument) {
+        if let pendingAction = currentActionResult,
+           pendingAction.isApprovalPending,
+           pendingAction.approvalRequestID == approval.id {
+            replaceRecordedAction(pendingAction.rejectedApprovalResult())
+            inlineMessage = "Action approval was rejected."
+        }
+
+        if let latestRecipeRun,
+           latestRecipeRun.pendingApprovalRequestID == approval.id {
+            self.latestRecipeRun = latestRecipeRun.rejectedApprovalResult()
+            inlineMessage = "Recipe approval was rejected."
+        }
+    }
+
     func syncSelectionAfterRecipeRefresh() {
         guard let selectedRecipeName else { return }
         if let refreshed = recipes.first(where: { $0.name == selectedRecipeName }) {
@@ -231,7 +260,7 @@ extension ControllerStore {
             )
             if let recipeRun = response.recipeRun {
                 latestRecipeRun = recipeRun
-                inlineMessage = recipeRun.paused ? "Recipe still pending approval." : (recipeRun.success ? "Recipe completed." : "Recipe failed.")
+                inlineMessage = recipeRun.summaryText
             }
             if let approvals = response.approvals {
                 approvalQueue = approvals

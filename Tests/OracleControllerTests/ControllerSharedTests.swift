@@ -139,4 +139,50 @@ struct ControllerSharedTests {
         #expect(pending.statusLabel == "Awaiting Approval")
         #expect(pending.summaryText == "Action awaiting approval before runtime execution.")
     }
+
+    @Test
+    func actionRunResultTracksRejectedApprovalSeparately() {
+        let pending = ActionRunResult(
+            request: ActionRequest(kind: .click, query: "Delete"),
+            success: false,
+            verified: false,
+            failureClass: "approval_pending",
+            elapsedMs: 0,
+            approvalRequestID: "approval-1",
+            approvalStatus: "pending",
+            executedThroughExecutor: false
+        )
+
+        let rejected = pending.rejectedApprovalResult()
+
+        #expect(rejected.disposition == .rejected)
+        #expect(rejected.statusLabel == "Rejected")
+        #expect(rejected.executionPathSummary == "Approval rejected before runtime execution")
+        #expect(rejected.summaryText == "Action approval was rejected.")
+        #expect(rejected.approvalStatus == "rejected")
+    }
+
+    @Test
+    func recipeRunResultTracksApprovalAndRejectionClearly() {
+        let paused = RecipeRunResultDocument(
+            recipeName: "gmail-send",
+            success: false,
+            stepsCompleted: 2,
+            totalSteps: 4,
+            stepResults: [],
+            paused: true,
+            pendingApprovalRequestID: "approval-1",
+            resumeToken: "resume-1"
+        )
+
+        #expect(paused.statusLabel == "Awaiting Approval")
+        #expect(paused.summaryText == "Recipe awaiting approval before execution continues.")
+
+        let rejected = paused.rejectedApprovalResult()
+        #expect(rejected.statusLabel == "Failed")
+        #expect(rejected.summaryText == "Recipe approval was rejected.")
+        #expect(rejected.paused == false)
+        #expect(rejected.pendingApprovalRequestID == nil)
+        #expect(rejected.resumeToken == nil)
+    }
 }
