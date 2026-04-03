@@ -44,12 +44,12 @@ Intent
 
 ## Known Issues at Baseline
 
-- `RuntimeContext` exists as a parallel authority to `RuntimeContainer`. Slated for deletion.
-- `RuntimeExecutionDriver` is a transitional bridge. Slated for removal or inlining.
-- `MCPDispatch` holds both `_bootstrappedRuntime` and `_runtimeContext`. Dual-path risk.
-- `[String: Any]` dictionaries cross task-group and actor boundaries in MCPDispatch.
-- Root contained 46 legacy repair scripts, logs, and one-off test files (now quarantined).
-- Experimental modules (`vision-sidecar`, `web`) are included in default build surface.
+- `RuntimeContext` exists as a parallel authority to `RuntimeContainer`. Slated for deletion. *(Still live as of 2026-04-02 — scoped to read-only facade, `@available(*, unavailable)` guards on execution-adjacent properties.)*
+- `RuntimeExecutionDriver` is a translational bridge (ActionIntent → Intent → RuntimeOrchestrator). Retained, not removed; correctly scoped. *(Resolved — no direct executor access.)*
+- `MCPDispatch` held both `_bootstrappedRuntime` and `_runtimeContext`. Dual-path risk. *(Resolved — `_runtimeContext` no longer present in MCPDispatch.)*
+- `[String: Any]` dictionaries cross task-group and actor boundaries in MCPDispatch. *(Partially resolved — typed `MCPToolRequest`/`MCPToolResponse` via `MCPBoundary.swift`. Legacy `handle(_ params: [String: Any])` entry point retained for MCPServer compatibility. 214 occurrences remain, mostly at external perception/API boundaries. See `AUDIT.md`.)*
+- Root contained 46 legacy repair scripts, logs, and one-off test files (now quarantined in `tools/quarantine/`).
+- Experimental modules (`vision-sidecar`, `web`) are included in default build surface. *(Unchanged.)*
 
 ## Phase 6 Goals
 

@@ -1,3 +1,5 @@
+> **[ARCHIVED]** Historical rebuild documentation index. Rebuild is complete. Current state: see `STATUS.md` and `AUDIT.md`.
+
 # Single-Hard-Path Runtime: Rebuild Documentation Index
 
 ## Quick Links

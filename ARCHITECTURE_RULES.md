@@ -22,8 +22,8 @@ but not bypassed, duplicated, or replaced without updating this document:
 | `ProgramKnowledgeGraph` | Canonical code model (all code graphs are views over it) |
 | `WorldStateModel` | Authoritative committed world state |
 | `ObservationChangeDetector` | Element-level change detection with volatile filtering |
-| `TaskGraph` | Runtime task tracking and graph navigation |
-| `TraceStore` | Persistent execution evidence (verified deltas, not snapshots) |
+| `TaskLedger` | Runtime task tracking and graph navigation (`Sources/OracleOS/TaskLedger/`) |
+| `TraceRecorder` | Execution evidence recording (`Sources/OracleOS/Learning/Trace/TraceRecorder.swift`) |
 | `RepairPipeline` | Canonical repair stages (localize → patch → validate → apply) |
 | `BenchmarkBaseline` | Metric thresholds for evidence-driven upgrades |
 
@@ -57,10 +57,9 @@ No authoritative state mutation may exist without executor evidence.
 
 ### R1 — One planner entry point
 
-The runtime calls exactly one planner API (`Planner` through `DecisionCoordinator`).
+The runtime calls exactly one planner API entry point through `RuntimeOrchestrator.submitIntent(_:)`.
 All other plan generators (reasoning, LLM, graph search) are internal helpers
-consumed by `PlanGenerator` or `Planner`, never called directly from the runtime.
-`PlanGenerator` is the canonical runtime-facing planner API.
+consumed by `MainPlanner`, never called directly from the runtime.
 `PlanEvaluator` is the sole ranking authority.
 
 ### R2 — Three runtime memory categories only
@@ -173,15 +172,19 @@ core metrics are blocked until the regression is understood.
 
 ---
 
-## Coordinator Ownership
+## Module Ownership
 
-| Coordinator | Owns | Does NOT own |
-|-------------|------|-------------|
-| `ExecutionCoordinator` | Action preparation, policy evaluation, budget tracking | Planning, memory writes |
-| `RecoveryCoordinator` | Failure recovery workflows, recovery execution | Planning decisions, state building |
-| `DecisionCoordinator` | Planner façade, strategy selection | Execution, memory recording |
-| `LearningCoordinator` | Outcome recording to trace/memory subsystem | Planning, state building |
-| `StateCoordinator` | Observation, state abstraction, task graph position | Execution, memory recording |
+These are the live modules that own each functional domain. The five named coordinators
+(ExecutionCoordinator, RecoveryCoordinator, DecisionCoordinator, LearningCoordinator,
+StateCoordinator) do not exist in source and are not part of the live contract.
+
+| Module | Owns | Does NOT own |
+|--------|------|--------------|
+| `RuntimeOrchestrator` | Intent intake, planner dispatch, lifecycle | Execution, state writes |
+| `VerifiedExecutor` | All side-effecting execution | Planning, state building |
+| `CommitCoordinator` | Committed state writes (returns `CommitReceipt`) | Planning, execution |
+| `RecipeEngine` / `TraceRecorder` | Learning, outcome recording | Planning decisions, execution |
+| `StateAbstractionEngine` | Observation, state abstraction | Execution, memory recording |
 
 ---
 
@@ -191,17 +194,20 @@ These rules are enforced by governance tests under
 `Tests/OracleOSTests/Governance/`. CI must pass all governance tests before
 merge.
 
-Governance test suites:
+Governance test suites (all in `Tests/OracleOSTests/Governance/`):
 
 - `ArchitectureFreezeTests` — R1, R3, R4, R5, protected modules
 - `ExecutionBoundaryTests` — R4, R5, R7
+- `ExecutionBoundaryEnforcementTests` — R4 enforcement
+- `NoBypassExecutionTests` — R4
 - `MemoryBoundaryTests` — R2
-- `CoordinatorBoundaryTests` — Coordinator ownership
 - `CodeIntelligenceBoundaryTests` — R8, R9
 - `KnowledgePromotionTests` — R10
-- `NoBypassExecutionTests` — R4
 - `PlannerBoundaryTests` — R5
 - `AgentLoopBoundaryTests` — Agent loop delegation
+- `LayerImportRulesTests` — R3 import enforcement
+- `RuntimeInvariantTests` — Runtime sequence invariants
+- `StateMutationTests` — Committed state write authority
 
 ---
 

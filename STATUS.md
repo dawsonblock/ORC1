@@ -1,160 +1,74 @@
-════════════════════════════════════════════════════════════════════════════════
-                    SINGLE-HARD-PATH RUNTIME: PHASE 1 DONE
-════════════════════════════════════════════════════════════════════════════════
+# Oracle OS — Current Status
 
-STATUS: ✅ 90% COMPLETE — Execution Boundary Closed
+**Last updated:** 2026-04-02  
+**Basis:** Source code audit. Claims below reflect what the code actually does.
 
-The shell model has been COMPLETELY ELIMINATED from the runtime's domain model.
+---
 
-════════════════════════════════════════════════════════════════════════════════
-WHAT WAS ACCOMPLISHED
-════════════════════════════════════════════════════════════════════════════════
+## Live System State
 
-1. CommandPayload Enum Restructured
-   ❌ Removed: case .shell(CommandSpec)
-   ✅ Added: .build(BuildSpec), .test(TestSpec), .git(GitSpec), .file(FileMutationSpec)
+| Property | Status |
+|---|---|
+| Swift target | macOS 14+ (arm64) |
+| Source files | ~500 Swift files across 4 targets |
+| Build | Must be verified in a valid Swift environment. See `scripts/verify-build.sh`. |
 
-2. 4 New Typed Spec Types Created
-   ✅ BuildSpec.swift
-   ✅ TestSpec.swift
-   ✅ GitSpec.swift
-   ✅ FileMutationSpec.swift
+---
 
-3. PolicyEngine Rewritten
-   ❌ Removed: Hardcoded /usr/bin/env and /usr/bin/git allowlist
-   ✅ Changed: Type-based validation (no executable path checking)
+## Execution Boundary
 
-4. Routers Updated (CodeRouter, SystemRouter)
-   ✅ Now handle: .build(), .test(), .git(), .file()
-   ✅ Call: WorkspaceRunner typed methods
+**Clean.** Raw `Process()` is localized to exactly two files:
+- `Sources/OracleOS/Execution/DefaultProcessAdapter.swift`
+- `Sources/OracleOS/Execution/DefaultProcessAdapter+Daemon.swift`
 
-5. WorkspaceRunner Extended
-   ✅ runBuild(_ spec: BuildSpec) async throws -> ProcessResult
-   ✅ runTest(_ spec: TestSpec) async throws -> ProcessResult
-   ✅ runGit(_ spec: GitSpec) async throws -> ProcessResult
-   ✅ applyFile(_ spec: FileMutationSpec) async throws
+`WorkspaceRunner` routes through the `ProcessAdapter` protocol. No CLI or controller target contains raw `Process()` calls.
 
-════════════════════════════════════════════════════════════════════════════════
-VERIFICATION
-════════════════════════════════════════════════════════════════════════════════
+---
 
-✅ grep -r "case \.shell" Sources/OracleOS --include="*.swift"
-   → 0 results (shell enum completely gone)
+## Runtime Spine (live)
 
-✅ Routers call typed methods
-   → CodeRouter.swift, SystemRouter.swift use runBuild, runTest, runGit, applyFile
+```
+RuntimeOrchestrator.submitIntent(_:)
+  → MainPlanner / planner chain
+  → VerifiedExecutor.execute(_:)
+  → PolicyEngine.validate()
+  → CommandRouter → TypedRouter
+  → DefaultProcessAdapter   ← only Process() lives here
+  → events emitted
+  → CommitCoordinator.commit(events:)
+  → reducers / projections applied
+```
 
-✅ PolicyEngine validates by type
-   → No more executable path allowlists
+Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootstrap`, `DomainEvent`, `StateSnapshot`, `CriticLoop`, `PlanSimulator`, `ProgramKnowledgeGraph`, `WorldStateModel`, `ObservationChangeDetector`, `TaskLedger`, `TraceRecorder`, `RepairPipeline`, `BenchmarkBaseline`.
 
-════════════════════════════════════════════════════════════════════════════════
-REMAINING: Phase 1 Finale (10%)
-════════════════════════════════════════════════════════════════════════════════
+---
 
-Four CLI/UI files still have direct Process() calls:
-  1. Sources/oracle/SetupWizard.swift
-  2. Sources/oracle/Doctor.swift
-  3. Sources/OracleController/HostProcessClient.swift
-  4. Sources/OracleControllerHost/CopilotSupport.swift
+## Known Open Issues
 
-Fix: Route through RuntimeOrchestrator.submitIntent() instead of direct Process()
+1. **214 `[String: Any]` occurrences** across the codebase. Worst architectural leak: `ControllerRuntimeBridge+Mapping.swift` (18 hits — internal module boundary, should be typed mappers). See `AUDIT.md` for full classification.
+2. **MCPDispatch.swift is 690 lines** mixing routing, timeout, result formatting, and all 28 tool implementations. Should be split into per-domain typed adapters.
+3. **`VisionBridge.swift`** still uses dict transport beyond the perception entry point despite `VisionPerceptionContract.swift` existing.
+4. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
+5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
-Pattern:
-  OLD: let process = Process(); process.run()
-  NEW: let command = Command(...); executor.execute(command)
+---
 
-See PHASE_1_FINALE.md for implementation template.
+## What Is Experimental / Optional
 
-════════════════════════════════════════════════════════════════════════════════
-EXECUTION PATH (UNIFIED)
-════════════════════════════════════════════════════════════════════════════════
+- `vision-sidecar/` — Python vision sidecar. Not required for core operation.
+- `web/` — Small frontend. Not part of the Swift build.
+- Both should be excluded from release build surface.
 
-Intent (user goal)
-  ↓
-RuntimeOrchestrator.submitIntent()
-  ↓
-Planner.plan() → Command (typed payload)
-  ↓
-VerifiedExecutor.execute()
-  → PolicyEngine.validate() [payload type check]
-  ↓
-CommandRouter.execute()
-  ↓
-TypedRouter (CodeRouter/SystemRouter/UIRouter)
-  ├→ case .build(spec): WorkspaceRunner.runBuild(spec)
-  ├→ case .test(spec): WorkspaceRunner.runTest(spec)
-  ├→ case .git(spec): WorkspaceRunner.runGit(spec)
-  ├→ case .file(spec): WorkspaceRunner.applyFile(spec)
-  ↓
-DefaultProcessAdapter (ONLY place Process() exists)
-  ↓
-CommitCoordinator.commit(events)
-  ↓
-EventStore (immutable log)
+---
 
-INVARIANT: No bypass exists. No alternate path in code.
+## Authoritative References
 
-════════════════════════════════════════════════════════════════════════════════
-WHAT NO LONGER EXISTS
-════════════════════════════════════════════════════════════════════════════════
+| Topic | File |
+|---|---|
+| Architecture invariants | `ARCHITECTURE_RULES.md` |
+| Audit findings | `AUDIT.md` |
+| Product contract | `docs/PRODUCT_CONTRACT.md` |
+| Release checklist | `docs/RELEASE_CHECKLIST.md` |
+| Baseline point-in-time | `BASELINE.md` |
 
-❌ CommandPayload.shell()
-❌ Shell execution strings
-❌ Generic command specs
-❌ Hardcoded executable allowlists
-❌ Policy validation by executable path
-❌ Multiple routing paths for process execution
-
-════════════════════════════════════════════════════════════════════════════════
-FILES CHANGED
-════════════════════════════════════════════════════════════════════════════════
-
-CREATED:
-  + Sources/OracleOS/Core/Command/BuildSpec.swift
-  + Sources/OracleOS/Core/Command/TestSpec.swift
-  + Sources/OracleOS/Core/Command/GitSpec.swift
-  + Sources/OracleOS/Core/Command/FileMutationSpec.swift
-
-MODIFIED:
-  ~ Sources/OracleOS/Core/Command/Command.swift
-  ~ Sources/OracleOS/Intent/Policies/PolicyEngine.swift
-  ~ Sources/OracleOS/Execution/Routing/CodeRouter.swift
-  ~ Sources/OracleOS/Execution/Routing/SystemRouter.swift
-  ~ Sources/OracleOS/Code/Execution/WorkspaceRunner.swift
-
-════════════════════════════════════════════════════════════════════════════════
-NEXT: PHASE 2
-════════════════════════════════════════════════════════════════════════════════
-
-Single Planner Entry Point
-
-After Phase 1 completion, Phase 2:
-  1. Remove PlannerFacade.swift (duplicate abstraction)
-  2. Convert MainPlanner to internal PlannerEngine
-  3. Ensure only RuntimeOrchestrator calls planner
-  4. Add planner boundary tests
-
-Result: One Planner.plan() surface, no multi-headed reasoning.
-
-════════════════════════════════════════════════════════════════════════════════
-DOCUMENTATION
-════════════════════════════════════════════════════════════════════════════════
-
-See:
-  - HANDOFF.md              (Overview and next steps)
-  - PHASE_1_DONE.md         (Phase 1 summary)
-  - PHASE_1_FINALE.md       (How to complete Phase 1 - 10% remaining)
-  - PHASE_1_STATUS.md       (Detailed Phase 1 status)
-  - REBUILD_PLAN.md         (Full 7-phase strategy)
-
-════════════════════════════════════════════════════════════════════════════════
-CORE INVARIANT ACHIEVED
-════════════════════════════════════════════════════════════════════════════════
-
-✅ No shell model exists
-✅ All operations typed
-✅ Single execution path
-✅ No bypass in code
-✅ Deterministic validation
-
-This is a real kernel, not a sandbox.
+> Historical milestone docs (`PHASE_*_DONE.md`, `HANDOFF.md`, `TOTAL_REBUILD_DONE.md`, `COMPLETE_REBUILD_SUMMARY.md`) are archived and marked as such. Do not treat them as current state.

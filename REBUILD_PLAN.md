@@ -1,3 +1,5 @@
+> **[ARCHIVED]** Historical rebuild plan. Rebuild is complete. Current state: see `STATUS.md` and `AUDIT.md`.
+
 # Single-Hard-Path Runtime: Rebuild Plan
 
 ## Completed (Phase 1 u0026 2 - 100% Done)
