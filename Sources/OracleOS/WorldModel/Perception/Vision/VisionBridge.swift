@@ -245,7 +245,16 @@ public enum VisionBridge {
             return false
         }
 
-        let adapter: any ProcessAdapter = lifecycle.configuredAdapter ?? DefaultProcessAdapter()
+        let adapter: any ProcessAdapter
+        if let configured = lifecycle.configuredAdapter {
+            adapter = configured
+        } else {
+            // FALLBACK EXCEPTION: Not configured via RuntimeBootstrap.configure(processAdapter:).
+            // Expected in: CLI setup (oracle doctor/setup), standalone test contexts.
+            // In MCP/Controller runtime, bootstrap always configures before first startSidecar().
+            Log.warn("[VisionBridge] Using local DefaultProcessAdapter — not configured via bootstrap (expected in CLI/test contexts only)")
+            adapter = DefaultProcessAdapter()
+        }
 
         // Strategy 1: Use oracle-vision launcher script (handles venv/Python resolution)
         if let launcher = findOracleVisionBinary() {

@@ -13,6 +13,24 @@
 // policy approval.
 import Foundation
 
+/// Typed errors for experiment sandbox containment enforcement.
+/// These are the ONLY errors apply() can throw for boundary violations.
+public enum SandboxError: Error, LocalizedError, Sendable {
+    /// Path is absolute or contains a traversal sequence — rejected before canonicalization.
+    case invalidRelativePath(String)
+    /// Path resolves outside the sandbox root after canonicalization.
+    case containmentViolation(path: String, sandboxRoot: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidRelativePath(let path):
+            return "Candidate path '\(path)' is not a valid sandbox-relative path"
+        case .containmentViolation(let path, let root):
+            return "Candidate path '\(path)' resolves outside sandbox '\(root)'"
+        }
+    }
+}
+
 public struct WorktreeSandbox: Codable, Sendable, Equatable {
     public let experimentID: String
     public let candidateID: String
@@ -64,16 +82,12 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         // Enforce sandbox containment — uses the shared canonicalScopeRoot helper (WorkspaceRunner.swift).
         // Reject absolute paths and traversal sequences before canonicalisation.
         guard !relativePath.hasPrefix("/"), !relativePath.contains("../") else {
-            throw NSError(domain: "WorktreeSandbox", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Candidate path '\(relativePath)' is not a valid sandbox-relative path"
-            ])
+            throw SandboxError.invalidRelativePath(relativePath)
         }
         let (sandboxURL, sandboxPrefix) = canonicalScopeRoot(sandboxPath)
         let resolvedURL = sandboxURL.appendingPathComponent(relativePath).standardizedFileURL
         guard resolvedURL.path.hasPrefix(sandboxPrefix) else {
-            throw NSError(domain: "WorktreeSandbox", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Candidate path '\(relativePath)' resolves outside sandbox '\(sandboxPath)'"
-            ])
+            throw SandboxError.containmentViolation(path: relativePath, sandboxRoot: sandboxPath)
         }
         try FileManager.default.createDirectory(at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try candidate.content.write(to: resolvedURL, atomically: true, encoding: .utf8)

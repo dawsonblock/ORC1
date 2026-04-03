@@ -102,7 +102,7 @@ graph TD
 
 ### Execution Spine
 
-Every effect flows through a single, auditable path:
+Every **main-path** effect flows through a single, auditable path:
 
 ```
 Intent
@@ -116,6 +116,8 @@ Intent
   → Events
   → CommitCoordinator
 ```
+
+> **Experiment subsystem exception:** `oracle_experiment_search` dispatches directly from `MCPDispatch` to `ExperimentManager`, bypassing `RuntimeOrchestrator` and `VerifiedExecutor` by design. Candidate patches run in isolated git worktrees evaluated by `WorktreeSandbox`. This path is intentionally separate — its isolation guarantee is the worktree boundary, not policy approval.
 
 And every action follows the same loop:
 

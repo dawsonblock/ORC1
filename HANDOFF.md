@@ -44,6 +44,8 @@ The shell model has been **completely eliminated** from the runtime's domain mod
 
 ### CLI Tools Need Routing Through RuntimeOrchestrator
 
+> **[CORRECTION — 2026-04-03]** The items below are **intentionally NOT being routed through RuntimeOrchestrator**. `Doctor.swift` and `SetupWizard.swift` are standalone CLI diagnostic/setup utilities that run outside the bootstrapped runtime by design. `HostProcessClient.swift` and `CopilotSupport.swift` are OracleController host-bridge files that have their own appropriate patterns. Routing CLI tools through the full runtime would be incorrect over-engineering. This section is stale. See STATUS.md for current state.
+
 Four files still make direct `Process()` calls:
 1. `Sources/oracle/SetupWizard.swift`
 2. `Sources/oracle/Doctor.swift`

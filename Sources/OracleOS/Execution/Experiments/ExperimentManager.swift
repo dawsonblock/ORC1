@@ -97,12 +97,17 @@ public final class ExperimentManager: @unchecked Sendable {
         return try JSONDecoder().decode([ExperimentResult].self, from: data)
     }
 
+    /// Persists experiment results as JSON to `.oracle/experiments/<id>/results.json`.
+    /// This is internal experiment metadata — NOT a user workspace file mutation.
+    /// It intentionally bypasses WorkspaceRunner and VerifiedExecutor; no ProcessAdapter involvement.
+    /// The isolation guarantee here is the `.oracle/` directory, not the policy engine.
     private func persistResults(
         _ results: [ExperimentResult],
         spec: ExperimentSpec,
         experimentsRoot: URL
     ) throws {
         let resultURL = resultsURL(for: spec, experimentsRoot: experimentsRoot)
+        // Direct createDirectory is intentional — this is internal oracle state, not a workspace file.
         try fileManager.createDirectory(at: resultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONEncoder().encode(results)
         try data.write(to: resultURL)

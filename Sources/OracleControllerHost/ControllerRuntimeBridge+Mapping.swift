@@ -23,10 +23,10 @@ extension ControllerRuntimeBridge {
             failureClass: actionData?[ActionResultKey.failureClass] as? String,
             method: method,
             elapsedMs: elapsedMs,
-            // NOTE: The following trace sub-keys ("session_id", "step_id", "agent_kind",
-            // "planner_family") are not populated by RuntimeExecutionDriver, which only
-            // writes TraceResultKey.cycleID / TraceResultKey.intentID. These reads always
-            // return nil — known unresolved producer-consumer mismatch.
+            // NOTE: The following trace sub-keys are not populated by RuntimeExecutionDriver,
+            // which only writes TraceResultKey.cycleID / TraceResultKey.intentID.
+            // Affected keys: "session_id", "step_id", "agent_kind", "planner_family".
+            // All four reads always return nil — known unresolved producer-consumer mismatch.
             traceSessionID: traceData?["session_id"] as? String,
             traceStepID: traceData?["step_id"] as? Int,
             resultingObservation: map(observation),
@@ -38,12 +38,12 @@ extension ControllerRuntimeBridge {
             policyMode: (actionData?[ActionResultKey.policyDecision] as? [String: Any])?["policy_mode"] as? String,
             agentKind: traceData?["agent_kind"] as? String,
             plannerFamily: traceData?["planner_family"] as? String,
-            commandCategory: codeData?["command_category"] as? String ?? traceData?["command_category"] as? String,
-            commandSummary: codeData?["summary"] as? String ?? traceData?["command_summary"] as? String,
-            workspaceRelativePath: codeData?["workspace_relative_path"] as? String ?? traceData?["workspace_relative_path"] as? String,
-            buildResultSummary: codeData?["build_result_summary"] as? String,
-            testResultSummary: codeData?["test_result_summary"] as? String,
-            patchID: codeData?["patch_id"] as? String
+            commandCategory: codeData?[CodeExecutionResultKey.commandCategory] as? String,
+            commandSummary: codeData?[CodeExecutionResultKey.commandSummary] as? String,
+            workspaceRelativePath: codeData?[CodeExecutionResultKey.workspaceRelativePath] as? String,
+            buildResultSummary: codeData?[CodeExecutionResultKey.buildResultSummary] as? String,
+            testResultSummary: codeData?[CodeExecutionResultKey.testResultSummary] as? String,
+            patchID: codeData?[CodeExecutionResultKey.patchID] as? String
         )
     }
 

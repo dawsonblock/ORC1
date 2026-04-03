@@ -49,6 +49,19 @@ public enum RecipeResultKey {
     public static let stepNote          = "note"
 }
 
+/// Typed constants for keys in the `code_execution` sub-dict.
+/// Producer: CodeRouter / ExecutionSemanticsEncoder / ActionContract.
+/// Consumer: ControllerRuntimeBridge+Mapping.mapActionResult (codeData probe).
+public enum CodeExecutionResultKey {
+    public static let commandCategory       = "command_category"
+    /// Human-readable summary of the command. The dict key is "summary".
+    public static let commandSummary        = "summary"
+    public static let workspaceRelativePath = "workspace_relative_path"
+    public static let buildResultSummary    = "build_result_summary"
+    public static let testResultSummary     = "test_result_summary"
+    public static let patchID               = "patch_id"
+}
+
 public struct ActionResult: Sendable, Codable {
     public let success: Bool
     public let verified: Bool

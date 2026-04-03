@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-02 (repair pass 6)  
+**Last updated:** 2026-04-03 (repair pass 7)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -51,12 +51,27 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 
 ## Known Open Issues
 
-1. **Remaining `[String: Any]` occurrences** in some areas of the codebase. Key boundary `ControllerRuntimeBridge+Mapping.swift` now uses `ActionResultKey` typed constants throughout. See `AUDIT.md` for full classification.
-2. **MCPDispatch.swift is 690 lines** mixing routing, timeout, result formatting, and all 28 tool implementations. Should be split into per-domain typed adapters.
-3. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
-4. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
+1. **Remaining `[String: Any]` occurrences** in some areas of the codebase. Key boundary `ControllerRuntimeBridge+Mapping.swift` now uses `ActionResultKey` and `CodeExecutionResultKey` typed constants throughout. The `code_execution` sub-dict is still `[String: Any]` structurally — a `ToolResult.data` architecture limitation, not a key-management issue. See `AUDIT.md` for full classification.
+2. **`agentKind` / `plannerFamily` always nil in `ActionRunResult`:** `RuntimeExecutionDriver` only writes `TraceResultKey.cycleID` / `TraceResultKey.intentID` to the trace dict. `ControllerRuntimeBridge+Mapping` reads `traceData?["agent_kind"]` and `traceData?["planner_family"]`, which are never written. Both fields are always nil — known producer-consumer mismatch. Fix requires adding these fields to the intent response shape or the trace producer. No workaround exists.
+3. **MCPDispatch.swift is 690 lines** mixing routing, timeout, result formatting, and all 28 tool implementations. Should be split into per-domain typed adapters.
+4. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
+5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
 ---
+
+## Repair Pass 7 — Closed Holes
+
+| Item | File(s) | Status |
+|---|---|---|
+| Raw string keys in `code_execution` bridge probes | `ActionResult.swift`, `ControllerRuntimeBridge+Mapping.swift` | Fixed — `CodeExecutionResultKey` enum added; 6 raw `codeData?["..."]` probes replaced with typed constants; 3 stale `?? traceData?[...]` fallbacks removed (trace never contained these keys) |
+| Untyped `NSError` in sandbox containment | `WorktreeSandbox.swift` | Fixed — `SandboxError` typed enum added (`invalidRelativePath`, `containmentViolation`); `apply()` throws typed errors instead of `NSError` |
+| No test coverage for sandbox containment | `Tests/OracleOSTests/Experiments/WorktreeSandboxContainmentTests.swift` | Fixed — new test file: absolute path rejection, traversal rejection, valid path write, typed error case assertions |
+| `ExperimentManager.persistResults` undocumented bypass | `ExperimentManager.swift` | Fixed — doc comment added explaining it is internal experiment metadata, not a workspace mutation; inline comment on `createDirectory` confirms intent |
+| VisionBridge fallback is silent | `VisionBridge.swift` | Fixed — `DefaultProcessAdapter()` fallback now logs `Log.warn("[VisionBridge] Using local DefaultProcessAdapter...")` so fallback is visible in runtime logs |
+| CLI targets lack authority context | `Sources/oracle/Doctor.swift`, `Sources/oracle/SetupWizard.swift` | Fixed — EXECUTION AUTHORITY NOTE comment added to both; clarifies intentional separation from bootstrapped runtime |
+| Docs overclaim execution spine universality | `README.md` | Fixed — "Every effect flows" narrowed to "Every **main-path** effect flows"; experiment subsystem bypass explicitly noted |
+| REPAIR_SUMMARY.md no archived header | `REPAIR_SUMMARY.md` | Fixed — `[ARCHIVED]` header prepended; passes 1–3 covered here, passes 4–6 in STATUS.md |
+| HANDOFF.md stale CLI routing claim | `HANDOFF.md` | Fixed — correcting note added to Phase 1-10% section; CLI tools are intentionally NOT routed through RuntimeOrchestrator |
 
 ## Repair Pass 6 — Closed Holes
 

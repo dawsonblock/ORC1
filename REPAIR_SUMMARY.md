@@ -1,3 +1,7 @@
+> **[ARCHIVED]** This document covers repair passes 1–3. Passes 4–6 are recorded in [STATUS.md](STATUS.md). The current authoritative state is STATUS.md.
+
+---
+
 # Repair Summary — 11-Step Bounded Repair Pass
 
 **Completed:** 2026-04-03  

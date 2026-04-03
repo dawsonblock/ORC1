@@ -4,6 +4,12 @@
 // Can auto-fix safe things (kill stale processes, recreate recipes dir).
 //
 // Usage: oracle doctor
+//
+// EXECUTION AUTHORITY NOTE: Doctor is a standalone CLI diagnostic utility.
+// It constructs DefaultProcessAdapter() directly for diagnostic shell commands.
+// This is NOT part of the main runtime hard path (RuntimeBootstrap → RuntimeOrchestrator
+// → VerifiedExecutor). Doctor runs OUTSIDE the bootstrapped runtime by design.
+// The governance tests scan Sources/OracleOS/ only; this target is explicitly excluded.
 
 import AppKit
 import ApplicationServices

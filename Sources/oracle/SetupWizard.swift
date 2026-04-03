@@ -10,6 +10,12 @@
 //   7. Self-test verification
 //
 // Usage: oracle setup
+//
+// EXECUTION AUTHORITY NOTE: SetupWizard is a standalone CLI setup utility.
+// It constructs DefaultProcessAdapter() directly for interactive setup shell commands.
+// This is NOT part of the main runtime hard path (RuntimeBootstrap → RuntimeOrchestrator
+// → VerifiedExecutor). SetupWizard runs OUTSIDE the bootstrapped runtime by design.
+// The governance tests scan Sources/OracleOS/ only; this target is explicitly excluded.
 
 import AppKit
 import ApplicationServices
