@@ -141,6 +141,28 @@ public enum PolicyRules {
         return nil
     }
 
+    /// Compute a stable fingerprint for a typed `Command` payload.
+    ///
+    /// Used by `VerifiedExecutor` to bind an approval receipt to the specific
+    /// action that was approved.  The fingerprint is derived from the **payload**
+    /// content only — it excludes command UUID, timestamps, and approval token,
+    /// so a legitimate retry of the same action produces the same fingerprint.
+    /// A different action submitted with the same token will not match and is rejected.
+    public static func commandFingerprint(_ command: Command) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let seed: String
+        if let data = try? encoder.encode(command.payload),
+           let json = String(data: data, encoding: .utf8)
+        {
+            seed = json
+        } else {
+            seed = command.kind
+        }
+        let digest = SHA256.hash(data: Data(seed.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
     public static func actionFingerprint(intent: ActionIntent, toolName: String?) -> String {
         let seed = [
             toolName ?? "runtime",

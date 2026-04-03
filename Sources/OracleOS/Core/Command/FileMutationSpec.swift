@@ -11,13 +11,13 @@ public struct FileMutationSpec: Sendable, Codable {
     public let path: String
     public let operation: Operation
     public let content: String?
-    public let workspaceRoot: String?
+    public let workspaceRoot: String
 
     public init(
         path: String,
         operation: Operation,
         content: String? = nil,
-        workspaceRoot: String? = nil
+        workspaceRoot: String
     ) {
         self.path = path
         self.operation = operation

@@ -60,10 +60,24 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
     }
 
     public func apply(_ candidate: CandidatePatch) throws {
-        let fileURL = URL(fileURLWithPath: sandboxPath, isDirectory: true)
-            .appendingPathComponent(candidate.workspaceRelativePath, isDirectory: false)
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try candidate.content.write(to: fileURL, atomically: true, encoding: .utf8)
+        let relativePath = candidate.workspaceRelativePath
+        // Enforce sandbox containment — same canonical check pattern as WorkspaceRunner.applyFile.
+        // Reject absolute paths and traversal sequences before canonicalisation.
+        guard !relativePath.hasPrefix("/"), !relativePath.contains("../") else {
+            throw NSError(domain: "WorktreeSandbox", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Candidate path '\(relativePath)' is not a valid sandbox-relative path"
+            ])
+        }
+        let sandboxURL = URL(fileURLWithPath: sandboxPath, isDirectory: true).standardizedFileURL
+        let sandboxPrefix = sandboxURL.path.hasSuffix("/") ? sandboxURL.path : sandboxURL.path + "/"
+        let resolvedURL = sandboxURL.appendingPathComponent(relativePath).standardizedFileURL
+        guard resolvedURL.path.hasPrefix(sandboxPrefix) else {
+            throw NSError(domain: "WorktreeSandbox", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Candidate path '\(relativePath)' resolves outside sandbox '\(sandboxPath)'"
+            ])
+        }
+        try FileManager.default.createDirectory(at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try candidate.content.write(to: resolvedURL, atomically: true, encoding: .utf8)
     }
 
     public func diffSummary(using adapter: any ProcessAdapter) -> String {

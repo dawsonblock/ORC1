@@ -25,95 +25,34 @@ public struct SystemRouter: @unchecked Sendable {
         }
 
         switch command.payload {
-        case .build(let spec):
-            guard let workspaceRunner else {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: "Workspace runner unavailable",
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
+        case .build:
+            // Build commands must use command.type == .code and route through CodeRouter.
+            // All planners emit CommandType.code for build; reaching this case indicates
+            // a misconfigured command source.
+            return CommandRouter.failureOutcome(
+                command: command,
+                reason: "Build commands must use command.type == .code and route through CodeRouter, not SystemRouter",
+                policyDecision: policyDecision,
+                router: "system"
+            )
 
-            let result = try await workspaceRunner.runBuild(spec)
-            let observations = buildObservations(result)
-            
-            if result.exitCode == 0 {
-                return CommandRouter.successOutcome(
-                    command: command,
-                    observations: observations,
-                    artifacts: [],
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            } else {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: truncated(result.stderr, maxLength: 2000),
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
+        case .test:
+            // Test commands must use command.type == .code and route through CodeRouter.
+            return CommandRouter.failureOutcome(
+                command: command,
+                reason: "Test commands must use command.type == .code and route through CodeRouter, not SystemRouter",
+                policyDecision: policyDecision,
+                router: "system"
+            )
 
-        case .test(let spec):
-            guard let workspaceRunner else {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: "Workspace runner unavailable",
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
-
-            let result = try await workspaceRunner.runTest(spec)
-            let observations = buildObservations(result)
-            
-            if result.exitCode == 0 {
-                return CommandRouter.successOutcome(
-                    command: command,
-                    observations: observations,
-                    artifacts: [],
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            } else {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: truncated(result.stderr, maxLength: 2000),
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
-
-        case .git(let spec):
-            guard let workspaceRunner else {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: "Workspace runner unavailable",
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
-
-            let result = try await workspaceRunner.runGit(spec)
-            let observations = buildObservations(result)
-            
-            if result.exitCode == 0 {
-                return CommandRouter.successOutcome(
-                    command: command,
-                    observations: observations,
-                    artifacts: [],
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            } else {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: truncated(result.stderr, maxLength: 2000),
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
+        case .git:
+            // Git commands must use command.type == .code and route through CodeRouter.
+            return CommandRouter.failureOutcome(
+                command: command,
+                reason: "Git commands must use command.type == .code and route through CodeRouter, not SystemRouter",
+                policyDecision: policyDecision,
+                router: "system"
+            )
 
         case .file:
             // File mutations are exclusively handled by CodeRouter via command.type == .code.

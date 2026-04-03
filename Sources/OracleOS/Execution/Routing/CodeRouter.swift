@@ -125,16 +125,12 @@ public struct CodeRouter: @unchecked Sendable {
                 // records the actual on-disk location, not the caller-supplied
                 // (potentially relative) path string.
                 let resolvedPath: String
-                if let root = spec.workspaceRoot {
-                    let rootURL = URL(fileURLWithPath: root, isDirectory: true).standardizedFileURL
-                    let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
-                    let canonical = spec.path.hasPrefix("/")
-                        ? URL(fileURLWithPath: spec.path).standardizedFileURL
-                        : rootURL.appendingPathComponent(spec.path).standardizedFileURL
-                    resolvedPath = canonical.path.hasPrefix(rootPrefix) ? canonical.path : spec.path
-                } else {
-                    resolvedPath = spec.path
-                }
+                let rootURL = URL(fileURLWithPath: spec.workspaceRoot, isDirectory: true).standardizedFileURL
+                let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+                let canonical = spec.path.hasPrefix("/")
+                    ? URL(fileURLWithPath: spec.path).standardizedFileURL
+                    : rootURL.appendingPathComponent(spec.path).standardizedFileURL
+                resolvedPath = canonical.path.hasPrefix(rootPrefix) ? canonical.path : spec.path
                 let fileEvent = DomainEventFactory.fileModified(
                     path: resolvedPath,
                     operation: spec.operation.rawValue,

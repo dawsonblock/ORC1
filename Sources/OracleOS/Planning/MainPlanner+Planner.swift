@@ -101,8 +101,17 @@ extension MainPlanner: Planner {
         if objective.contains("edit") || objective.contains("modify") || objective.contains("patch") {
             let path = intent.metadata["filePath"] ?? ""
             let patch = intent.metadata["patch"] ?? intent.objective
-            let workspacePath = intent.metadata["workspacePath"]
+            guard let workspacePath = intent.metadata["workspacePath"]
                 ?? context.repositorySnapshot?.workspaceRoot
+            else {
+                // Cannot construct a FileMutationSpec without a workspace root.
+                // Fall back to a read-only code command so the pipeline fails cleanly.
+                return Command(
+                    type: CommandType.code,
+                    payload: .code(CodeAction(name: "readFile", filePath: path)),
+                    metadata: metadata
+                )
+            }
             return Command(
                 type: CommandType.code,
                 payload: .file(FileMutationSpec(path: path, operation: .write, content: patch, workspaceRoot: workspacePath)),

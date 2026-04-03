@@ -7,31 +7,31 @@ import OracleOS
 
 extension ControllerRuntimeBridge {
     func mapActionResult(request: ActionRequest, result: ToolResult) -> ActionRunResult {
-        let actionData = result.data?["action_result"] as? [String: Any]
-        let traceData = result.data?["trace"] as? [String: Any]
-        let codeData = result.data?["code_execution"] as? [String: Any]
-        let method = (actionData?["method"] as? String) ?? (result.data?["method"] as? String)
+        let actionData = result.data?[ActionResultKey.actionResult] as? [String: Any]
+        let traceData = result.data?[ActionResultKey.trace] as? [String: Any]
+        let codeData = result.data?[ActionResultKey.codeExecution] as? [String: Any]
+        let method = (actionData?[ActionResultKey.method] as? String) ?? (result.data?[ActionResultKey.method] as? String)
         let observation = ObservationBuilder.capture(appName: request.appName)
-        let elapsedMs = (actionData?["elapsed_ms"] as? Double)
-            ?? Double(actionData?["elapsed_ms"] as? Int ?? 0)
+        let elapsedMs = (actionData?[ActionResultKey.elapsedMs] as? Double)
+            ?? Double(actionData?[ActionResultKey.elapsedMs] as? Int ?? 0)
 
         return ActionRunResult(
             request: request,
-            success: actionData?["success"] as? Bool ?? result.success,
-            verified: actionData?["verified"] as? Bool ?? result.success,
-            message: (actionData?["message"] as? String) ?? result.error ?? result.suggestion,
-            failureClass: actionData?["failure_class"] as? String,
+            success: actionData?[ActionResultKey.success] as? Bool ?? result.success,
+            verified: actionData?[ActionResultKey.verified] as? Bool ?? result.success,
+            message: (actionData?[ActionResultKey.message] as? String) ?? result.error ?? result.suggestion,
+            failureClass: actionData?[ActionResultKey.failureClass] as? String,
             method: method,
             elapsedMs: elapsedMs,
             traceSessionID: traceData?["session_id"] as? String,
             traceStepID: traceData?["step_id"] as? Int,
             resultingObservation: map(observation),
-            approvalRequestID: actionData?["approval_request_id"] as? String ?? result.data?["approval_request_id"] as? String,
-            approvalStatus: actionData?["approval_status"] as? String ?? result.data?["approval_status"] as? String,
-            protectedOperation: actionData?["protected_operation"] as? String,
-            appProtectionProfile: actionData?["app_protection_profile"] as? String,
-            blockedByPolicy: actionData?["blocked_by_policy"] as? Bool ?? false,
-            policyMode: (actionData?["policy_decision"] as? [String: Any])?["policy_mode"] as? String,
+            approvalRequestID: actionData?[ActionResultKey.approvalRequestID] as? String ?? result.data?[ActionResultKey.approvalRequestID] as? String,
+            approvalStatus: actionData?[ActionResultKey.approvalStatus] as? String ?? result.data?[ActionResultKey.approvalStatus] as? String,
+            protectedOperation: actionData?[ActionResultKey.protectedOperation] as? String,
+            appProtectionProfile: actionData?[ActionResultKey.appProtectionProfile] as? String,
+            blockedByPolicy: actionData?[ActionResultKey.blockedByPolicy] as? Bool ?? false,
+            policyMode: (actionData?[ActionResultKey.policyDecision] as? [String: Any])?["policy_mode"] as? String,
             agentKind: traceData?["agent_kind"] as? String,
             plannerFamily: traceData?["planner_family"] as? String,
             commandCategory: codeData?["command_category"] as? String ?? traceData?["command_category"] as? String,

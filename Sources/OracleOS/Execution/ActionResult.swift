@@ -1,3 +1,30 @@
+/// Typed string constants for the dictionary representation of `ActionResult`.
+///
+/// Using these constants in `toDict()`, `from(dict:)`, and all consuming code
+/// eliminates silent key-mismatch bugs caused by inline string literals.
+public enum ActionResultKey {
+    // ActionResult fields
+    public static let success = "success"
+    public static let verified = "verified"
+    public static let elapsedMs = "elapsed_ms"
+    public static let message = "message"
+    public static let method = "method"
+    public static let verificationStatus = "verification_status"
+    public static let failureClass = "failure_class"
+    public static let policyDecision = "policy_decision"
+    public static let protectedOperation = "protected_operation"
+    public static let approvalRequestID = "approval_request_id"
+    public static let approvalStatus = "approval_status"
+    public static let surface = "surface"
+    public static let appProtectionProfile = "app_protection_profile"
+    public static let blockedByPolicy = "blocked_by_policy"
+    public static let executedThroughExecutor = "executed_through_executor"
+    // Top-level ToolResult data keys that nest an ActionResult
+    public static let actionResult = "action_result"
+    public static let trace = "trace"
+    public static let codeExecution = "code_execution"
+}
+
 public struct ActionResult: Sendable, Codable {
     public let success: Bool
     public let verified: Bool
@@ -55,54 +82,54 @@ public struct ActionResult: Sendable, Codable {
 
     public func toDict() -> [String: Any] {
         var result: [String: Any] = [
-            "success": success,
-            "verified": verified,
-            "elapsed_ms": elapsedMs,
+            ActionResultKey.success: success,
+            ActionResultKey.verified: verified,
+            ActionResultKey.elapsedMs: elapsedMs,
         ]
 
         if let message {
-            result["message"] = message
+            result[ActionResultKey.message] = message
         }
         if let method {
-            result["method"] = method
+            result[ActionResultKey.method] = method
         }
         if let verificationStatus {
-            result["verification_status"] = verificationStatus.rawValue
+            result[ActionResultKey.verificationStatus] = verificationStatus.rawValue
         }
         if let failureClass {
-            result["failure_class"] = failureClass
+            result[ActionResultKey.failureClass] = failureClass
         }
         if let policyDecision {
-            result["policy_decision"] = policyDecision.toDict()
+            result[ActionResultKey.policyDecision] = policyDecision.toDict()
         }
         if let protectedOperation {
-            result["protected_operation"] = protectedOperation
+            result[ActionResultKey.protectedOperation] = protectedOperation
         }
         if let approvalRequestID {
-            result["approval_request_id"] = approvalRequestID
+            result[ActionResultKey.approvalRequestID] = approvalRequestID
         }
         if let approvalStatus {
-            result["approval_status"] = approvalStatus
+            result[ActionResultKey.approvalStatus] = approvalStatus
         }
         if let surface {
-            result["surface"] = surface
+            result[ActionResultKey.surface] = surface
         }
         if let appProtectionProfile {
-            result["app_protection_profile"] = appProtectionProfile
+            result[ActionResultKey.appProtectionProfile] = appProtectionProfile
         }
-        result["blocked_by_policy"] = blockedByPolicy
-        result["executed_through_executor"] = executedThroughExecutor
+        result[ActionResultKey.blockedByPolicy] = blockedByPolicy
+        result[ActionResultKey.executedThroughExecutor] = executedThroughExecutor
 
         return result
     }
 
     public static func from(dict: [String: Any]) -> ActionResult? {
-        guard let success = dict["success"] as? Bool else {
+        guard let success = dict[ActionResultKey.success] as? Bool else {
             return nil
         }
 
         let verificationStatus: VerificationStatus?
-        if let raw = dict["verification_status"] as? String {
+        if let raw = dict[ActionResultKey.verificationStatus] as? String {
             verificationStatus = VerificationStatus(rawValue: raw)
         } else {
             verificationStatus = nil
@@ -110,20 +137,20 @@ public struct ActionResult: Sendable, Codable {
 
         return ActionResult(
             success: success,
-            verified: dict["verified"] as? Bool ?? success,
-            message: dict["message"] as? String,
-            method: dict["method"] as? String,
+            verified: dict[ActionResultKey.verified] as? Bool ?? success,
+            message: dict[ActionResultKey.message] as? String,
+            method: dict[ActionResultKey.method] as? String,
             verificationStatus: verificationStatus,
-            failureClass: dict["failure_class"] as? String,
-            elapsedMs: dict["elapsed_ms"] as? Double ?? 0,
+            failureClass: dict[ActionResultKey.failureClass] as? String,
+            elapsedMs: dict[ActionResultKey.elapsedMs] as? Double ?? 0,
             policyDecision: nil,
-            protectedOperation: dict["protected_operation"] as? String,
-            approvalRequestID: dict["approval_request_id"] as? String,
-            approvalStatus: dict["approval_status"] as? String,
-            surface: dict["surface"] as? String,
-            appProtectionProfile: dict["app_protection_profile"] as? String,
-            blockedByPolicy: dict["blocked_by_policy"] as? Bool ?? false,
-            executedThroughExecutor: dict["executed_through_executor"] as? Bool ?? false
+            protectedOperation: dict[ActionResultKey.protectedOperation] as? String,
+            approvalRequestID: dict[ActionResultKey.approvalRequestID] as? String,
+            approvalStatus: dict[ActionResultKey.approvalStatus] as? String,
+            surface: dict[ActionResultKey.surface] as? String,
+            appProtectionProfile: dict[ActionResultKey.appProtectionProfile] as? String,
+            blockedByPolicy: dict[ActionResultKey.blockedByPolicy] as? Bool ?? false,
+            executedThroughExecutor: dict[ActionResultKey.executedThroughExecutor] as? Bool ?? false
         )
     }
 }

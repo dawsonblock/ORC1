@@ -97,14 +97,21 @@ public actor VerifiedExecutor {
            let store = approvalStore,
            let protectedOp = policyDecision.protectedOperation
         {
+            // Compute a deterministic fingerprint from the command payload.
+            // Binds the approval receipt to the specific action being approved:
+            // a different payload submitted with the same token produces a different
+            // fingerprint and is rejected by ApprovalStore.consumeApprovedReceipt.
+            let actionFP = PolicyRules.commandFingerprint(command)
+
             if let token = command.metadata.approvalToken {
-                // Consume the approval receipt. consumeApprovedReceipt deletes the receipt file
-                // on success, making this irrevocably single-use.
-                guard store.consumeApprovedReceipt(requestID: token, actionFingerprint: token) != nil else {
+                // Consume the approval receipt. consumeApprovedReceipt verifies that the
+                // stored fingerprint matches actionFP, then deletes the receipt (single-use).
+                // Wrong token, consumed token, or fingerprint mismatch all return nil.
+                guard store.consumeApprovedReceipt(requestID: token, actionFingerprint: actionFP) != nil else {
                     return failOutcome(
                         command: command,
                         status: .policyBlocked,
-                        reason: "Approval token '\(token)' is invalid, not yet approved, or already consumed"
+                        reason: "Approval token '\(token)' is invalid, already consumed, or was issued for a different action"
                     )
                 }
                 // Receipt consumed — fall through to the allowed guard and then execution.
@@ -120,7 +127,7 @@ public actor VerifiedExecutor {
                     reason: policyDecision.reason ?? "Action classified as risky",
                     riskLevel: policyDecision.riskLevel,
                     protectedOperation: protectedOp,
-                    actionFingerprint: requestID,
+                    actionFingerprint: actionFP,
                     appProtectionProfile: policyDecision.appProtectionProfile
                 )
                 _ = try store.createRequest(request)

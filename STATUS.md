@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-02 (repair pass 4)  
+**Last updated:** 2026-04-02 (repair pass 5)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -41,9 +41,9 @@ RuntimeOrchestrator.submitIntent(_:)
   → reducers / projections applied
 ```
 
-**Approval flow end-to-end:** The approval token is threaded from the MCP tool call (`approvalRequestID` param) → `executeThroughRuntime(approvalToken:)` → `RuntimeExecutionDriver` → intent metadata → `RuntimeOrchestrator` → `CommandMetadata.approvalToken` → `VerifiedExecutor`. Consumption is single-use (file deletion in `ApprovalStore`). Responses carry `approvalRequestID` and `approvalStatus` back to the caller.
+**Approval flow end-to-end:** The approval token is threaded from the MCP tool call (`approvalRequestID` param) → `executeThroughRuntime(approvalToken:)` → `RuntimeExecutionDriver` → intent metadata → `RuntimeOrchestrator` → `CommandMetadata.approvalToken` → `VerifiedExecutor`. Approval receipts are **action-fingerprint-bound**: `PolicyRules.commandFingerprint(_:)` computes a SHA256 of the serialised command payload; this fingerprint is stored in `ApprovalRequest` and checked by `ApprovalStore.consumeApprovedReceipt` — a different command submitted with the same token is rejected. Consumption is single-use (file deletion in `ApprovalStore`). Responses carry `approvalRequestID` and `approvalStatus` back to the caller.
 
-**Experiment subsystem (separate path):** `oracle_experiment_search` is dispatched directly from `MCPDispatch` (async) to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`. This path intentionally bypasses `RuntimeOrchestrator` and `VerifiedExecutor`. Isolation comes from isolated git worktrees. `WorktreeSandbox` does not construct its own `ProcessAdapter` — the adapter is threaded from `WorkspaceRunner`.
+**Experiment subsystem (separate path):** `oracle_experiment_search` is dispatched directly from `MCPDispatch` (async) to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`. This path intentionally bypasses `RuntimeOrchestrator` and `VerifiedExecutor`. Isolation comes from isolated git worktrees. `WorktreeSandbox.apply()` enforces canonical path containment (same check pattern as `WorkspaceRunner.applyFile`) — absolute paths and `../` traversal are rejected before any write. The adapter is threaded from `WorkspaceRunner`.
 
 Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootstrap`, `DomainEvent`, `StateSnapshot`, `CriticLoop`, `PlanSimulator`, `ProgramKnowledgeGraph`, `WorldStateModel`, `ObservationChangeDetector`, `TaskLedger`, `TraceRecorder`, `RepairPipeline`, `BenchmarkBaseline`.
 

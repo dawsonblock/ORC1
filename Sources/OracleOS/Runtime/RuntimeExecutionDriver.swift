@@ -120,12 +120,12 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                     data: [
                         "summary": "Intent submission failed",
                         "method": "intent-api",
-                        "action_result": [
-                            "success": false,
-                            "verified": false,
-                            "executed_through_executor": false,
-                            "failure_class": "intent_submission_failed",
-                            "message": error.localizedDescription,
+                        ActionResultKey.actionResult: [
+                            ActionResultKey.success: false,
+                            ActionResultKey.verified: false,
+                            ActionResultKey.executedThroughExecutor: false,
+                            ActionResultKey.failureClass: "intent_submission_failed",
+                            ActionResultKey.message: error.localizedDescription,
                         ] as [String: Any],
                     ],
                     error: error.localizedDescription
@@ -156,12 +156,12 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                 data: [
                     "summary": "Intent submission timed out",
                     "method": "intent-api",
-                    "action_result": [
-                        "success": false,
-                        "verified": false,
-                        "executed_through_executor": false,
-                        "failure_class": "intent_submission_timeout",
-                        "message": "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
+                    ActionResultKey.actionResult: [
+                        ActionResultKey.success: false,
+                        ActionResultKey.verified: false,
+                        ActionResultKey.executedThroughExecutor: false,
+                        ActionResultKey.failureClass: "intent_submission_timeout",
+                        ActionResultKey.message: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
                     ] as [String: Any],
                 ],
                 error: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s"
@@ -177,36 +177,36 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         let isApprovalPending = response.approvalRequestID != nil
 
         var actionResult: [String: Any] = [
-            "success": success,
-            "verified": success,
-            "executed_through_executor": !isPlanningFailure && !isApprovalPending,
-            "message": response.summary,
-            "method": "intent-api",
+            ActionResultKey.success: success,
+            ActionResultKey.verified: success,
+            ActionResultKey.executedThroughExecutor: !isPlanningFailure && !isApprovalPending,
+            ActionResultKey.message: response.summary,
+            ActionResultKey.method: "intent-api",
         ]
         if response.outcome == .partialSuccess {
-            actionResult["failure_class"] = "partial_success"
+            actionResult[ActionResultKey.failureClass] = "partial_success"
         } else if response.outcome == .failed {
             if isApprovalPending {
-                actionResult["failure_class"] = "approval_pending"
+                actionResult[ActionResultKey.failureClass] = "approval_pending"
             } else {
-                actionResult["failure_class"] = isPlanningFailure ? "planning_failed" : "runtime_failed"
+                actionResult[ActionResultKey.failureClass] = isPlanningFailure ? "planning_failed" : "runtime_failed"
             }
         }
         // Carry approval metadata in a stable location so controller and MCP
         // surfaces read from the same field — not inferred or nested differently.
         if let requestID = response.approvalRequestID {
-            actionResult["approval_request_id"] = requestID
+            actionResult[ActionResultKey.approvalRequestID] = requestID
         }
         if let status = response.approvalStatus {
-            actionResult["approval_status"] = status
+            actionResult[ActionResultKey.approvalStatus] = status
         }
 
         var data: [String: Any] = [
             "summary": response.summary,
             "cycleID": response.cycleID.uuidString,
             "method": "intent-api",
-            "action_result": actionResult,
-            "trace": [
+            ActionResultKey.actionResult: actionResult,
+            ActionResultKey.trace: [
                 "cycle_id": response.cycleID.uuidString,
                 "intent_id": response.intentID.uuidString,
             ] as [String: Any],
@@ -215,7 +215,7 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             data["snapshot_id"] = snapshotID.uuidString
         }
         if let requestID = response.approvalRequestID {
-            data["approval_request_id"] = requestID
+            data[ActionResultKey.approvalRequestID] = requestID
         }
 
         return ToolResult(

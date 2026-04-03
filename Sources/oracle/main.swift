@@ -27,19 +27,11 @@ func main() async {
         await server.run()
 
     case "setup":
-        guard let runtime = try? await RuntimeBootstrap.makeBootstrappedRuntime() else {
-            print("Failed to initialize runtime")
-            return
-        }
-        let wizard = SetupWizard(executor: runtime.container.executor)
+        let wizard = SetupWizard()
         await wizard.run()
 
     case "doctor":
-        guard let runtime = try? await RuntimeBootstrap.makeBootstrappedRuntime() else {
-            print("Failed to initialize runtime")
-            return
-        }
-        var doctor = Doctor(executor: runtime.container.executor)
+        var doctor = Doctor()
         await doctor.run()
 
     case "dashboard":

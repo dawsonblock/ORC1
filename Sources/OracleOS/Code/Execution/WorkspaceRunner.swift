@@ -86,13 +86,9 @@ public final class WorkspaceRunner: @unchecked Sendable {
     /// path-based canonicalisation is used so that the check works even in tests
     /// that supply hypothetical workspace roots.
     public func applyFile(_ spec: FileMutationSpec) async throws {
-        guard let workspaceRootPath = spec.workspaceRoot else {
-            throw WorkspaceRunnerError.scopeViolation("workspaceRoot is required for file mutation")
-        }
-
         // Canonicalise root. standardizedFileURL collapses `.` and `..` without
         // requiring the directory to exist.
-        let rootURL = URL(fileURLWithPath: workspaceRootPath, isDirectory: true).standardizedFileURL
+        let rootURL = URL(fileURLWithPath: spec.workspaceRoot, isDirectory: true).standardizedFileURL
         let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
 
         let resolvedURL: URL
@@ -107,7 +103,7 @@ public final class WorkspaceRunner: @unchecked Sendable {
 
         guard resolvedURL.path.hasPrefix(rootPrefix) else {
             throw WorkspaceRunnerError.scopeViolation(
-                "Path '\(spec.path)' resolves outside workspace '\(workspaceRootPath)'"
+                "Path '\(spec.path)' resolves outside workspace '\(spec.workspaceRoot)'"
             )
         }
 

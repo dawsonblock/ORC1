@@ -13,12 +13,6 @@ import OracleOS
 
 @MainActor
 struct Doctor {
-    let executor: VerifiedExecutor
-
-    init(executor: VerifiedExecutor) {
-        self.executor = executor
-    }
-
     private var issueCount = 0
     private var warningCount = 0
 
@@ -377,17 +371,14 @@ struct Doctor {
     }
 
     private func runShell(_ command: String) async -> ShellResult {
-        // removed local executor
-        let spec = BuildSpec(workspaceRoot: "/", extraArgs: ["-c", command])
-        let cmd = Command(type: .system, payload: .build(spec), metadata: CommandMetadata(intentID: UUID(), source: "doctor"))
+        let adapter = DefaultProcessAdapter()
         do {
-            let outcome = try await executor.execute(cmd)
-            if outcome.status == .success {
-                let output = outcome.observations.map { $0.content }.joined(separator: "\n")
-                return ShellResult(output: output, exitCode: 0)
-            } else {
-                return ShellResult(output: outcome.verifierReport.notes.first ?? outcome.status.rawValue, exitCode: 1)
-            }
+            let result = try await adapter.run(
+                SystemCommand(executable: "/bin/sh", arguments: ["-c", command]),
+                in: nil,
+                policy: nil
+            )
+            return ShellResult(output: result.stdout, exitCode: result.exitCode)
         } catch {
             return ShellResult(output: "\(error)", exitCode: -1)
         }

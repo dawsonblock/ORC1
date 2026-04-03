@@ -20,12 +20,6 @@ import OracleOS
 
 @MainActor
 struct SetupWizard {
-    let executor: VerifiedExecutor
-
-    init(executor: VerifiedExecutor) {
-        self.executor = executor
-    }
-
     func run() async {
         printBanner()
 
@@ -753,17 +747,14 @@ struct SetupWizard {
     }
 
     private func runShell(_ command: String) async -> ShellResult {
-        // removed local executor
-        let spec = BuildSpec(workspaceRoot: "/", extraArgs: ["-c", command])
-        let cmd = Command(type: .system, payload: .build(spec), metadata: CommandMetadata(intentID: UUID(), source: "setup"))
+        let adapter = DefaultProcessAdapter()
         do {
-            let outcome = try await executor.execute(cmd)
-            if outcome.status == .success {
-                let output = outcome.observations.map { $0.content }.joined(separator: "\n")
-                return ShellResult(output: output, exitCode: 0)
-            } else {
-                return ShellResult(output: outcome.verifierReport.notes.first ?? outcome.status.rawValue, exitCode: 1)
-            }
+            let result = try await adapter.run(
+                SystemCommand(executable: "/bin/sh", arguments: ["-c", command]),
+                in: nil,
+                policy: nil
+            )
+            return ShellResult(output: result.stdout, exitCode: result.exitCode)
         } catch {
             return ShellResult(output: "\(error)", exitCode: -1)
         }
@@ -772,19 +763,15 @@ struct SetupWizard {
     /// Run a command with live stdout/stderr output (for progress display).
     /// Returns the exit code.
     private func runShellLive(_ executable: String, args: [String]) async -> Int32 {
-        // removed local executor
-        let spec = BuildSpec(workspaceRoot: "/", extraArgs: args)
-        let cmd = Command(type: .system, payload: .build(spec), metadata: CommandMetadata(intentID: UUID(), source: "setup"))
+        let adapter = DefaultProcessAdapter()
         do {
-            let outcome = try await executor.execute(cmd)
-            if outcome.status == .success {
-                let output = outcome.observations.map { $0.content }.joined(separator: "\n")
-                print(output)
-                return 0
-            } else {
-                print("  ERROR: \(outcome.verifierReport.notes.first ?? outcome.status.rawValue)")
-                return 1
-            }
+            let result = try await adapter.run(
+                SystemCommand(executable: executable, arguments: args),
+                in: nil,
+                policy: nil
+            )
+            print(result.stdout)
+            return result.exitCode
         } catch {
             print("  ERROR: Failed to run \(executable): \(error)")
             return -1
