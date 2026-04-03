@@ -140,3 +140,4 @@ STATUS.md's claim of 4 open violations is stale — already resolved.
 4. **DONE:** `ControllerRuntimeBridge+Mapping.swift` reclassified Category 2; Category 3 leaks do not exist.
 5. **DONE:** MCPDispatch refactor — per-domain extensions extracted; dispatch is now route-only (359 lines).
 6. **DONE:** `scripts/verify-build.sh` exists and records build/test output. Remaining gap: checked-in historical logs are still not current proof unless regenerated in a supported environment.
+7. **DONE:** `Package.swift` — added `exclude: ["Persistence/README.md"]` to the `OracleOS` target. Build is now clean (zero warnings, zero errors).

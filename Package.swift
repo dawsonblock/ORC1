@@ -32,6 +32,7 @@ let package = Package(
                 .product(name: "AXorcist", package: "AXorcist"),
             ],
             path: "Sources/OracleOS",
+            exclude: ["Persistence/README.md"],
             swiftSettings: concurrencySettings,
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
