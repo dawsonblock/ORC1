@@ -214,6 +214,13 @@ guarantee for experiments comes from the worktree boundary, not policy approval.
 > path. All new code must use ``VerifiedExecutor`` routed through
 > ``RuntimeOrchestrator.submitIntent(_:)``.
 
+**Process() containment:** All `Foundation.Process()` constructor calls are confined to
+`Sources/OracleOS/Execution/DefaultProcessAdapter.swift` and
+`Sources/OracleOS/Execution/DefaultProcessAdapter+Daemon.swift`. No other file in
+`Sources/OracleOS/` constructs a `Process()` directly. The CLI tools (`oracle doctor`,
+`oracle setup`) are the only exception — they call `DefaultProcessAdapter` directly without
+going through `VerifiedExecutor`, as documented in their `EXECUTION AUTHORITY NOTE` headers.
+
 ### Event Typing and Commit Flow
 
 Primary files:
@@ -343,11 +350,11 @@ Responsibilities:
 - enforce trust tiers
 - promote, demote, and prune through policy
 
-### Task Graph
+### Task Ledger
 
 Primary files:
 
-- `Sources/OracleOS/TaskGraph/*`
+- `Sources/OracleOS/TaskLedger/*`
 
 Responsibilities:
 
@@ -489,7 +496,7 @@ OracleCore
 ├── Events                  (EventStore, CommitCoordinator, DomainEvent, CommitReceipt)
 ├── State                   (StateSnapshot, SnapshotStore, Reducers)
 ├── Graph                   (long-term knowledge)
-├── TaskGraph               (runtime task tracking)
+├── TaskLedger              (runtime task tracking — TaskLedger, TaskLedgerStore, LedgerNavigator)
 ├── Memory                  (session memory)
 ├── ProjectMemory           (repository knowledge)
 ├── Experiments             (parallel patch testing)
@@ -527,7 +534,7 @@ observe environment
   → execute candidate actions (VerifiedExecutor via RuntimeOrchestrator)
   → critic evaluates each result (CriticLoop)
   → select best verified result (ResultSelector)
-  → critic verdict drives graph promotion/demotion (TaskGraphStore)
+  → critic verdict drives ledger promotion/demotion (TaskLedgerStore)
   → update state memory with outcome (StateMemoryIndex)
   → record metrics (MetricsRecorder)
   → record step for replay (TraceReplayEngine)

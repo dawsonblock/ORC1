@@ -1,140 +1,16 @@
 import XCTest
 @testable import OracleOS
 
-/// Phase 7: Remove Transitional Artifacts
-/// Verify no alternate execution paths exist outside the unified spine.
+/// Transitional Artifact Removal — source-scan enforcement tests.
+///
+/// These tests verify that execution routing consolidation is permanent:
+/// no legacy planner symbols, no stray executor instantiations, no rogue
+/// container constructions survive in the production source tree.
+///
+/// Complementary behavioral tests live in `ExecutionBoundaryEnforcementTests`.
 class TransitionalArtifactRemovalTests: XCTestCase {
 
-    // MARK: - Verify Single Execution Entry Point
-
-    @MainActor
-    func testOnlyRuntimeOrchestratorIsExecutionEntry() {
-        // Verify that RuntimeOrchestrator.submitIntent() is the sole entry point
-        // for all intent-based execution
-
-        // RuntimeExecutionDriver and all other surfaces must route through IntentAPI
-        // which is implemented by RuntimeOrchestrator
-
-        let expectation = expectation(description: "Execution entry verified")
-        Task {
-            // This should be the only way to submit intent
-            let intent = Intent(
-                domain: .code,
-                objective: "test",
-                metadata: [:]
-            )
-            XCTAssertNotNil(intent)
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 1.0)
-    }
-
-    // MARK: - Verify No Alternate Execution Paths
-
-    @MainActor
-    func testNoDirectExecutorCallsOutsideRuntimeOrchestrator() {
-        // Verify that VerifiedExecutor is not directly instantiated elsewhere
-        // (This is a documentation test; real verification via grep)
-
-        // Expected:
-        //   grep -r "VerifiedExecutor(" Sources/OracleOS --include="*.swift"
-        //   → Should only appear in RuntimeBootstrap and tests
-
-        // The executor should be created ONCE by RuntimeBootstrap
-        // and passed via RuntimeContainer to all other components
-
-        let policyEngine = PolicyEngine.shared
-        let processAdapter = DefaultProcessAdapter(policyEngine: policyEngine)
-        let commandRouter = CommandRouter(
-            workspaceRunner: WorkspaceRunner(processAdapter: processAdapter),
-            repositoryIndexer: RepositoryIndexer(processAdapter: processAdapter)
-        )
-        let executor = VerifiedExecutor(
-            policyEngine: policyEngine,
-            commandRouter: commandRouter,
-            preconditionsValidator: PreconditionsValidator(),
-            postconditionsValidator: PostconditionsValidator()
-        )
-        XCTAssertNotNil(executor)
-    }
-
-    // MARK: - Verify Legacy Planners Are Not in Active Path
-
-    @MainActor
-    func testLegacyPlannersNotInActiveExecutionPath() {
-        // MixedTaskPlanner and PlannerDecision are legacy artifacts
-        // They should not be called during normal operation
-
-        // Expected:
-        //   grep -r "planner.nextStep\|mixedTaskPlanner.plan" Sources/OracleOS/Runtime
-        //   → Should return no results (not in runtime spine)
-
-        // Instead, only Planner.plan(intent, context) should be used
-        let planner = MainPlanner()
-        XCTAssertNotNil(planner)
-    }
-
-    // MARK: - Verify Unified Intent-Based Spine
-
-    @MainActor
-    func testUnifiedIntentSpineIsOnlyPath() {
-        // The unified spine is:
-        //   Intent → RuntimeOrchestrator → Planner → VerifiedExecutor → Commit
-
-        // All surfaces (MCP, CLI, Controller, AgentLoop) must use this spine
-
-        // Expected call chain:
-        //   1. Surface creates Intent
-        //   2. RuntimeOrchestrator.submitIntent(intent)
-        //   3. Planner.plan(intent, context) → Command
-        //   4. VerifiedExecutor.execute(command) → ExecutionOutcome
-        //   5. CommitCoordinator.commit(events) → CommitReceipt
-
-        let domain: IntentDomain = .code
-        XCTAssertEqual(domain, .code)
-
-        // Domain intent should map to typed command through planner
-    }
-
-    // MARK: - Verify No State Mutation Outside Commit
-
-    @MainActor
-    func testNoDirectStateWritesOutsideCommitCoordinator() {
-        // Verify WorldStateModel is not directly mutated outside CommitCoordinator
-        // (This is a compile-time check: WorldStateModel has no public mutating methods)
-
-        let state = WorldStateModel()
-        XCTAssertNotNil(state.snapshot)  // Only snapshot() is public
-    }
-
-    // MARK: - Verify Boot Path Is Single Authority
-
-    @MainActor
-    func testRuntimeBootstrapIsOnlyContainer() {
-        // Verify RuntimeBootstrap.makeBootstrappedRuntime() is the sole container factory
-        // (This is a documentation test; RuntimeContainer should not be instantiated elsewhere)
-
-        // Expected:
-        //   grep -r "RuntimeContainer(" Sources/OracleOS/Runtime --include="*.swift"
-        //   → Should only appear in RuntimeBootstrap
-
-        let config = RuntimeConfig.test()
-        XCTAssertNotNil(config)
-    }
-
-    // MARK: - Verification: No Configuration Variations
-
-    @MainActor
-    func testNoAlternateRuntimeConfigurationPaths() {
-        // Verify there's only one way to configure the runtime
-        // RuntimeConfig should have sensible defaults or explicit configuration
-
-        let liveConfig = RuntimeConfig.live()
-        let testConfig = RuntimeConfig.test()
-
-        XCTAssertNotNil(liveConfig)
-        XCTAssertNotNil(testConfig)
-    }
+    // MARK: - Source helpers
 
     private func repositoryRoot() -> URL {
         var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -147,14 +23,138 @@ class TransitionalArtifactRemovalTests: XCTestCase {
         }
     }
 
-    func test_system_router_does_not_directly_spawn_processes() throws {
-        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/Execution/Routing/SystemRouter.swift")
-        guard let text = try? String(contentsOf: sourcePath, encoding: .utf8) else { return }
-        
-        let forbidden = ["DefaultProcessAdapter(", "/bin/zsh", "/bin/bash", "\"-c\"", "Process("]
-        for pattern in forbidden {
-            XCTAssertFalse(text.contains(pattern), "SystemRouter contains \(pattern)")
+    /// Returns all non-comment lines from a Swift source file.
+    private func nonCommentLines(at filePath: String) throws -> [String] {
+        let content = try String(contentsOfFile: filePath, encoding: .utf8)
+        return content.components(separatedBy: .newlines).filter {
+            !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//")
         }
+    }
+
+    // MARK: - ENFORCE: VerifiedExecutor instantiated only by RuntimeBootstrap
+
+    /// The executor is wired once by `RuntimeBootstrap` and threaded through
+    /// `RuntimeContainer`. Any stray construction elsewhere creates split authority.
+    func testVerifiedExecutorInstantiatedOnlyByBootstrap() throws {
+        let root = repositoryRoot()
+        let osaPath = root.appendingPathComponent("Sources/OracleOS")
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(atPath: osaPath.path) else { return }
+
+        var violations: [String] = []
+        for case let file as String in enumerator {
+            guard file.hasSuffix(".swift") else { continue }
+            let fullPath = osaPath.appendingPathComponent(file).path
+            // Bootstrap must instantiate it; no other OracleOS file should.
+            if fullPath.hasSuffix("RuntimeBootstrap.swift") { continue }
+
+            let lines = try nonCommentLines(at: fullPath)
+            for (index, line) in lines.enumerated() {
+                if line.contains("VerifiedExecutor(") {
+                    violations.append("\(file):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+        }
+
+        XCTAssertTrue(violations.isEmpty,
+            "VerifiedExecutor must only be instantiated by RuntimeBootstrap. " +
+            "Found stray instantiation(s):\n\(violations.joined(separator: "\n"))")
+    }
+
+    // MARK: - ENFORCE: RuntimeContainer instantiated only by RuntimeBootstrap
+
+    /// A second `RuntimeContainer` would create a split kernel — all services
+    /// must be obtained from the single container RuntimeBootstrap provides.
+    func testRuntimeContainerInstantiatedOnlyByBootstrap() throws {
+        let root = repositoryRoot()
+        let osaPath = root.appendingPathComponent("Sources/OracleOS")
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(atPath: osaPath.path) else { return }
+
+        var violations: [String] = []
+        for case let file as String in enumerator {
+            guard file.hasSuffix(".swift") else { continue }
+            let fullPath = osaPath.appendingPathComponent(file).path
+            if fullPath.hasSuffix("RuntimeBootstrap.swift") { continue }
+
+            let lines = try nonCommentLines(at: fullPath)
+            for (index, line) in lines.enumerated() {
+                if line.contains("RuntimeContainer(") {
+                    violations.append("\(file):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+        }
+
+        XCTAssertTrue(violations.isEmpty,
+            "RuntimeContainer must only be instantiated by RuntimeBootstrap. " +
+            "Found stray instantiation(s):\n\(violations.joined(separator: "\n"))")
+    }
+
+    // MARK: - ENFORCE: Legacy planner symbols absent from Sources
+
+    /// `MixedTaskPlanner` and the `planner.nextStep` call pattern were removed
+    /// during routing consolidation. Their reappearance indicates regression.
+    func testLegacyPlannerSymbolsAbsent() throws {
+        let root = repositoryRoot()
+        let srcPath = root.appendingPathComponent("Sources")
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(atPath: srcPath.path) else { return }
+
+        let forbidden = ["MixedTaskPlanner", "planner.nextStep"]
+        var violations: [String] = []
+        for case let file as String in enumerator {
+            guard file.hasSuffix(".swift") else { continue }
+            let fullPath = srcPath.appendingPathComponent(file).path
+            let lines = try nonCommentLines(at: fullPath)
+            for (index, line) in lines.enumerated() {
+                for pattern in forbidden {
+                    if line.contains(pattern) {
+                        violations.append("\(file):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                    }
+                }
+            }
+        }
+
+        XCTAssertTrue(violations.isEmpty,
+            "Legacy planner symbols must not appear in Sources. " +
+            "Found:\n\(violations.joined(separator: "\n"))")
+    }
+
+    // MARK: - ENFORCE: SystemRouter tombstone has no live Swift declarations
+
+    /// SystemRouter was deleted in ORC1-main-5. The tombstone file (explaining
+    /// the removal) must contain only comments — no active type or function
+    /// declarations that could re-introduce a stale routing path.
+    func testSystemRouterTombstoneHasNoLiveDeclarations() throws {
+        let root = repositoryRoot()
+        let tombstonePath = root
+            .appendingPathComponent("Sources/OracleOS/Execution/Routing/SystemRouter.swift")
+            .path
+
+        guard FileManager.default.fileExists(atPath: tombstonePath) else { return }
+        let content = try String(contentsOfFile: tombstonePath, encoding: .utf8)
+
+        // All non-blank lines in a pure tombstone must be comments.
+        let liveLines = content.components(separatedBy: .newlines).filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return !trimmed.isEmpty && !trimmed.hasPrefix("//")
+        }
+
+        XCTAssertTrue(liveLines.isEmpty,
+            "SystemRouter.swift tombstone must contain only comments. " +
+            "Found live code lines:\n\(liveLines.joined(separator: "\n"))")
+    }
+
+    // MARK: - Verify No State Mutation Outside Commit
+
+    /// `WorldStateModel` exposes only `snapshot()` publicly (no public mutating
+    /// methods). This test confirms the model can be instantiated and that
+    /// `snapshot` is accessible — the compile-time immutability guarantee is
+    /// enforced by Swift's access control, not runtime assertions.
+    @MainActor
+    func testWorldStateModelExposesOnlySnapshot() {
+        let state = WorldStateModel()
+        XCTAssertNotNil(state.snapshot)
     }
 
 }

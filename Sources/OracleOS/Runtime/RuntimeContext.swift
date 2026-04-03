@@ -1,11 +1,25 @@
 import Foundation
 
-/// RuntimeContext provides read-side facades, peripheral services, and integration adapters
-/// for the runtime environment. It is NOT the authoritative execution kernel — that role
-/// belongs to RuntimeContainer and the VerifiedExecutor/CommitCoordinator/CommandRouter
-/// spine that RuntimeContainer owns.
+/// RuntimeContext: boundary-guard facade — NOT instantiated in any live production code path.
 ///
-/// What this class exposes:
+/// This class is NOT created or used by RuntimeBootstrap, RuntimeOrchestrator, MCPDispatch,
+/// ControllerRuntimeBridge, or any other live production path. Its sole live role is:
+///
+///   1. **Compile-time guards:** The `@available(*, unavailable)` extensions at the bottom of
+///      this file prevent policyEngine, workspaceRunner, and repositoryIndexer from ever being
+///      added back to a context-like object. These are the execution-adjacent services that must
+///      remain in RuntimeContainer only.
+///
+///   2. **Enforcement test surface:** Governance tests in
+///      `Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift` scan this file
+///      to confirm the forbidden properties remain absent and the `@available` guards remain present.
+///
+/// If you are building a read-side convenience wrapper over RuntimeContainer, do NOT extend
+/// this class. Create a dedicated, narrow struct for your consumer instead.
+///
+/// The definitive runtime authority remains: RuntimeContainer → VerifiedExecutor → CommitCoordinator.
+///
+/// What this class would expose (if instantiated):
 /// - Observability: traceRecorder, traceStore, artifactWriter, metricsRecorder, telemetry
 /// - State stores: approvalStore, graphStore, memoryStore, stateAbstraction
 /// - Analysis and evaluation: criticLoop, architectureEngine, recoveryEngine, experimentManager

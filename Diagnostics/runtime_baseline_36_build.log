@@ -1,1 +1,3 @@
+# INVALID CAPTURE — swift not found on PATH; no build output was recorded.
+# See Diagnostics/README.md for details.
 bash: line 1: swift: command not found

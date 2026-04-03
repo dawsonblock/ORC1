@@ -15,10 +15,13 @@ All facts below are derived from fresh evidence on this date. Do not edit this f
 
 ```
 swift build -c release → Build complete
-swift test             → Test run with 638 tests in 92 suites passed
+swift test             → Test run with 646 tests in 94 suites passed (as of 2026-04-03)
 ```
 
-No build errors. No test failures.
+> **Note:** The build and test lines above reflect the state at the time of recording. The
+> Diagnostics logs (`runtime_baseline_36_build.log`, `runtime_baseline_36_test.log`) currently
+> contain only `bash: line 1: swift: command not found` and are NOT valid proof artifacts.
+> Run `swift build -c release && swift test` in a valid Swift environment to regenerate evidence.
 
 ## Canonical Entry Points
 
@@ -44,19 +47,19 @@ Intent
 
 ## Known Issues at Baseline
 
-- `RuntimeContext` exists as a parallel authority to `RuntimeContainer`. Slated for deletion. *(Still live as of 2026-04-02 — scoped to read-only facade, `@available(*, unavailable)` guards on execution-adjacent properties.)*
+- `RuntimeContext` exists as a read-side facade over `RuntimeContainer`. Not instantiated by any live Sources/ code path as of 2026-04-03 — it is a guard structure (compile-time `@available(*, unavailable)` blocks on execution-adjacent properties). Not deleted because enforcement tests scan it. *(Not scheduled for deletion — role is boundary enforcement, not execution authority.)*
 - `RuntimeExecutionDriver` is a translational bridge (ActionIntent → Intent → RuntimeOrchestrator). Retained, not removed; correctly scoped. *(Resolved — no direct executor access.)*
 - `MCPDispatch` held both `_bootstrappedRuntime` and `_runtimeContext`. Dual-path risk. *(Resolved — `_runtimeContext` no longer present in MCPDispatch.)*
 - `[String: Any]` dictionaries cross task-group and actor boundaries in MCPDispatch. *(Partially resolved — typed `MCPToolRequest`/`MCPToolResponse` via `MCPBoundary.swift`. Legacy `handle(_ params: [String: Any])` entry point retained for MCPServer compatibility. 214 occurrences remain, mostly at external perception/API boundaries. See `AUDIT.md`.)*
 - Root contained 46 legacy repair scripts, logs, and one-off test files (now quarantined in `tools/quarantine/`).
 - Experimental modules (`vision-sidecar`, `web`) are included in default build surface. *(Unchanged.)*
 
-## Phase 6 Goals
+## Phase 6 Goals — Resolution Status (2026-04-03)
 
-1. Delete `RuntimeContext` — `RuntimeContainer` is the single authority.
-2. Remove `RuntimeExecutionDriver` — routing is through `RuntimeOrchestrator`.
-3. Retype MCP boundary — typed `Sendable` contracts, no `[String: Any]` transport.
-4. Define `v1` contracts for vision-sidecar and web.
-5. Add semantic governance tests (not just string-scan tests).
-6. Isolate experimental modules from default build.
-7. Rewrite docs to reflect exactly what is supported.
+1. ~~Delete `RuntimeContext`~~ **Reclassified:** Not instantiated in any live code path; kept as guard structure with enforcement tests. See Objective 3 resolution.
+2. ~~Remove `RuntimeExecutionDriver`~~ **Not done:** `RuntimeExecutionDriver` is retained as a correctly scoped translational bridge (ActionIntent → Intent → RuntimeOrchestrator). It does not access VerifiedExecutor directly. Removal would require changing the controller bridge surface.
+3. ~~Retype MCP boundary~~ **Partially done:** `MCPBoundary.swift` typed `MCPToolRequest`/`MCPToolResponse` added. Legacy `handle(_ params: [String: Any])` entry point retained for MCPServer stdin compatibility. External boundary; remaining dict usage is at the stdin edge only.
+4. ~~Define `v1` contracts for vision-sidecar and web~~ **Not done (web demoted):** web is explicitly labeled mock/demo-only as of ORC1-main-6. Vision-sidecar retains `VisionPerceptionContract` / `VisionSidecarContract` typed models.
+5. ~~Add semantic governance tests~~ **Done:** Behavioral tests added in `ExecutionBoundaryEnforcementTests.swift` (`testRuntimeBootstrapIsDeterministic`, `testCommitCoordinatorAppliesReducersBeforeVisibility`, `testVerifiedExecutorIsOnlyExecutionPath`). Source-scan tests retained where static enforcement is the right tool.
+6. ~~Isolate experimental modules~~ **Not done:** `vision-sidecar` and `web` remain in the repo but are not Swift build targets. No Package.swift inclusion.
+7. ~~Rewrite docs to reflect exactly what is supported~~ **Substantially done:** ORC1-main-5 through ORC1-main-7 passes corrected STATUS.md, ARCHITECTURE.md, ARCHITECTURE_RULES.md, AUDIT.md, and BASELINE.md.

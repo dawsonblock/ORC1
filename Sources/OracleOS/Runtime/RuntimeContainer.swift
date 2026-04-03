@@ -149,7 +149,7 @@ public struct RecoveryReport: Sendable, Equatable {
 }
 
 /// Bundle returned by RuntimeBootstrap containing all runtime components.
-/// Use this instead of creating RuntimeContext separately.
+/// This is the authoritative handle passed between surfaces. RuntimeContext is not used.
 public struct BootstrappedRuntime: @unchecked Sendable {
     public let container: RuntimeContainer
     public let orchestrator: RuntimeOrchestrator
