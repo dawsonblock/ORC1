@@ -88,7 +88,7 @@ public enum VisionBridge {
 
     /// Check if the vision sidecar is running and responsive.
     public static func isAvailable() -> Bool {
-        guard let result = httpGet(path: "/health", timeout: healthTimeout) else {
+        guard let result = httpGet(path: VisionSidecarEndpoint.health, timeout: healthTimeout) else {
             return false
         }
         return result["status"] != nil
@@ -96,7 +96,7 @@ public enum VisionBridge {
 
     /// Get detailed health status from the sidecar.
     public static func healthCheck() -> [String: Any]? {
-        httpGet(path: "/health", timeout: healthTimeout)
+        httpGet(path: VisionSidecarEndpoint.health, timeout: healthTimeout)
     }
 
     // MARK: - VLM Grounding
@@ -160,7 +160,7 @@ public enum VisionBridge {
         // Use longer timeout for first call (model needs to load ~10-15s)
         let timeout = lifecycle.hasCompletedFirstGround ? groundTimeout : firstGroundTimeout
 
-        guard let result = httpPost(path: "/ground", body: payload, timeout: timeout) else {
+        guard let result = httpPost(path: VisionSidecarEndpoint.ground, body: payload, timeout: timeout) else {
             Log.warn("Vision sidecar /ground request failed")
             return nil
         }
@@ -197,7 +197,7 @@ public enum VisionBridge {
             "screen_w": screenWidth,
             "screen_h": screenHeight,
         ]
-        return httpPost(path: "/detect", body: payload, timeout: groundTimeout)
+        return httpPost(path: VisionSidecarEndpoint.detect, body: payload, timeout: groundTimeout)
     }
 
     // MARK: - Screen Parsing
@@ -213,7 +213,7 @@ public enum VisionBridge {
             "screen_w": screenWidth,
             "screen_h": screenHeight,
         ]
-        return httpPost(path: "/parse", body: payload, timeout: groundTimeout)
+        return httpPost(path: VisionSidecarEndpoint.parse, body: payload, timeout: groundTimeout)
     }
 
     // MARK: - Sidecar Lifecycle

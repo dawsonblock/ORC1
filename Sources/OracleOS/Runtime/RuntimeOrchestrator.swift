@@ -24,7 +24,7 @@ public actor RuntimeOrchestrator: IntentAPI {
             criticOutcome = .success
         case .partialSuccess:
             criticOutcome = .partialSuccess
-        case .failed, .preconditionFailed, .postconditionFailed, .policyBlocked:
+        case .failed, .preconditionFailed, .postconditionFailed, .policyBlocked, .approvalPending:
             criticOutcome = .failure
         }
 
@@ -134,7 +134,7 @@ extension RuntimeOrchestrator {
         switch executionOutcome.status {
         case .success:
             outcome = .success
-        case .failed, .preconditionFailed, .postconditionFailed, .policyBlocked:
+        case .failed, .preconditionFailed, .postconditionFailed, .policyBlocked, .approvalPending:
             outcome = .failed
         case .partialSuccess:
             outcome = .partialSuccess

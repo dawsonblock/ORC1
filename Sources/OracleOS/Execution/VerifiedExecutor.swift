@@ -31,19 +31,22 @@ public actor VerifiedExecutor {
     private let preconditionsValidator: PreconditionsValidator
     private let postconditionsValidator: PostconditionsValidator
     private let stateProvider: (any WorldStateProviding)?
+    private let approvalStore: ApprovalStore?
 
     public init(
         policyEngine: PolicyEngine,
         commandRouter: CommandRouter,
         preconditionsValidator: PreconditionsValidator,
         postconditionsValidator: PostconditionsValidator,
-        stateProvider: (any WorldStateProviding)? = nil
+        stateProvider: (any WorldStateProviding)? = nil,
+        approvalStore: ApprovalStore? = nil
     ) {
         self.policyEngine = policyEngine
         self.commandRouter = commandRouter
         self.preconditionsValidator = preconditionsValidator
         self.postconditionsValidator = postconditionsValidator
         self.stateProvider = stateProvider
+        self.approvalStore = approvalStore
     }
 
     /// Execute a validated command and return outcome with events.
@@ -83,6 +86,34 @@ public actor VerifiedExecutor {
         }
 
         let policyDecision = try policyEngine.validate(command)
+
+        // GUARD: Approval gate — halt execution and create an approval request when
+        // the policy engine marks the action as risky-but-approvable. The caller
+        // receives an .approvalPending outcome and must poll / wait for the user to
+        // approve via the Controller UI (or CLI) before re-submitting.
+        if policyDecision.requiresApproval,
+           let store = approvalStore,
+           let protectedOp = policyDecision.protectedOperation
+        {
+            let request = ApprovalRequest(
+                surface: policyDecision.surface,
+                toolName: command.kind,
+                appName: nil,
+                displayTitle: "\(command.kind) requires approval",
+                reason: policyDecision.reason ?? "Action classified as risky",
+                riskLevel: policyDecision.riskLevel,
+                protectedOperation: protectedOp,
+                actionFingerprint: command.id.uuidString,
+                appProtectionProfile: policyDecision.appProtectionProfile
+            )
+            _ = try store.createRequest(request)
+            return approvalPendingOutcome(
+                command: command,
+                requestID: request.id,
+                reason: policyDecision.reason ?? "Approval required"
+            )
+        }
+
         guard policyDecision.allowed else {
             return failOutcome(
                 command: command,
@@ -125,6 +156,25 @@ public actor VerifiedExecutor {
                 reason: error.localizedDescription
             )
         }
+    }
+
+    private func approvalPendingOutcome(command: Command, requestID: String, reason: String) -> ExecutionOutcome {
+        let report = VerifierReport(
+            commandID: command.id,
+            preconditionsPassed: true,
+            policyDecision: "approval-pending:\(requestID)",
+            postconditionsPassed: false,
+            notes: [reason]
+        )
+        let event = DomainEventFactory.commandFailed(command: command, error: "approval-pending:\(requestID)")
+        return ExecutionOutcome(
+            commandID: command.id,
+            status: .approvalPending,
+            observations: [],
+            artifacts: [],
+            events: [event],
+            verifierReport: report
+        )
     }
 
     private func failOutcome(

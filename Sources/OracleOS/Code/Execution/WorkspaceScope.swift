@@ -35,14 +35,28 @@ public struct WorkspaceScope: Sendable, Equatable {
             throw WorkspaceScopeError.missingPath(relativePath)
         }
 
-        let candidate = rootURL.appendingPathComponent(relativePath).standardizedFileURL
-        guard candidate.path.hasPrefix(rootURL.path) else {
+        let candidate: URL
+        if relativePath.hasPrefix("/") {
+            // Absolute path — check containment directly; do NOT append to root.
+            candidate = URL(fileURLWithPath: relativePath).standardizedFileURL
+        } else {
+            // Relative path — appendingPathComponent + standardizedFileURL eliminates
+            // any `../` traversal sequences before the containment check.
+            candidate = rootURL.appendingPathComponent(relativePath).standardizedFileURL
+        }
+
+        // Require trailing slash on root so that /tmp/workspace-evil does not
+        // match root /tmp/workspace.
+        let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        guard candidate.path.hasPrefix(rootPrefix) || candidate.path == rootURL.path else {
             throw WorkspaceScopeError.outsideWorkspace(candidate.path)
         }
         return candidate
     }
 
     public func contains(_ url: URL) -> Bool {
-        url.standardizedFileURL.path.hasPrefix(rootURL.path)
+        let standardized = url.standardizedFileURL
+        let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        return standardized.path.hasPrefix(rootPrefix) || standardized.path == rootURL.path
     }
 }

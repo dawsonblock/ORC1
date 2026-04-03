@@ -74,13 +74,17 @@ public enum RuntimeBootstrap {
             repositoryIndexer: repositoryIndexer
         )
 
+        // Create ApprovalStore before the executor so it can be injected.
+        let approvalStore = ApprovalStore(rootDirectory: configuration.approvalsDirectory)
+
         // Create executor with state provider and preconditions
         let executor = VerifiedExecutor(
             policyEngine: policyEngine,
             commandRouter: commandRouter,
             preconditionsValidator: PreconditionsValidator(),
             postconditionsValidator: PostconditionsValidator(),
-            stateProvider: stateProvider
+            stateProvider: stateProvider,
+            approvalStore: approvalStore
         )
 
         let impactAnalyzer = RepositoryChangeImpactAnalyzer()
@@ -93,7 +97,7 @@ public enum RuntimeBootstrap {
         let traceRecorder = TraceRecorder()
         let traceStore = ExperienceStore()
         let artifactWriter = FailureArtifactWriter()
-        let approvalStore = ApprovalStore(rootDirectory: configuration.approvalsDirectory)
+        // approvalStore is already created above and passed to the executor.
         let metricsRecorder = MetricsRecorder()
         
         // Create shared stateful read-side services (MainActor-dependent)

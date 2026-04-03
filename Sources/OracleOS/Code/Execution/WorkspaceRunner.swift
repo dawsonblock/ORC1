@@ -79,25 +79,62 @@ public final class WorkspaceRunner: @unchecked Sendable {
     }
 
     /// Apply a file mutation with typed spec.
+    ///
+    /// Enforces workspace containment: the resolved target path must reside inside
+    /// `spec.workspaceRoot`. Both relative (including `../` traversal) and absolute
+    /// paths are checked. No directory existence is required for the root — purely
+    /// path-based canonicalisation is used so that the check works even in tests
+    /// that supply hypothetical workspace roots.
     public func applyFile(_ spec: FileMutationSpec) async throws {
-        let url = URL(fileURLWithPath: spec.path)
-        
+        guard let workspaceRootPath = spec.workspaceRoot else {
+            throw WorkspaceRunnerError.scopeViolation("workspaceRoot is required for file mutation")
+        }
+
+        // Canonicalise root. standardizedFileURL collapses `.` and `..` without
+        // requiring the directory to exist.
+        let rootURL = URL(fileURLWithPath: workspaceRootPath, isDirectory: true).standardizedFileURL
+        let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+
+        let resolvedURL: URL
+        if spec.path.hasPrefix("/") {
+            // Absolute path — check containment directly (do NOT append to root).
+            resolvedURL = URL(fileURLWithPath: spec.path).standardizedFileURL
+        } else {
+            // Relative path — appendingPathComponent + standardizedFileURL eliminates
+            // any `../` traversal sequences.
+            resolvedURL = rootURL.appendingPathComponent(spec.path).standardizedFileURL
+        }
+
+        guard resolvedURL.path.hasPrefix(rootPrefix) else {
+            throw WorkspaceRunnerError.scopeViolation(
+                "Path '\(spec.path)' resolves outside workspace '\(workspaceRootPath)'"
+            )
+        }
+
         switch spec.operation {
         case .write:
             guard let content = spec.content else {
-                throw NSError(domain: "FileMutation", code: 1, userInfo: [NSLocalizedDescriptionKey: "Write operation requires content"])
+                throw WorkspaceRunnerError.scopeViolation("Write operation requires content")
             }
-            try content.write(to: url, atomically: true, encoding: .utf8)
-            
+            try FileManager.default.createDirectory(
+                at: resolvedURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try content.write(to: resolvedURL, atomically: true, encoding: .utf8)
+
         case .delete:
-            try FileManager.default.removeItem(at: url)
-            
+            try FileManager.default.removeItem(at: resolvedURL)
+
         case .append:
             guard let content = spec.content else {
-                throw NSError(domain: "FileMutation", code: 1, userInfo: [NSLocalizedDescriptionKey: "Append operation requires content"])
+                throw WorkspaceRunnerError.scopeViolation("Append operation requires content")
             }
-            let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            try (existing + content).write(to: url, atomically: true, encoding: .utf8)
+            try FileManager.default.createDirectory(
+                at: resolvedURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let existing = (try? String(contentsOf: resolvedURL, encoding: .utf8)) ?? ""
+            try (existing + content).write(to: resolvedURL, atomically: true, encoding: .utf8)
         }
     }
 
@@ -105,14 +142,11 @@ public final class WorkspaceRunner: @unchecked Sendable {
 
     private func buildArgs(_ spec: BuildSpec) -> [String] {
         var args = ["build"]
-        if let scheme = spec.scheme {
-            args.append(contentsOf: ["-scheme", scheme])
-        }
+        // `--configuration` is the valid SwiftPM flag (Debug / Release).
+        // `scheme` and `destination` are Xcode-only and have no meaning for
+        // `swift build` — they are intentionally omitted here.
         if let config = spec.configuration {
-            args.append(contentsOf: ["-configuration", config])
-        }
-        if let dest = spec.destination {
-            args.append(contentsOf: ["-destination", dest])
+            args.append(contentsOf: ["--configuration", config])
         }
         args.append(contentsOf: spec.extraArgs)
         return args
@@ -120,14 +154,10 @@ public final class WorkspaceRunner: @unchecked Sendable {
 
     private func testArgs(_ spec: TestSpec) -> [String] {
         var args = ["test"]
-        if let scheme = spec.scheme {
-            args.append(contentsOf: ["-scheme", scheme])
-        }
+        // `--filter` is the valid SwiftPM flag for test name filtering.
+        // `scheme` and `failureOnly` are Xcode-only — not valid for `swift test`.
         if let filter = spec.filter {
-            args.append(contentsOf: ["-testNamePattern", filter])
-        }
-        if spec.failureOnly {
-            args.append("-failureOnly")
+            args.append(contentsOf: ["--filter", filter])
         }
         args.append(contentsOf: spec.extraArgs)
         return args

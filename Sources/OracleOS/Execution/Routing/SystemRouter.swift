@@ -115,36 +115,16 @@ public struct SystemRouter: @unchecked Sendable {
                 )
             }
 
-        case .file(let spec):
-            do {
-                try await workspaceRunner?.applyFile(spec)
-                let fileEvent = DomainEventFactory.fileModified(
-                    path: spec.path,
-                    operation: spec.operation.rawValue,
-                    commandID: command.id,
-                    intentID: command.metadata.intentID
-                )
-                return CommandRouter.successOutcome(
-                    command: command,
-                    observations: [
-                        ObservationPayload(
-                            kind: "fileModified",
-                            content: "File operation: \(spec.operation.rawValue) on \(spec.path)"
-                        )
-                    ],
-                    artifacts: [],
-                    policyDecision: policyDecision,
-                    router: "system",
-                    additionalEvents: [fileEvent]
-                )
-            } catch {
-                return CommandRouter.failureOutcome(
-                    command: command,
-                    reason: "File operation failed: \(error.localizedDescription)",
-                    policyDecision: policyDecision,
-                    router: "system"
-                )
-            }
+        case .file:
+            // File mutations are exclusively handled by CodeRouter via command.type == .code.
+            // A system command must never carry a .file payload — routing table is broken
+            // upstream if this case is reached.
+            return CommandRouter.failureOutcome(
+                command: command,
+                reason: "File mutations must be routed as code commands (command.type == .code), not system commands",
+                policyDecision: policyDecision,
+                router: "system"
+            )
 
         
 case .ui:

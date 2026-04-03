@@ -76,7 +76,7 @@ public struct ExecutionOutcome: Sendable {
 }
 
 public enum ExecutionStatus: String, Sendable, Codable {
-    case success, failed, partialSuccess, preconditionFailed, policyBlocked, postconditionFailed
+    case success, failed, partialSuccess, preconditionFailed, policyBlocked, postconditionFailed, approvalPending
 }
 
 public struct VerifierReport: Sendable, Codable {
