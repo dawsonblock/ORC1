@@ -163,27 +163,6 @@ public enum PolicyRules {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    public static func actionFingerprint(intent: ActionIntent, toolName: String?) -> String {
-        let seed = [
-            toolName ?? "runtime",
-            intent.agentKind.rawValue,
-            intent.app,
-            intent.action,
-            intent.query ?? "",
-            intent.role ?? "",
-            intent.domID ?? "",
-            intent.workspaceRoot ?? "",
-            intent.workspaceRelativePath ?? "",
-            intent.commandCategory ?? "",
-            intent.commandSummary ?? "",
-            coordinateFragment(x: intent.x, y: intent.y),
-            redactedTextFragment(intent.text),
-        ].joined(separator: "|")
-
-        let digest = SHA256.hash(data: Data(seed.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-
     public static func riskText(for intent: ActionIntent, toolName: String?) -> String {
         [
             toolName,

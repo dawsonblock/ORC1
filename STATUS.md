@@ -51,12 +51,23 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 
 ## Known Open Issues
 
-1. **Remaining `[String: Any]` occurrences** across the codebase. Worst architectural leak: `ControllerRuntimeBridge+Mapping.swift` (internal module boundary — should be typed mappers). See `AUDIT.md` for full classification.
+1. **Remaining `[String: Any]` occurrences** in some areas of the codebase. Key boundary `ControllerRuntimeBridge+Mapping.swift` now uses `ActionResultKey` typed constants throughout. See `AUDIT.md` for full classification.
 2. **MCPDispatch.swift is 690 lines** mixing routing, timeout, result formatting, and all 28 tool implementations. Should be split into per-domain typed adapters.
 3. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
 4. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
 ---
+
+## Repair Pass 5 — Closed Holes
+
+| Item | File(s) | Status |
+|---|---|---|
+| Approval not action-bound | `PolicyRules.swift`, `VerifiedExecutor.swift` | Fixed — `commandFingerprint(_:)` computes SHA256 of serialised payload; `ApprovalRequest.actionFingerprint` and `consumeApprovedReceipt` now use real fingerprint, not requestID |
+| `FileMutationSpec.workspaceRoot` optional | `FileMutationSpec.swift`, `WorkspaceRunner.swift`, `CodeRouter.swift`, `MainPlanner+Planner.swift` | Fixed — property is now `String` (non-optional); planner guards nil path and falls back to `readFile` command rather than constructing an invalid spec |
+| WorktreeSandbox no containment check | `WorktreeSandbox.swift` | Fixed — `apply()` rejects absolute paths and `../` traversal; performs canonical prefix check before any write |
+| SystemRouter duplicate build/test/git | `SystemRouter.swift` | Fixed — `.build`, `.test`, `.git` payload cases return `failureOutcome` (planners always emit `.code` type; CodeRouter is sole owner) |
+| CLI `runShell` via `BuildSpec` misuse | `Doctor.swift`, `SetupWizard.swift`, `main.swift` | Fixed — `runShell`/`runShellLive` now use `DefaultProcessAdapter.run(SystemCommand(...))` directly; `executor: VerifiedExecutor` dependency and unnecessary runtime bootstrap removed |
+| Inline string keys in result mapping | `ActionResult.swift`, `RuntimeExecutionDriver.swift`, `ControllerRuntimeBridge+Mapping.swift` | Fixed — `ActionResultKey` enum provides typed constants; all three files use constants throughout |
 
 ## Repair Pass 4 — Closed Holes
 

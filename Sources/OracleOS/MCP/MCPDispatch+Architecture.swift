@@ -12,9 +12,9 @@ extension MCPDispatch {
     ) -> ToolResult {
         switch request.name {
 
-        case "oracle_architecture_review":
+        case MCPToolName.architectureReview:
             guard let goalDescription = request.string("goal_description") else {
-                return ToolResult(success: false, error: "goal_description is required for oracle_architecture_review")
+                return ToolResult(success: false, error: "goal_description is required for \(MCPToolName.architectureReview)")
             }
             let candidatePaths = request.strings("candidate_paths") ?? []
             let workspaceURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
@@ -26,12 +26,12 @@ extension MCPDispatch {
             )
             return ToolResult(success: true, data: archReviewToDict(review))
 
-        case "oracle_candidate_review":
+        case MCPToolName.candidateReview:
             guard let goalDescription = request.string("goal_description"),
                   let diffSummary = request.string("diff_summary") else {
                 return ToolResult(
                     success: false,
-                    error: "goal_description and diff_summary are required for oracle_candidate_review"
+                    error: "goal_description and diff_summary are required for \(MCPToolName.candidateReview)"
                 )
             }
             guard let candidateValue = request.arguments.objectValue?["candidate"],

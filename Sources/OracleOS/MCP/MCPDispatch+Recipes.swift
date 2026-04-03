@@ -13,7 +13,7 @@ extension MCPDispatch {
     ) -> ToolResult {
         switch request.name {
 
-        case "oracle_recipes":
+        case MCPToolName.recipes:
             let recipes = RecipeStore.listRecipes()
             let summaries: [[String: Any]] = recipes.map { r in
                 var d: [String: Any] = ["name": r.name, "description": r.description]
@@ -24,7 +24,7 @@ extension MCPDispatch {
             }
             return ToolResult(success: true, data: ["recipes": summaries, "count": summaries.count])
 
-        case "oracle_run":
+        case MCPToolName.run:
             if let resumeToken = request.string("resume_token") {
                 return RecipeEngine.resume(
                     resumeToken: resumeToken,
@@ -33,7 +33,7 @@ extension MCPDispatch {
                 )
             }
             guard let recipeName = request.string("recipe") else {
-                return ToolResult(success: false, error: "recipe is required for oracle_run")
+                return ToolResult(success: false, error: "recipe is required for \(MCPToolName.run)")
             }
             guard let recipe = RecipeStore.loadRecipe(named: recipeName) else {
                 return ToolResult(
@@ -51,9 +51,9 @@ extension MCPDispatch {
             }
             return RecipeEngine.run(recipe: recipe, params: params, runtime: runtime)
 
-        case "oracle_recipe_show":
+        case MCPToolName.recipeShow:
             guard let name = request.string("name") else {
-                return ToolResult(success: false, error: "name is required for oracle_recipe_show")
+                return ToolResult(success: false, error: "name is required for \(MCPToolName.recipeShow)")
             }
             guard let recipe = RecipeStore.loadRecipe(named: name) else {
                 return ToolResult(success: false, error: "Recipe '\(name)' not found")
@@ -65,9 +65,9 @@ extension MCPDispatch {
             }
             return ToolResult(success: true, data: ["name": name, "recipe": jsonStr])
 
-        case "oracle_recipe_save":
+        case MCPToolName.recipeSave:
             guard let jsonStr = request.string("recipe_json") else {
-                return ToolResult(success: false, error: "recipe_json is required for oracle_recipe_save")
+                return ToolResult(success: false, error: "recipe_json is required for \(MCPToolName.recipeSave)")
             }
             do {
                 let name = try RecipeStore.saveRecipeJSON(jsonStr)
@@ -80,9 +80,9 @@ extension MCPDispatch {
                 return ToolResult(success: false, error: "Failed to save recipe: \(error)")
             }
 
-        case "oracle_recipe_delete":
+        case MCPToolName.recipeDelete:
             guard let name = request.string("name") else {
-                return ToolResult(success: false, error: "name is required for oracle_recipe_delete")
+                return ToolResult(success: false, error: "name is required for \(MCPToolName.recipeDelete)")
             }
             let deleted = RecipeStore.deleteRecipe(named: name)
             return ToolResult(

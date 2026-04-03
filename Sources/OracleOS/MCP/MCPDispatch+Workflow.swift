@@ -12,7 +12,7 @@ extension MCPDispatch {
     ) -> ToolResult {
         switch request.name {
 
-        case "oracle_workflow_list":
+        case MCPToolName.workflowList:
             let index = WorkflowIndex()
             let plans = index.allPlans()
             let serialized: [[String: Any]] = plans.map { p in [
@@ -25,9 +25,9 @@ extension MCPDispatch {
             ] }
             return ToolResult(success: true, data: ["workflows": serialized, "count": serialized.count])
 
-        case "oracle_workflow_mine":
+        case MCPToolName.workflowMine:
             guard let goalPattern = request.string("goal_pattern") else {
-                return ToolResult(success: false, error: "goal_pattern is required for oracle_workflow_mine")
+                return ToolResult(success: false, error: "goal_pattern is required for \(MCPToolName.workflowMine)")
             }
             let limit = request.int("limit") ?? 1000
             let events = container.traceStore.loadRecentEvents(limit: limit)
@@ -54,9 +54,9 @@ extension MCPDispatch {
                 suggestion: "Synthesized \(synthesized.count) workflow(s) and saved to index. Use oracle_workflow_list to see all."
             )
 
-        case "oracle_workflow_execute":
+        case MCPToolName.workflowExecute:
             guard let workflowID = request.string("workflow_id") else {
-                return ToolResult(success: false, error: "workflow_id is required for oracle_workflow_execute")
+                return ToolResult(success: false, error: "workflow_id is required for \(MCPToolName.workflowExecute)")
             }
             let index = WorkflowIndex()
             guard let plan = index.plan(id: workflowID) else {

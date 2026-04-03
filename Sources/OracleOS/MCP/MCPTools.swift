@@ -5,6 +5,42 @@
 
 import Foundation
 
+/// Typed constants for every MCP tool name.
+/// Both MCPTools (schema definitions) and MCPDispatch (routing) reference these
+/// constants so a rename is a compile error, not a silent dispatch miss.
+public enum MCPToolName {
+    public static let context            = "oracle_context"
+    public static let state              = "oracle_state"
+    public static let find               = "oracle_find"
+    public static let read               = "oracle_read"
+    public static let inspect            = "oracle_inspect"
+    public static let elementAt          = "oracle_element_at"
+    public static let screenshot         = "oracle_screenshot"
+    public static let click              = "oracle_click"
+    public static let type_              = "oracle_type"
+    public static let press              = "oracle_press"
+    public static let hotkey             = "oracle_hotkey"
+    public static let scroll             = "oracle_scroll"
+    public static let focus              = "oracle_focus"
+    public static let window             = "oracle_window"
+    public static let wait               = "oracle_wait"
+    public static let recipes            = "oracle_recipes"
+    public static let run                = "oracle_run"
+    public static let recipeShow         = "oracle_recipe_show"
+    public static let recipeSave         = "oracle_recipe_save"
+    public static let recipeDelete       = "oracle_recipe_delete"
+    public static let parseScreen        = "oracle_parse_screen"
+    public static let ground             = "oracle_ground"
+    public static let memoryQuery        = "oracle_memory_query"
+    public static let memoryDraft        = "oracle_memory_draft"
+    public static let experimentSearch   = "oracle_experiment_search"
+    public static let architectureReview = "oracle_architecture_review"
+    public static let candidateReview    = "oracle_candidate_review"
+    public static let workflowMine       = "oracle_workflow_mine"
+    public static let workflowList       = "oracle_workflow_list"
+    public static let workflowExecute    = "oracle_workflow_execute"
+}
+
 /// Tool definitions for the MCP server.
 public enum MCPTools {
 
@@ -19,21 +55,21 @@ public enum MCPTools {
     @MainActor
     private static let perception: [[String: Any]] = [
         tool(
-            name: "oracle_context",
+            name: MCPToolName.context,
             description: "Get orientation for an app. Returns summary fields plus a canonical fused observation snapshot with element source and confidence metadata. Call this before acting on any app.",
             properties: [
                 "app": prop("string", "App name to get context for. If omitted, returns focused app."),
             ]
         ),
         tool(
-            name: "oracle_state",
+            name: MCPToolName.state,
             description: "List all running apps and their windows with titles, positions, and sizes.",
             properties: [
                 "app": prop("string", "Filter to a specific app."),
             ]
         ),
         tool(
-            name: "oracle_find",
+            name: MCPToolName.find,
             description: "Find elements in any app. Returns matching elements with role, name, position, and available actions.",
             properties: [
                 "query": prop("string", "Text to search for (matches title, value, identifier, description)."),
@@ -46,7 +82,7 @@ public enum MCPTools {
             ]
         ),
         tool(
-            name: "oracle_read",
+            name: MCPToolName.read,
             description: "Read text content from screen. Returns concatenated text from the element subtree.",
             properties: [
                 "app": prop("string", "Which app to read from."),
@@ -55,7 +91,7 @@ public enum MCPTools {
             ]
         ),
         tool(
-            name: "oracle_inspect",
+            name: MCPToolName.inspect,
             description: "Full metadata about one element. Call this before acting on something you're unsure about. Returns role, title, position, size, actionable status, supported actions, editable, DOM id, and more.",
             properties: [
                 "query": prop("string", "Element to inspect."),
@@ -66,7 +102,7 @@ public enum MCPTools {
             required: ["query"]
         ),
         tool(
-            name: "oracle_element_at",
+            name: MCPToolName.elementAt,
             description: "What element is at this screen position? Bridges screenshots and accessibility tree.",
             properties: [
                 "x": prop("number", "X coordinate."),
@@ -75,7 +111,7 @@ public enum MCPTools {
             required: ["x", "y"]
         ),
         tool(
-            name: "oracle_screenshot",
+            name: MCPToolName.screenshot,
             description: "Take a screenshot for visual debugging. Returns base64 PNG.",
             properties: [
                 "app": prop("string", "Screenshot specific app window."),
@@ -89,7 +125,7 @@ public enum MCPTools {
     @MainActor
     private static let actions: [[String: Any]] = [
         tool(
-            name: "oracle_click",
+            name: MCPToolName.click,
             description: "Click an element. Tries AX-native first, falls back to synthetic click. Risky actions may return pending approval instead of executing immediately.",
             properties: [
                 "query": prop("string", "What to click (element text/name)."),
@@ -104,7 +140,7 @@ public enum MCPTools {
             ]
         ),
         tool(
-            name: "oracle_type",
+            name: MCPToolName.type_,
             description: "Type text into a field. If 'into' is specified, finds the field first. Risky text entry may require approval before execution.",
             properties: [
                 "text": prop("string", "Text to type."),
@@ -117,7 +153,7 @@ public enum MCPTools {
             required: ["text"]
         ),
         tool(
-            name: "oracle_press",
+            name: MCPToolName.press,
             description: "Press a single key. When app is provided, Oracle verifies the target app is frontmost after dispatch.",
             properties: [
                 "key": prop("string", "Key name: return, tab, escape, space, delete, up, down, left, right, f1-f12."),
@@ -128,7 +164,7 @@ public enum MCPTools {
             required: ["key"]
         ),
         tool(
-            name: "oracle_hotkey",
+            name: MCPToolName.hotkey,
             description: "Press a key combination. Modifier keys are auto-cleared afterward. Always include app parameter.",
             properties: [
                 "keys": propArray("string", "Key combo, e.g. [\"cmd\", \"return\"] or [\"cmd\", \"shift\", \"p\"]."),
@@ -138,7 +174,7 @@ public enum MCPTools {
             required: ["keys"]
         ),
         tool(
-            name: "oracle_scroll",
+            name: MCPToolName.scroll,
             description: "Scroll content in a direction.",
             properties: [
                 "direction": prop("string", "up, down, left, or right."),
@@ -151,7 +187,7 @@ public enum MCPTools {
             required: ["direction"]
         ),
         tool(
-            name: "oracle_focus",
+            name: MCPToolName.focus,
             description: "Bring an app or window to the front. Returns verified success when the requested app becomes frontmost.",
             properties: [
                 "app": prop("string", "App name to focus."),
@@ -161,7 +197,7 @@ public enum MCPTools {
             required: ["app"]
         ),
         tool(
-            name: "oracle_window",
+            name: MCPToolName.window,
             description: "Window management: minimize, maximize, close, restore, move, resize, or list windows.",
             properties: [
                 "action": prop("string", "minimize, maximize, close, restore, move, resize, or list."),
@@ -182,7 +218,7 @@ public enum MCPTools {
     @MainActor
     private static let wait: [[String: Any]] = [
         tool(
-            name: "oracle_wait",
+            name: MCPToolName.wait,
             description: "Wait for a condition instead of using fixed delays. Polls until condition is met or timeout.",
             properties: [
                 "condition": prop("string", "appFrontmost, urlContains, windowTitleContains, titleContains, elementExists, elementGone, urlChanged, titleChanged, focusEquals, valueEquals."),
@@ -200,12 +236,12 @@ public enum MCPTools {
     @MainActor
     private static let recipes: [[String: Any]] = [
         tool(
-            name: "oracle_recipes",
+            name: MCPToolName.recipes,
             description: "List all installed recipes with descriptions and parameters. ALWAYS check this first before doing multi-step tasks manually.",
             properties: [:]
         ),
         tool(
-            name: "oracle_run",
+            name: MCPToolName.run,
             description: "Execute a recipe with parameter substitution. Risky steps pause for approval and can be resumed with resume_token plus approval_request_id.",
             properties: [
                 "recipe": prop("string", "Recipe name."),
@@ -216,7 +252,7 @@ public enum MCPTools {
             required: []
         ),
         tool(
-            name: "oracle_recipe_show",
+            name: MCPToolName.recipeShow,
             description: "View full recipe details: steps, parameters, preconditions.",
             properties: [
                 "name": prop("string", "Recipe name."),
@@ -224,7 +260,7 @@ public enum MCPTools {
             required: ["name"]
         ),
         tool(
-            name: "oracle_recipe_save",
+            name: MCPToolName.recipeSave,
             description: "Install a new recipe from JSON.",
             properties: [
                 "recipe_json": prop("string", "Complete recipe JSON string."),
@@ -232,7 +268,7 @@ public enum MCPTools {
             required: ["recipe_json"]
         ),
         tool(
-            name: "oracle_recipe_delete",
+            name: MCPToolName.recipeDelete,
             description: "Delete a recipe.",
             properties: [
                 "name": prop("string", "Recipe name to delete."),
@@ -246,7 +282,7 @@ public enum MCPTools {
     @MainActor
     private static let vision: [[String: Any]] = [
         tool(
-            name: "oracle_parse_screen",
+            name: MCPToolName.parseScreen,
             description: "Experimental full-screen vision parsing via the sidecar. The tool is available, but its schema and reliability are still being hardened. Prefer oracle_find for stable AX queries and oracle_ground for precise visual grounding.",
             properties: [
                 "app": prop("string", "Screenshot specific app window."),
@@ -254,7 +290,7 @@ public enum MCPTools {
             ]
         ),
         tool(
-            name: "oracle_ground",
+            name: MCPToolName.ground,
             description: "Find precise screen coordinates for a described UI element using vision (VLM). Use when oracle_find can't locate the element or returns AXGroup elements. Pass a text description of what to click. Requires the vision sidecar to be running.",
             properties: [
                 "description": prop("string", "What to find (e.g. 'Compose button', 'Send button', 'search field')."),
@@ -270,7 +306,7 @@ public enum MCPTools {
     @MainActor
     private static let projectMemory: [[String: Any]] = [
         tool(
-            name: "oracle_memory_query",
+            name: MCPToolName.memoryQuery,
             description: "Query the project memory store for past architecture decisions, known patterns, open problems, and risks.",
             properties: [
                 "query": prop("string", "Text to search for. If empty, returns recent records."),
@@ -281,7 +317,7 @@ public enum MCPTools {
             required: []
         ),
         tool(
-            name: "oracle_memory_draft",
+            name: MCPToolName.memoryDraft,
             description: "Draft a new project memory record to persist organizational knowledge like architecture decisions, known safe patterns, risks, open problems, or rejected approaches.",
             properties: [
                 "title": prop("string", "Short, concise title of the memory."),
@@ -300,7 +336,7 @@ public enum MCPTools {
     @MainActor
     private static let experiments: [[String: Any]] = [
         tool(
-            name: "oracle_experiment_search",
+            name: MCPToolName.experimentSearch,
             description: "Run a bounded parallel experiment search. Evaluates multiple candidate file patches in isolated worktrees concurrently to find a working solution. Returns the ranking and test outputs of each candidate.",
             properties: [
                 "goal_description": prop("string", "A summary of what the patches are trying to achieve."),
@@ -317,7 +353,7 @@ public enum MCPTools {
     @MainActor
     private static let architecture: [[String: Any]] = [
         tool(
-            name: "oracle_architecture_review",
+            name: MCPToolName.architectureReview,
             description: "Review planned changes for architectural risks and potential invariant violations before executing them. Returns structured findings, risk scores, and refactoring proposals.",
             properties: [
                 "goal_description": prop("string", "A summary of what the change is trying to achieve."),
@@ -326,7 +362,7 @@ public enum MCPTools {
             required: ["goal_description", "candidate_paths"]
         ),
         tool(
-            name: "oracle_candidate_review",
+            name: MCPToolName.candidateReview,
             description: "Deep architecture review of a specific code patch candidate. Identifies heuristic problems like touching wrong boundaries or expanding patch radii.",
             properties: [
                 "goal_description": prop("string", "A summary of what the patch is trying to achieve."),
@@ -342,7 +378,7 @@ public enum MCPTools {
     @MainActor
     private static let workflows: [[String: Any]] = [
         tool(
-            name: "oracle_workflow_mine",
+            name: MCPToolName.workflowMine,
             description: "Synthesize reusable workflows by mining recent telemetry and traces. Extracts generalized patterns of success.",
             properties: [
                 "goal_pattern": prop("string", "The goal or pattern to search for in traces."),
@@ -351,13 +387,13 @@ public enum MCPTools {
             required: ["goal_pattern"]
         ),
         tool(
-            name: "oracle_workflow_list",
+            name: MCPToolName.workflowList,
             description: "List all known synthesized workflows available in the index.",
             properties: [:],
             required: []
         ),
         tool(
-            name: "oracle_workflow_execute",
+            name: MCPToolName.workflowExecute,
             description: "Execute a synthesized workflow by its ID using the specified parameters.",
             properties: [
                 "workflow_id": prop("string", "The ID of the workflow to execute."),

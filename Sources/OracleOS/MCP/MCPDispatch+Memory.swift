@@ -12,7 +12,7 @@ extension MCPDispatch {
     ) -> ToolResult {
         switch request.name {
 
-        case "oracle_memory_query":
+        case MCPToolName.memoryQuery:
             guard let projectStore = container.memoryStore.projectStore else {
                 return ToolResult(
                     success: false,
@@ -56,14 +56,14 @@ extension MCPDispatch {
             }
             return ToolResult(success: true, data: ["records": serialized, "count": serialized.count])
 
-        case "oracle_memory_draft":
+        case MCPToolName.memoryDraft:
             guard let title = request.string("title"),
                   let summary = request.string("summary"),
                   let kindStr = request.string("kind"),
                   let body = request.string("body") else {
                 return ToolResult(
                     success: false,
-                    error: "title, summary, kind, and body are all required for oracle_memory_draft"
+                    error: "title, summary, kind, and body are all required for \(MCPToolName.memoryDraft)"
                 )
             }
             let validKinds = "architecture-decision, open-problem, rejected-approach, known-good-pattern, risk"

@@ -38,7 +38,7 @@ public enum MCPDispatch {
         } catch { return .error("Bootstrap failed") }
 
         let toolName = request.name
-        let actualTimeout = toolName == "oracle_experiment_search" ? 600.0 : toolTimeoutSeconds
+        let actualTimeout = toolName == MCPToolName.experimentSearch ? 600.0 : toolTimeoutSeconds
 
         struct RespWrapper: @unchecked Sendable { let payload: MCPToolResponse? }
         let response: RespWrapper
@@ -46,9 +46,9 @@ public enum MCPDispatch {
             response = try await withThrowingTaskGroup(of: RespWrapper.self) { group in
                 group.addTask { @Sendable in
                     let result: MCPToolResponse
-                    if toolName == "oracle_screenshot" {
+                    if toolName == MCPToolName.screenshot {
                         result = await MainActor.run { handleScreenshot(request) }
-                    } else if toolName == "oracle_experiment_search" {
+                    } else if toolName == MCPToolName.experimentSearch {
                         result = await handleExperimentSearch(request)
                     } else {
                         result = await MainActor.run {
@@ -73,7 +73,7 @@ public enum MCPDispatch {
     private static func handleScreenshot(_ request: MCPToolRequest) -> MCPToolResponse {
         let res = AXScanner.screenshot(appName: request.string("app"), fullResolution: request.bool("full_resolution") ?? false)
         guard res.success, let data = res.data, let b64 = data["image"] as? String else {
-            return formatTypedResult(res, toolName: "oracle_screenshot")
+            return formatTypedResult(res, toolName: MCPToolName.screenshot)
         }
         return .imageAndCaption(base64: b64, mimeType: data["mime_type"] as? String ?? "image/png", caption: "Screenshot")
     }
@@ -104,7 +104,7 @@ public enum MCPDispatch {
         guard !patches.isEmpty else {
             return formatTypedResult(
                 ToolResult(success: false, error: "No valid candidates provided. Each candidate needs title, summary, workspace_relative_path, and content."),
-                toolName: "oracle_experiment_search"
+                toolName: MCPToolName.experimentSearch
             )
         }
         let spec = ExperimentSpec(
@@ -132,12 +132,12 @@ public enum MCPDispatch {
             }
             return formatTypedResult(
                 ToolResult(success: true, data: ["results": summaries, "count": results.count]),
-                toolName: "oracle_experiment_search"
+                toolName: MCPToolName.experimentSearch
             )
         } catch {
             return formatTypedResult(
                 ToolResult(success: false, error: "Experiment search failed: \(error)"),
-                toolName: "oracle_experiment_search"
+                toolName: MCPToolName.experimentSearch
             )
         }
     }
@@ -176,13 +176,13 @@ public enum MCPDispatch {
 
         // MARK: Perception
 
-        case "oracle_context":
+        case MCPToolName.context:
             return AXScanner.getContext(appName: request.string("app"))
 
-        case "oracle_state":
+        case MCPToolName.state:
             return AXScanner.getState(appName: request.string("app"))
 
-        case "oracle_find":
+        case MCPToolName.find:
             return AXScanner.findElements(
                 query: request.string("query"),
                 role: request.string("role"),
@@ -193,14 +193,14 @@ public enum MCPDispatch {
                 depth: nil
             )
 
-        case "oracle_read":
+        case MCPToolName.read:
             return AXScanner.readContent(
                 appName: request.string("app"),
                 query: request.string("query"),
                 depth: nil
             )
 
-        case "oracle_inspect":
+        case MCPToolName.inspect:
             return AXScanner.inspect(
                 query: request.string("query") ?? "",
                 role: request.string("role"),
@@ -208,7 +208,7 @@ public enum MCPDispatch {
                 appName: request.string("app")
             )
 
-        case "oracle_element_at":
+        case MCPToolName.elementAt:
             guard let x = request.double("x"), let y = request.double("y") else {
                 return ToolResult(success: false, error: "x and y are required for oracle_element_at")
             }
@@ -216,7 +216,7 @@ public enum MCPDispatch {
 
         // MARK: Actions
 
-        case "oracle_click":
+        case MCPToolName.click:
             return FocusManager.withFocusRestore {
                 Actions.click(
                     query: request.string("query"),
@@ -233,7 +233,7 @@ public enum MCPDispatch {
                 )
             }
 
-        case "oracle_type":
+        case MCPToolName.type_:
             return FocusManager.withFocusRestore {
                 Actions.typeText(
                     text: request.string("text") ?? "",
@@ -247,7 +247,7 @@ public enum MCPDispatch {
                 )
             }
 
-        case "oracle_press":
+        case MCPToolName.press:
             guard let key = request.string("key") else {
                 return ToolResult(success: false, error: "key is required for oracle_press")
             }
@@ -258,13 +258,13 @@ public enum MCPDispatch {
                 runtime: runtime
             )
 
-        case "oracle_hotkey":
+        case MCPToolName.hotkey:
             guard let keys = request.strings("keys"), !keys.isEmpty else {
                 return ToolResult(success: false, error: "keys array is required for oracle_hotkey")
             }
             return Actions.hotkey(keys: keys, appName: request.string("app"), runtime: runtime)
 
-        case "oracle_scroll":
+        case MCPToolName.scroll:
             guard let direction = request.string("direction") else {
                 return ToolResult(success: false, error: "direction is required for oracle_scroll")
             }
@@ -277,7 +277,7 @@ public enum MCPDispatch {
                 runtime: runtime
             )
 
-        case "oracle_focus":
+        case MCPToolName.focus:
             guard let appName = request.string("app") else {
                 return ToolResult(success: false, error: "app is required for oracle_focus")
             }
@@ -287,7 +287,7 @@ public enum MCPDispatch {
                 runtime: runtime
             )
 
-        case "oracle_window":
+        case MCPToolName.window:
             guard let action = request.string("action"), let appName = request.string("app") else {
                 return ToolResult(success: false, error: "action and app are required for oracle_window")
             }
@@ -304,7 +304,7 @@ public enum MCPDispatch {
 
         // MARK: Wait
 
-        case "oracle_wait":
+        case MCPToolName.wait:
             return WaitManager.waitFor(
                 condition: request.string("condition") ?? "",
                 value: request.string("value"),
@@ -315,13 +315,13 @@ public enum MCPDispatch {
 
         // MARK: Vision
 
-        case "oracle_parse_screen":
+        case MCPToolName.parseScreen:
             return VisionScanner.parseScreen(
                 appName: request.string("app"),
                 fullResolution: request.bool("full_resolution") ?? false
             )
 
-        case "oracle_ground":
+        case MCPToolName.ground:
             guard let description = request.string("description") else {
                 return ToolResult(success: false, error: "description is required for oracle_ground")
             }
@@ -334,22 +334,22 @@ public enum MCPDispatch {
 
         // MARK: Recipes
 
-        case "oracle_recipes", "oracle_run", "oracle_recipe_show", "oracle_recipe_save", "oracle_recipe_delete":
+        case MCPToolName.recipes, MCPToolName.run, MCPToolName.recipeShow, MCPToolName.recipeSave, MCPToolName.recipeDelete:
             return dispatchRecipes(request, runtime: runtime)
 
         // MARK: Project Memory
 
-        case "oracle_memory_query", "oracle_memory_draft":
+        case MCPToolName.memoryQuery, MCPToolName.memoryDraft:
             return dispatchMemory(request, container: container)
 
         // MARK: Architecture
 
-        case "oracle_architecture_review", "oracle_candidate_review":
+        case MCPToolName.architectureReview, MCPToolName.candidateReview:
             return dispatchArchitecture(request, container: container)
 
         // MARK: Workflows
 
-        case "oracle_workflow_list", "oracle_workflow_mine", "oracle_workflow_execute":
+        case MCPToolName.workflowList, MCPToolName.workflowMine, MCPToolName.workflowExecute:
             return dispatchWorkflow(request, container: container)
 
         default:
