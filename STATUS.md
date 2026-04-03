@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-03 (ORC1-main-7 — honesty pass)  
+**Last updated:** 2026-04-03 (ORC1-main-8 — honesty pass)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -56,6 +56,19 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 3. **`MCPDispatch.swift` line count has been reduced** from earlier versions to ~359 lines. Routing, timeout, and tool dispatch remain in one file; splitting is not currently blocking.  
 4. **CI is wired.** `.github/workflows/ci.yml` (build + swift test + mcp_boundary_guard) and `.github/workflows/architecture.yml` (architecture_guard.py) are present and run on every push and pull request.
 5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
+
+---
+
+## ORC1-main-8 Honesty Pass — Changes Made
+
+| Item | File(s) | Status |
+|---|---|---|
+| `RuntimeBootstrap.swift` overclaimed "all entry points (MCP, Controller, CLI) MUST use this" | `Sources/OracleOS/Runtime/RuntimeBootstrap.swift` | Fixed — narrowed to "main-path surfaces"; CLI tooling exception (Doctor, SetupWizard) explicitly named and explained |
+| `VerifiedExecutor.swift` ENFORCEMENT block overclaimed "All CLI tools" | `Sources/OracleOS/Execution/Execution/VerifiedExecutor.swift` | Fixed — qualified to "Planners and routers for main-path surfaces"; CLI tooling and `oracle_experiment_search` exceptions listed explicitly |
+| `VerifiedExecutor.swift` `execute()` doc claimed `UIRouter → AutomationHost` | `Sources/OracleOS/Execution/Execution/VerifiedExecutor.swift` | Fixed — corrected to `UIRouter → Actions.perform*`; added note that AutomationHost is NOT an execution authority |
+| `RuntimeContext.swift` had live-looking dead `init(container:)` body and 20+ properties never called in production | `Sources/OracleOS/Runtime/RuntimeContext.swift` | Fixed — stripped to guard-only empty class with doc comment; `@available(*, unavailable)` extension guards preserved; governance tests still pass |
+| `ARCHITECTURE.md` claimed `RuntimeContext.init(container:)` was "the only authorized way to create a context" and `RuntimeContext.live()` was `@unavailable` — both false | `ARCHITECTURE.md` | Fixed — replaced with accurate description of RuntimeContext as compile-time boundary guard only |
+| No test asserted UIRouter does not invoke AutomationHost | `Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift` | Fixed — `testUIRouterDoesNotInvokeAutomationHost()` added; scans non-comment lines of UIRouter.swift |
 
 ---
 

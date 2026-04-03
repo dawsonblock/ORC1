@@ -25,6 +25,26 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
                       "Compile-time guards must prevent re-introduction")
     }
 
+    /// ENFORCE: UIRouter must NOT reference AutomationHost as an execution authority.
+    /// UIRouter dispatches to Actions.perform* directly. AutomationHost is an
+    /// observation/snapshot tool only; it must never appear in UIRouter's non-comment code.
+    func testUIRouterDoesNotInvokeAutomationHost() throws {
+        let sourcePath = "Sources/OracleOS/Execution/Routing/UIRouter.swift"
+        let content = try String(contentsOfFile: sourcePath, encoding: .utf8)
+
+        // Strip comment lines before scanning, so documentary mentions don't trip the check.
+        let nonCommentLines = content.components(separatedBy: .newlines).filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return !trimmed.hasPrefix("//") && !trimmed.hasPrefix("*") && !trimmed.hasPrefix("/*")
+        }
+        let nonCommentSource = nonCommentLines.joined(separator: "\n")
+
+        XCTAssertFalse(nonCommentSource.contains("automationHost"),
+                       "UIRouter must not reference automationHost — it is an observation tool, not execution authority")
+        XCTAssertFalse(nonCommentSource.contains("AutomationHost("),
+                       "UIRouter must not construct AutomationHost — execution routes through Actions.perform*")
+    }
+
     /// ENFORCE: Only approved files may create Process()
     func testProcessCreationOnlyInApprovedFiles() throws {
         let sourcePath = "Sources"

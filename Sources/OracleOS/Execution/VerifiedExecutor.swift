@@ -22,8 +22,12 @@ import Foundation
 ///   - Tier-2 and Tier-3 effects MUST route through this actor's execute() method
 ///
 /// ENFORCEMENT:
-///   - All CLI tools, planners, routers MUST use RuntimeOrchestrator.submitIntent()
-///   - Bypassing this path for Tier-2/3 effects is an architectural violation
+///   - Planners and routers for main-path surfaces MUST use RuntimeOrchestrator.submitIntent()
+///   - CLI tooling (oracle doctor, oracle setup) is an intentional exception: these
+///     utilities run outside the bootstrapped runtime and are not covered by this guarantee
+///   - oracle_experiment_search is an intentional exception: dispatched from MCPDispatch
+///     directly to ExperimentManager without passing through VerifiedExecutor
+///   - Bypassing this path for Tier-2/3 effects from main-path surfaces is an architectural violation
 ///   - Governance tests verify Tier-2/3 effects route through here
 public actor VerifiedExecutor {
     private let policyEngine: PolicyEngine
@@ -54,10 +58,11 @@ public actor VerifiedExecutor {
     /// This is the ONLY public method allowed to execute commands.
     /// IMPORTANT: This does NOT commit state — only returns events for CommitCoordinator.
     ///
-    /// ENFORCEMENT: All side effects MUST route through this method:
+    /// ENFORCEMENT: All main-path side effects MUST route through this method:
     ///   - Process execution → WorkspaceRunner → DefaultProcessAdapter
     ///   - File mutations → FileMutationSpec → WorkspaceRunner.applyFile()
-    ///   - UI interactions → UIRouter → AutomationHost
+    ///   - UI interactions → UIRouter → Actions.perform*
+    ///     (AutomationHost is NOT involved in execution; it is an AX observation tool only)
     ///
     /// Bypassing this method is an architectural violation and will be caught by:
     ///   - Governance tests (ExecutionBoundaryTests)

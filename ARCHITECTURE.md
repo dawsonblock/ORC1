@@ -71,8 +71,9 @@ The `BootstrappedRuntime` bundle contains:
 - `RuntimeOrchestrator`: Linear runtime coordination
 - `RecoveryReport`: Proof of startup recovery (WAL entries replayed, events recovered)
 
-`RuntimeContext.init(container:)` is the only authorized way to create a context.
-`RuntimeContext.live()` is marked `@unavailable` to prevent split authority.
+`RuntimeContext` is a compile-time boundary guard only — empty class body, never instantiated.
+`@available(*, unavailable)` extensions on it prevent execution-adjacent properties from being
+re-introduced. It is not part of the live runtime; governance tests scan it for forbidden patterns.
 
 ### Observation and Planning State
 

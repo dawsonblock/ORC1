@@ -6,8 +6,17 @@ public enum RuntimeBootstrap {
     // MARK: - Primary Entry Point
 
     /// Creates a fully bootstrapped runtime with recovery completed.
-    /// This is the ONLY authorized way to create the runtime.
-    /// All entry points (MCP, Controller, CLI) MUST use this.
+    ///
+    /// This is the ONLY authorized way to create the bootstrapped runtime for
+    /// main-path surfaces. Current callers:
+    ///   - MCPDispatch (oracle mcp → MCPServer → MCPDispatch.getBootstrappedRuntime)
+    ///   - ControllerRuntimeBridge (OracleController host)
+    ///
+    /// CLI tooling exception: `oracle doctor` (Doctor.swift) and `oracle setup`
+    /// (SetupWizard.swift) are standalone utilities that intentionally operate
+    /// OUTSIDE this path. They construct DefaultProcessAdapter() directly and
+    /// run without policy-checked orchestration. See their EXECUTION AUTHORITY
+    /// NOTE comments for details.
     public static func makeBootstrappedRuntime(
         configuration: RuntimeConfig = .live()
     ) async throws -> BootstrappedRuntime {
