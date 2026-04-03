@@ -1,3 +1,14 @@
+// ExperimentManager.swift
+//
+// PRIVILEGED SIDE SUBSYSTEM — NOT on the main single execution path.
+//
+// ExperimentManager is invoked directly from MCPDispatch for the
+// `oracle_experiment_search` tool only.  Execution flows:
+//   MCPDispatch (async) → ExperimentManager.run → ParallelRunner → WorktreeSandbox
+//
+// This path intentionally bypasses RuntimeOrchestrator and VerifiedExecutor.
+// Isolation is provided by isolated git worktrees; each candidate patch is
+// evaluated in its own sandbox and never written to the real workspace.
 import Foundation
 
 public final class ExperimentManager: @unchecked Sendable {

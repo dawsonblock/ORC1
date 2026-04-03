@@ -60,17 +60,22 @@ public struct CommandMetadata: Sendable, Codable {
     public let createdAt: Date
     public let source: String
     public let traceTags: [String]
+    /// Approval token from a prior approval-pending cycle.
+    /// When non-nil, VerifiedExecutor validates and consumes it before allowing execution.
+    public let approvalToken: String?
 
     public init(
         intentID: UUID,
         createdAt: Date = Date(),
         source: String = "unknown",
-        traceTags: [String] = []
+        traceTags: [String] = [],
+        approvalToken: String? = nil
     ) {
         self.intentID = intentID
         self.createdAt = createdAt
         self.source = source
         self.traceTags = traceTags
+        self.approvalToken = approvalToken
     }
 
     // Backward-compatible initializer/fields retained for transitional call sites.

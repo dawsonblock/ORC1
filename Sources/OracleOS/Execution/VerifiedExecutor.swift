@@ -87,31 +87,49 @@ public actor VerifiedExecutor {
 
         let policyDecision = try policyEngine.validate(command)
 
-        // GUARD: Approval gate — halt execution and create an approval request when
-        // the policy engine marks the action as risky-but-approvable. The caller
-        // receives an .approvalPending outcome and must poll / wait for the user to
-        // approve via the Controller UI (or CLI) before re-submitting.
+        // GUARD: Approval gate
+        // When the policy engine marks the action as requiring approval:
+        //   - If an approval token is present in command metadata, validate and consume it (single-use).
+        //     A consumed receipt allows this execution. Reuse of the same token fails here.
+        //   - If no token is present, create an approval request and return .approvalPending.
+        //     The caller must obtain user approval and re-submit with the request ID as the token.
         if policyDecision.requiresApproval,
            let store = approvalStore,
            let protectedOp = policyDecision.protectedOperation
         {
-            let request = ApprovalRequest(
-                surface: policyDecision.surface,
-                toolName: command.kind,
-                appName: nil,
-                displayTitle: "\(command.kind) requires approval",
-                reason: policyDecision.reason ?? "Action classified as risky",
-                riskLevel: policyDecision.riskLevel,
-                protectedOperation: protectedOp,
-                actionFingerprint: command.id.uuidString,
-                appProtectionProfile: policyDecision.appProtectionProfile
-            )
-            _ = try store.createRequest(request)
-            return approvalPendingOutcome(
-                command: command,
-                requestID: request.id,
-                reason: policyDecision.reason ?? "Approval required"
-            )
+            if let token = command.metadata.approvalToken {
+                // Consume the approval receipt. consumeApprovedReceipt deletes the receipt file
+                // on success, making this irrevocably single-use.
+                guard store.consumeApprovedReceipt(requestID: token, actionFingerprint: token) != nil else {
+                    return failOutcome(
+                        command: command,
+                        status: .policyBlocked,
+                        reason: "Approval token '\(token)' is invalid, not yet approved, or already consumed"
+                    )
+                }
+                // Receipt consumed — fall through to the allowed guard and then execution.
+            } else {
+                // No token — create a new approval request and halt.
+                let requestID = UUID().uuidString
+                let request = ApprovalRequest(
+                    id: requestID,
+                    surface: policyDecision.surface,
+                    toolName: command.kind,
+                    appName: nil,
+                    displayTitle: "\(command.kind) requires approval",
+                    reason: policyDecision.reason ?? "Action classified as risky",
+                    riskLevel: policyDecision.riskLevel,
+                    protectedOperation: protectedOp,
+                    actionFingerprint: requestID,
+                    appProtectionProfile: policyDecision.appProtectionProfile
+                )
+                _ = try store.createRequest(request)
+                return approvalPendingOutcome(
+                    command: command,
+                    requestID: requestID,
+                    reason: policyDecision.reason ?? "Approval required"
+                )
+            }
         }
 
         guard policyDecision.allowed else {

@@ -23,7 +23,6 @@ extension Actions {
         taskID: String? = nil,
         toolName: String? = "oracle_type"
     ) -> ToolResult {
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
         return executeThroughRuntime(
@@ -36,7 +35,8 @@ extension Actions {
                 text: text,
                 clear: clear,
                 postconditions: inferredTypePostconditions(text: text, into: into, domId: domId)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 

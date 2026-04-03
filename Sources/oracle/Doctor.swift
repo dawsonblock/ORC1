@@ -311,19 +311,15 @@ struct Doctor {
     private mutating func checkVisionSidecar() {
         if VisionBridge.isAvailable() {
             if let health = VisionBridge.healthCheck() {
-                let models = health["models_loaded"] as? [String] ?? []
-                let status = health["status"] as? String ?? "unknown"
-                let version = health["version"] as? String
-                let pid = health["pid"] as? Int
-                var detail = status
-                if let v = version { detail += " v\(v)" }
-                if let p = pid { detail += " (PID \(p))" }
+                var detail = health.status
+                detail += " v\(health.version)"
+                detail += " (PID \(health.pid))"
                 print("  [ok] Vision Sidecar: \(detail)")
-                if !models.isEmpty {
-                    print("    Models: \(models.joined(separator: ", "))")
+                if !health.modelsLoaded.isEmpty {
+                    print("    Models: \(health.modelsLoaded.joined(separator: ", "))")
                 }
-                if let idleTimeout = health["idle_timeout"] as? Int, idleTimeout > 0 {
-                    print("    Auto-exit: after \(idleTimeout)s idle")
+                if health.idleTimeout > 0 {
+                    print("    Auto-exit: after \(health.idleTimeout)s idle")
                 }
             } else {
                 print("  [ok] Vision Sidecar: running (health details unavailable)")

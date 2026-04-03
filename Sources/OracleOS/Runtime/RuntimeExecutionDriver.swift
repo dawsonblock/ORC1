@@ -33,6 +33,8 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         self.surface = surface
     }
 
+    // MARK: - AgentExecutionDriver conformance
+
     public func execute(
         intent: ActionIntent,
         plannerDecision: PlannerDecision,
@@ -42,7 +44,24 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             intentAPI,
             intent: intent,
             plannerDecision: plannerDecision,
-            selectedCandidate: selectedCandidate
+            selectedCandidate: selectedCandidate,
+            approvalToken: nil
+        )
+    }
+
+    /// Extended form that threads an approval token from a prior approval-pending cycle.
+    func execute(
+        intent: ActionIntent,
+        plannerDecision: PlannerDecision,
+        selectedCandidate: ElementCandidate?,
+        approvalToken: String?
+    ) -> ToolResult {
+        executeViaIntentAPI(
+            intentAPI,
+            intent: intent,
+            plannerDecision: plannerDecision,
+            selectedCandidate: selectedCandidate,
+            approvalToken: approvalToken
         )
     }
 
@@ -54,7 +73,8 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         _ api: any IntentAPI,
         intent: ActionIntent,
         plannerDecision: PlannerDecision,
-        selectedCandidate: ElementCandidate?
+        selectedCandidate: ElementCandidate?,
+        approvalToken: String? = nil
     ) -> ToolResult {
         let domain: IntentDomain = intent.agentKind == .code ? .code :
             .ui
@@ -72,6 +92,11 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         }
         if let encodedIntent = Self.encodeActionIntent(intent) {
             metadata["action_intent_base64"] = encodedIntent
+        }
+        // Thread approval token so the orchestrator can attach it to the command
+        // for VerifiedExecutor to validate and consume.
+        if let approvalToken {
+            metadata["approvalToken"] = approvalToken
         }
 
         let typedIntent = Intent(
@@ -149,18 +174,31 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
     nonisolated private static func makeToolResult(from response: IntentResponse) -> ToolResult {
         let success = response.outcome == .success || response.outcome == .skipped
         let isPlanningFailure = response.summary.lowercased().hasPrefix("planning failed")
+        let isApprovalPending = response.approvalRequestID != nil
 
         var actionResult: [String: Any] = [
             "success": success,
             "verified": success,
-            "executed_through_executor": !isPlanningFailure,
+            "executed_through_executor": !isPlanningFailure && !isApprovalPending,
             "message": response.summary,
             "method": "intent-api",
         ]
         if response.outcome == .partialSuccess {
             actionResult["failure_class"] = "partial_success"
         } else if response.outcome == .failed {
-            actionResult["failure_class"] = isPlanningFailure ? "planning_failed" : "runtime_failed"
+            if isApprovalPending {
+                actionResult["failure_class"] = "approval_pending"
+            } else {
+                actionResult["failure_class"] = isPlanningFailure ? "planning_failed" : "runtime_failed"
+            }
+        }
+        // Carry approval metadata in a stable location so controller and MCP
+        // surfaces read from the same field — not inferred or nested differently.
+        if let requestID = response.approvalRequestID {
+            actionResult["approval_request_id"] = requestID
+        }
+        if let status = response.approvalStatus {
+            actionResult["approval_status"] = status
         }
 
         var data: [String: Any] = [
@@ -175,6 +213,9 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         ]
         if let snapshotID = response.snapshotID {
             data["snapshot_id"] = snapshotID.uuidString
+        }
+        if let requestID = response.approvalRequestID {
+            data["approval_request_id"] = requestID
         }
 
         return ToolResult(

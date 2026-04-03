@@ -83,7 +83,7 @@ final class ControllerRuntimeBridge {
             permissions: permissions,
             claudeConfigured: claudeConfigured,
             visionSidecarRunning: VisionBridge.isAvailable(),
-            visionSidecarVersion: health?["version"] as? String,
+            visionSidecarVersion: health?.version,
             visionModelPath: VisionBridge.findModelPath(),
             recipeDirectoryPath: OracleProductPaths.recipesDirectory.path,
             recipeCount: RecipeStore.listRecipes().count,

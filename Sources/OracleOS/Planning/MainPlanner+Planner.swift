@@ -101,9 +101,11 @@ extension MainPlanner: Planner {
         if objective.contains("edit") || objective.contains("modify") || objective.contains("patch") {
             let path = intent.metadata["filePath"] ?? ""
             let patch = intent.metadata["patch"] ?? intent.objective
+            let workspacePath = intent.metadata["workspacePath"]
+                ?? context.repositorySnapshot?.workspaceRoot
             return Command(
                 type: CommandType.code,
-                payload: .file(FileMutationSpec(path: path, operation: .write, content: patch)),
+                payload: .file(FileMutationSpec(path: path, operation: .write, content: patch, workspaceRoot: workspacePath)),
                 metadata: metadata
             )
         }
@@ -114,7 +116,6 @@ extension MainPlanner: Planner {
                 ?? FileManager.default.currentDirectoryPath
             let spec = BuildSpec(
                 workspaceRoot: workspacePath,
-                scheme: intent.metadata["scheme"],
                 configuration: intent.metadata["configuration"] ?? "Debug"
             )
             return Command(type: CommandType.code, payload: .build(spec), metadata: metadata)
@@ -126,7 +127,6 @@ extension MainPlanner: Planner {
                 ?? FileManager.default.currentDirectoryPath
             let spec = TestSpec(
                 workspaceRoot: workspacePath,
-                scheme: intent.metadata["scheme"],
                 filter: intent.metadata["filter"]
             )
             return Command(type: CommandType.code, payload: .test(spec), metadata: metadata)

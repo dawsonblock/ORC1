@@ -19,7 +19,6 @@ extension Actions {
         taskID: String? = nil,
         toolName: String? = "oracle_press"
     ) -> ToolResult {
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
         return executeThroughRuntime(
@@ -30,7 +29,8 @@ extension Actions {
                 key: key,
                 modifiers: modifiers,
                 postconditions: inferredPressPostconditions(appName: appName)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 
@@ -77,7 +77,6 @@ extension Actions {
         taskID: String? = nil,
         toolName: String? = "oracle_focus"
     ) -> ToolResult {
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
         return executeThroughRuntime(
@@ -87,7 +86,8 @@ extension Actions {
                 app: appName,
                 windowTitle: windowTitle,
                 postconditions: inferredFocusPostconditions(appName: appName, windowTitle: windowTitle)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 
@@ -114,7 +114,6 @@ extension Actions {
             return ToolResult(success: false, error: "Keys array cannot be empty")
         }
 
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
         return executeThroughRuntime(
@@ -124,7 +123,8 @@ extension Actions {
                 app: appName,
                 keys: keys,
                 postconditions: inferredPressPostconditions(appName: appName)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 

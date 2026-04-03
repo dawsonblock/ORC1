@@ -26,7 +26,6 @@ extension Actions {
         taskID: String? = nil,
         toolName: String? = "oracle_click"
     ) -> ToolResult {
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
         return executeThroughRuntime(
@@ -42,7 +41,8 @@ extension Actions {
                 button: button,
                 count: count,
                 postconditions: inferredClickPostconditions(query: query, role: role, domId: domId)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 

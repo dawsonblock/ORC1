@@ -1,3 +1,16 @@
+// WorktreeSandbox.swift
+//
+// PRIVILEGED SIDE SUBSYSTEM — NOT on the main single execution path.
+//
+// WorktreeSandbox is called exclusively by ParallelRunner, which is invoked by
+// ExperimentManager, which is dispatched directly from MCPDispatch for the
+// `oracle_experiment_search` tool only.  It bypasses the main execution path
+// (RuntimeOrchestrator → VerifiedExecutor → PolicyEngine) because experiment
+// candidates run in isolated git worktrees and are evaluated, not committed.
+//
+// Do NOT route WorktreeSandbox through VerifiedExecutor. It is intentionally
+// separate: the isolation guarantee comes from the worktree boundary, not from
+// policy approval.
 import Foundation
 
 public struct WorktreeSandbox: Codable, Sendable, Equatable {
@@ -25,7 +38,8 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         experimentID: String,
         candidateID: String,
         workspaceRoot: URL,
-        experimentsRoot: URL
+        experimentsRoot: URL,
+        adapter: any ProcessAdapter
     ) throws -> WorktreeSandbox {
         try FileManager.default.createDirectory(at: experimentsRoot, withIntermediateDirectories: true)
         let sandboxPath = experimentsRoot
@@ -34,7 +48,7 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         try FileManager.default.createDirectory(at: sandboxPath.deletingLastPathComponent(), withIntermediateDirectories: true)
 
         let branchName = "codex/exp-\(experimentID)-\(candidateID)"
-        try runGit(arguments: ["worktree", "add", "-f", "-b", branchName, sandboxPath.path, "HEAD"], workspaceRoot: workspaceRoot)
+        try runGit(arguments: ["worktree", "add", "-f", "-b", branchName, sandboxPath.path, "HEAD"], workspaceRoot: workspaceRoot, adapter: adapter)
 
         return WorktreeSandbox(
             experimentID: experimentID,
@@ -52,20 +66,19 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         try candidate.content.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
-    public func diffSummary() -> String {
-        (try? runGitOutput(arguments: ["diff", "--stat"], workspaceRoot: URL(fileURLWithPath: sandboxPath, isDirectory: true))) ?? ""
+    public func diffSummary(using adapter: any ProcessAdapter) -> String {
+        (try? runGitOutput(arguments: ["diff", "--stat"], workspaceRoot: URL(fileURLWithPath: sandboxPath, isDirectory: true), adapter: adapter)) ?? ""
     }
 
-    public func cleanup() {
-        try? runGit(arguments: ["worktree", "remove", "--force", sandboxPath], workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true))
-        try? runGit(arguments: ["branch", "-D", branchName], workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true))
+    public func cleanup(using adapter: any ProcessAdapter) {
+        try? runGit(arguments: ["worktree", "remove", "--force", sandboxPath], workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true), adapter: adapter)
+        try? runGit(arguments: ["branch", "-D", branchName], workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true), adapter: adapter)
     }
 }
 
-private func runGit(arguments: [String], workspaceRoot: URL) throws {
-    let adapter = DefaultProcessAdapter()
+private func runGit(arguments: [String], workspaceRoot: URL, adapter: any ProcessAdapter) throws {
     let context = WorkspaceContext(rootURL: workspaceRoot)
-    let result = try adapter.runSync(SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context)
+    let result = try adapter.runSync(SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context, policy: nil)
     guard result.exitCode == 0 else {
         throw NSError(domain: "WorktreeSandbox", code: Int(result.exitCode), userInfo: [
             NSLocalizedDescriptionKey: result.stderr.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -73,10 +86,9 @@ private func runGit(arguments: [String], workspaceRoot: URL) throws {
     }
 }
 
-private func runGitOutput(arguments: [String], workspaceRoot: URL) throws -> String {
-    let adapter = DefaultProcessAdapter()
+private func runGitOutput(arguments: [String], workspaceRoot: URL, adapter: any ProcessAdapter) throws -> String {
     let context = WorkspaceContext(rootURL: workspaceRoot)
-    let result = try adapter.runSync(SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context)
+    let result = try adapter.runSync(SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context, policy: nil)
     guard result.exitCode == 0 else {
         throw NSError(domain: "WorktreeSandbox", code: Int(result.exitCode), userInfo: [
             NSLocalizedDescriptionKey: result.stderr.trimmingCharacters(in: .whitespacesAndNewlines),

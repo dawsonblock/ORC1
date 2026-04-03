@@ -112,10 +112,10 @@ public struct Dashboard {
 
         // Vision sidecar
         if VisionBridge.isAvailable() {
-            if let health = VisionBridge.healthCheck(),
-               let status = health["status"] as? String {
-                let models = (health["models_loaded"] as? [String])?.joined(separator: ", ") ?? "—"
-                print(ANSI.ok("Vision Sidecar: \(status)  models: \(models)"))
+            if let health = VisionBridge.healthCheck() {
+                let models = health.modelsLoaded.joined(separator: ", ")
+                let modelDisplay = models.isEmpty ? "—" : models
+                print(ANSI.ok("Vision Sidecar: \(health.status)  models: \(modelDisplay)"))
             } else {
                 print(ANSI.ok("Vision Sidecar: running"))
             }

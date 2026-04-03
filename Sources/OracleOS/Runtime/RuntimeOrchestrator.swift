@@ -92,8 +92,27 @@ extension RuntimeOrchestrator {
         let command: Command
         do {
             let state = WorldStateModel(snapshot: await container.commitCoordinator.snapshot())
-            command = try await container.planner.plan(intent: intent, state: state)
-            pendingEvents.append(try makePlanEvent(intentID: intent.id, command: command))
+            let plannedCommand = try await container.planner.plan(intent: intent, state: state)
+            pendingEvents.append(try makePlanEvent(intentID: intent.id, command: plannedCommand))
+
+            // Thread approval token from intent metadata into command metadata so
+            // VerifiedExecutor can validate and consume the receipt before executing.
+            if let token = intent.metadata["approvalToken"] {
+                command = Command(
+                    id: plannedCommand.id,
+                    type: plannedCommand.type,
+                    payload: plannedCommand.payload,
+                    metadata: CommandMetadata(
+                        intentID: plannedCommand.metadata.intentID,
+                        createdAt: plannedCommand.metadata.createdAt,
+                        source: plannedCommand.metadata.source,
+                        traceTags: plannedCommand.metadata.traceTags,
+                        approvalToken: token
+                    )
+                )
+            } else {
+                command = plannedCommand
+            }
         } catch {
             return IntentResponse(
                 intentID: intent.id,
@@ -140,13 +159,27 @@ extension RuntimeOrchestrator {
             outcome = .partialSuccess
         }
 
+        // Extract approval-pending metadata from verifier report for callers that must retry.
+        var approvalRequestID: String?
+        var approvalStatus: String?
+        if executionOutcome.status == .approvalPending {
+            let policyField = executionOutcome.verifierReport.policyDecision
+            let prefix = "approval-pending:"
+            if policyField.hasPrefix(prefix) {
+                approvalRequestID = String(policyField.dropFirst(prefix.count))
+                approvalStatus = "pending"
+            }
+        }
+
         return IntentResponse(
             intentID: intent.id,
             outcome: outcome,
             summary: "Intent completed: \(intent.objective) - \(executionOutcome.status.rawValue), critic=\(evaluation.criticOutcome.rawValue)",
             cycleID: cycleID,
             snapshotID: receipt.snapshotID,
-            timestamp: receipt.timestamp
+            timestamp: receipt.timestamp,
+            approvalRequestID: approvalRequestID,
+            approvalStatus: approvalStatus
         )
     }
 

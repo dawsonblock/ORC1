@@ -23,7 +23,6 @@ extension Actions {
         taskID: String? = nil,
         toolName: String? = "oracle_scroll"
     ) -> ToolResult {
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
         return executeThroughRuntime(
@@ -36,7 +35,8 @@ extension Actions {
                 x: x,
                 y: y,
                 postconditions: inferredPressPostconditions(appName: appName)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 

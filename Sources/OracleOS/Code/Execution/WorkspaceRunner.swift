@@ -31,7 +31,7 @@ public enum GitAccessLevel: Sendable {
 }
 
 public final class WorkspaceRunner: @unchecked Sendable {
-    private let processAdapter: any ProcessAdapter
+    let processAdapter: any ProcessAdapter
 
     public init(processAdapter: any ProcessAdapter) {
         self.processAdapter = processAdapter
@@ -142,9 +142,6 @@ public final class WorkspaceRunner: @unchecked Sendable {
 
     private func buildArgs(_ spec: BuildSpec) -> [String] {
         var args = ["build"]
-        // `--configuration` is the valid SwiftPM flag (Debug / Release).
-        // `scheme` and `destination` are Xcode-only and have no meaning for
-        // `swift build` — they are intentionally omitted here.
         if let config = spec.configuration {
             args.append(contentsOf: ["--configuration", config])
         }
@@ -154,8 +151,6 @@ public final class WorkspaceRunner: @unchecked Sendable {
 
     private func testArgs(_ spec: TestSpec) -> [String] {
         var args = ["test"]
-        // `--filter` is the valid SwiftPM flag for test name filtering.
-        // `scheme` and `failureOnly` are Xcode-only — not valid for `swift test`.
         if let filter = spec.filter {
             args.append(contentsOf: ["--filter", filter])
         }

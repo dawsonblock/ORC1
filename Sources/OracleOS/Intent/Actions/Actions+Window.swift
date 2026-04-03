@@ -33,7 +33,6 @@ extension Actions {
             )
         }
 
-        _ = approvalRequestID
         _ = taskID
         _ = toolName
 
@@ -49,7 +48,8 @@ extension Actions {
                 width: width,
                 height: height,
                 postconditions: inferredFocusPostconditions(appName: appName, windowTitle: windowTitle)
-            )
+            ),
+            approvalToken: approvalRequestID
         )
     }
 

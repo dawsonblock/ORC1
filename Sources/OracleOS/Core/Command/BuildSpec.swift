@@ -1,24 +1,22 @@
 import Foundation
 
 /// Typed build specification. No generic shell execution.
+/// Fields limited to what `swift build` actually consumes.
+/// Xcode-only concepts (`scheme`, `destination`) are not present.
 public struct BuildSpec: Sendable, Codable {
     public let workspaceRoot: String
-    public let scheme: String?
+    /// Passed as `--configuration`. Nil uses SwiftPM default (Debug).
     public let configuration: String?
-    public let destination: String?
+    /// Extra raw arguments appended after the standard flags.
     public let extraArgs: [String]
 
     public init(
         workspaceRoot: String,
-        scheme: String? = nil,
         configuration: String? = "Debug",
-        destination: String? = nil,
         extraArgs: [String] = []
     ) {
         self.workspaceRoot = workspaceRoot
-        self.scheme = scheme
         self.configuration = configuration
-        self.destination = destination
         self.extraArgs = extraArgs
     }
 }

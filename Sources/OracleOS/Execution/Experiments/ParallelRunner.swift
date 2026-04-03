@@ -32,7 +32,8 @@ public final class ParallelRunner: @unchecked Sendable {
                         experimentID: spec.id,
                         candidateID: candidate.id,
                         workspaceRoot: workspaceRoot,
-                        experimentsRoot: experimentsRoot
+                        experimentsRoot: experimentsRoot,
+                        adapter: workspaceRunner.processAdapter
                     )
                     try sandbox.apply(candidate)
 
@@ -76,7 +77,7 @@ public final class ParallelRunner: @unchecked Sendable {
                         results.append(try await workspaceRunner.execute(spec: testCommand))
                     }
 
-                    let diffSummary = sandbox.diffSummary()
+                    let diffSummary = sandbox.diffSummary(using: workspaceRunner.processAdapter)
                     let candidateSnapshot = repositoryIndexer.indexIfNeeded(
                         workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
                     )

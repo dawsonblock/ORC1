@@ -1,24 +1,22 @@
 import Foundation
 
 /// Typed test specification. No generic shell execution.
+/// Fields limited to what `swift test` actually consumes.
+/// Xcode-only concepts (`scheme`, `failureOnly`) are not present.
 public struct TestSpec: Sendable, Codable {
     public let workspaceRoot: String
-    public let scheme: String?
+    /// Passed as `--filter`. Nil runs all tests.
     public let filter: String?
-    public let failureOnly: Bool
+    /// Extra raw arguments appended after the standard flags.
     public let extraArgs: [String]
 
     public init(
         workspaceRoot: String,
-        scheme: String? = nil,
         filter: String? = nil,
-        failureOnly: Bool = false,
         extraArgs: [String] = []
     ) {
         self.workspaceRoot = workspaceRoot
-        self.scheme = scheme
         self.filter = filter
-        self.failureOnly = failureOnly
         self.extraArgs = extraArgs
     }
 }

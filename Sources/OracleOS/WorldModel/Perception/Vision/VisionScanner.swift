@@ -60,7 +60,7 @@ public enum VisionScanner {
         let displayHeight = Double(mainScreen?.frame.height ?? 1117)
 
         // Call VLM parsing
-        guard let result = VisionBridge.parse(
+        guard let response = VisionBridge.parse(
             imageBase64: screenshot.base64PNG,
             screenWidth: displayWidth,
             screenHeight: displayHeight
@@ -72,9 +72,20 @@ public enum VisionScanner {
             )
         }
 
+        // Re-encode the typed response to [String: Any] for the MCP tool result.
+        let encoder = JSONEncoder()
+        let resultDict: [String: Any]
+        if let data = try? encoder.encode(response),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        {
+            resultDict = dict
+        } else {
+            resultDict = [:]
+        }
+
         return ToolResult(
             success: true,
-            data: result,
+            data: resultDict,
             suggestion: "Screen parsed successfully via vision sidecar."
         )
     }

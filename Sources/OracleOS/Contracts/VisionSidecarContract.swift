@@ -66,6 +66,12 @@ public struct VisionGroundResponse: Sendable, Codable {
     public let normalizedX: Double
     /// Normalised Y in [0, 1].
     public let normalizedY: Double
+    /// Grounding confidence in [0, 1].
+    public let confidence: Double?
+    /// Raw model output text.
+    public let raw: String?
+    /// Inference time in milliseconds.
+    public let inferenceMs: Int?
     /// Grounding method used: "full-screen" or "crop-based".
     public let method: String
     /// Echo of the crop box if crop-based grounding was used.
@@ -74,9 +80,10 @@ public struct VisionGroundResponse: Sendable, Codable {
     public let error: String?
 
     public enum CodingKeys: String, CodingKey {
-        case x, y, method, error
+        case x, y, method, error, confidence, raw
         case normalizedX = "normalized_x"
         case normalizedY = "normalized_y"
+        case inferenceMs = "inference_ms"
         case cropBox = "crop_box"
     }
 }

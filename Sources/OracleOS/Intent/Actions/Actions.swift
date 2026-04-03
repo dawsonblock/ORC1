@@ -77,7 +77,8 @@ public enum Actions {
     static func executeThroughRuntime(
         runtime: RuntimeOrchestrator,
         surface: RuntimeSurface,
-        actionIntent: @autoclosure () -> ActionIntent
+        actionIntent: @autoclosure () -> ActionIntent,
+        approvalToken: String? = nil
     ) -> ToolResult {
         let intent = actionIntent()
         let family = plannerFamily(for: intent.agentKind)
@@ -99,7 +100,8 @@ public enum Actions {
         return driver.execute(
             intent: intent,
             plannerDecision: plannerDecision,
-            selectedCandidate: nil
+            selectedCandidate: nil,
+            approvalToken: approvalToken
         )
     }
 }

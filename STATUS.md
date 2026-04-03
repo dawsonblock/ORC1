@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-02 (repair pass 3)  
+**Last updated:** 2026-04-02 (repair pass 4)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -32,7 +32,8 @@ RuntimeOrchestrator.submitIntent(_:)
   → MainPlanner / planner chain
   → VerifiedExecutor.execute(_:)
   → PolicyEngine.validate()
-  → ApprovalStore.createRequest() [if requiresApproval]  ← wired
+  → ApprovalStore.consumeApprovedReceipt()  [if token present — consumes single-use receipt]
+  → ApprovalStore.createRequest()           [if requiresApproval and no token — blocks]
   → CommandRouter → TypedRouter
   → DefaultProcessAdapter   ← only Process() lives here
   → events emitted
@@ -40,19 +41,33 @@ RuntimeOrchestrator.submitIntent(_:)
   → reducers / projections applied
 ```
 
+**Approval flow end-to-end:** The approval token is threaded from the MCP tool call (`approvalRequestID` param) → `executeThroughRuntime(approvalToken:)` → `RuntimeExecutionDriver` → intent metadata → `RuntimeOrchestrator` → `CommandMetadata.approvalToken` → `VerifiedExecutor`. Consumption is single-use (file deletion in `ApprovalStore`). Responses carry `approvalRequestID` and `approvalStatus` back to the caller.
+
+**Experiment subsystem (separate path):** `oracle_experiment_search` is dispatched directly from `MCPDispatch` (async) to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`. This path intentionally bypasses `RuntimeOrchestrator` and `VerifiedExecutor`. Isolation comes from isolated git worktrees. `WorktreeSandbox` does not construct its own `ProcessAdapter` — the adapter is threaded from `WorkspaceRunner`.
+
 Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootstrap`, `DomainEvent`, `StateSnapshot`, `CriticLoop`, `PlanSimulator`, `ProgramKnowledgeGraph`, `WorldStateModel`, `ObservationChangeDetector`, `TaskLedger`, `TraceRecorder`, `RepairPipeline`, `BenchmarkBaseline`.
 
 ---
 
 ## Known Open Issues
 
-1. **214 `[String: Any]` occurrences** across the codebase. Worst architectural leak: `ControllerRuntimeBridge+Mapping.swift` (18 hits — internal module boundary, should be typed mappers). See `AUDIT.md` for full classification.
+1. **Remaining `[String: Any]` occurrences** across the codebase. Worst architectural leak: `ControllerRuntimeBridge+Mapping.swift` (internal module boundary — should be typed mappers). See `AUDIT.md` for full classification.
 2. **MCPDispatch.swift is 690 lines** mixing routing, timeout, result formatting, and all 28 tool implementations. Should be split into per-domain typed adapters.
-3. **`VisionBridge.swift` HTTP bodies** are still built as `[String: Any]` dicts rather than using the typed `VisionGroundRequest` / `VisionDetectRequest` structs from `VisionSidecarContract.swift`. Endpoint path strings are now resolved via `VisionSidecarEndpoint.*` constants (fixed).
-4. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
-5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
+3. **No CI wiring.** Guard scripts exist but no `.github/workflows/` file was found.
+4. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
 ---
+
+## Repair Pass 4 — Closed Holes
+
+| Item | File(s) | Status |
+|---|---|---|
+| Approval token threading (e2e) | `VerifiedExecutor`, `RuntimeOrchestrator`, `RuntimeExecutionDriver`, `Actions+*.swift`, `IntentResponse`, `CommandMetadata` | Fixed — token threaded from MCP call through to executor; consume/create paths wired; response carries approval fields |
+| nil workspaceRoot in edit path | `MainPlanner+Planner.swift` | Fixed — resolves from intent metadata or repository snapshot |
+| BuildSpec/TestSpec ignored fields | `BuildSpec.swift`, `TestSpec.swift`, `MainPlanner+Planner.swift` | Fixed — removed `scheme`, `destination`, `failureOnly`; spec types now match runner capabilities exactly |
+| Experiment subsystem undocumented | `WorktreeSandbox.swift`, `ExperimentManager.swift` | Fixed — explicit header comment: NOT on main execution path |
+| WorktreeSandbox own ProcessAdapter | `WorktreeSandbox.swift`, `ParallelRunner.swift`, `WorkspaceRunner.swift` | Fixed — adapter threaded from `WorkspaceRunner` through `ParallelRunner` to sandbox; no local `DefaultProcessAdapter()` construction |
+| VisionBridge untyped HTTP bodies | `VisionBridge.swift`, `VisionSidecarContract.swift`, `VisionScanner.swift`, callers | Fixed — `httpPostTyped`/`httpGetTyped` use JSONEncoder/JSONDecoder; all public methods use typed contract structs; `healthCheck()` returns `VisionHealthResponse?` |
 
 ## Repair Pass 3 — Closed Holes
 

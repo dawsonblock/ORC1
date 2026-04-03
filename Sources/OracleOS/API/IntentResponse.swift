@@ -17,6 +17,11 @@ public struct IntentResponse: Sendable, Codable {
     public let cycleID: UUID
     public let snapshotID: UUID?
     public let timestamp: Date
+    /// Non-nil when the outcome is `failed` due to a required approval.
+    /// Callers must re-submit with this ID as the `approvalToken` after the user approves.
+    public let approvalRequestID: String?
+    /// "pending" when an approval request was created. Nil otherwise.
+    public let approvalStatus: String?
 
     public init(
         intentID: UUID,
@@ -24,7 +29,9 @@ public struct IntentResponse: Sendable, Codable {
         summary: String,
         cycleID: UUID,
         snapshotID: UUID? = nil,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        approvalRequestID: String? = nil,
+        approvalStatus: String? = nil
     ) {
         self.intentID = intentID
         self.outcome = outcome
@@ -32,5 +39,7 @@ public struct IntentResponse: Sendable, Codable {
         self.cycleID = cycleID
         self.snapshotID = snapshotID
         self.timestamp = timestamp
+        self.approvalRequestID = approvalRequestID
+        self.approvalStatus = approvalStatus
     }
 }
