@@ -1,9 +1,11 @@
 # Oracle OS v2 - MCP Agent Instructions
 
-You have Oracle OS, a tool that lets you see and operate any macOS application
-through the accessibility tree AND visual perception. Every button, text field,
-link, and label is available -- either through the AX tree (native apps) or
-vision-based grounding (web apps where Chrome exposes everything as AXGroup).
+You have Oracle OS, a tool that lets you inspect and operate macOS applications
+through the accessibility tree plus visual perception. Native apps are handled
+AX-first when they expose usable accessibility structure. Web content and
+visually ambiguous surfaces can be grounded from screenshots when AX structure
+is incomplete. Do not assume every element is exposed: coverage depends on app
+accessibility support, current window visibility, and search-depth limits.
 
 ## Rule 1: Always Check Recipes First
 

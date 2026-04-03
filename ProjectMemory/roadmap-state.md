@@ -6,7 +6,7 @@
   - Typed events via `DomainEvent` and `DomainEventCodec`
   - `CommitReceipt` returned from `commit()` with `snapshotID`
   - Immutable `StateSnapshot` using `WorldModelSnapshot` value type
-  - `RuntimeBootstrap.makeDefault()` as canonical kernel factory
+  - `RuntimeBootstrap.makeBootstrappedRuntime()` as canonical async factory for main-path surfaces
   - Idempotent reducers for replay-stability
   - MCP and Controller Host consolidated to use `RuntimeBootstrap`
 

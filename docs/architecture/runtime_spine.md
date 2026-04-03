@@ -2,7 +2,7 @@
 
 ## Enforced execution path
 
-All side effects are expected to flow through this spine:
+All main-path side effects flow through this spine:
 
 ```text
 Intent
@@ -10,7 +10,7 @@ Intent
   → Planner.plan(...) -> Command
   → VerifiedExecutor.execute(_:)
   → CommandRouter
-  → DomainRouter (SystemRouter / UIRouter / CodeRouter)
+  → UIRouter / CodeRouter
   → Execution
   → ExecutionOutcome(events)
   → CommitCoordinator.commit(_:) -> CommitReceipt
@@ -25,7 +25,7 @@ typed `Intent` values and forwards them to `IntentAPI.submitIntent(_:)`.
 
 ## Runtime invariants
 
-1. `VerifiedExecutor.execute(_:)` is the only execution boundary for side effects.
+1. `VerifiedExecutor.execute(_:)` is the only execution boundary for main-path side effects.
 2. `CommitCoordinator.commit(_:)` returns `CommitReceipt` with `snapshotID`.
 3. Empty commits throw `CommitError.emptyCommit`.
 4. Reducers are pure, idempotent event-to-state derivation functions.
@@ -34,8 +34,8 @@ typed `Intent` values and forwards them to `IntentAPI.submitIntent(_:)`.
 7. `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical kernel factory.
 8. Recovery MUST complete before runtime becomes available to callers.
 9. `RuntimeContainer` is the single authority for all shared services (18+ properties).
-10. `RuntimeContext.init(container:)` is the only authorized context constructor.
-11. `RuntimeContext.live()` is `@unavailable` — no split authority allowed.
+10. `RuntimeContext` is a compile-time boundary guard only; it is not part of the live runtime path.
+11. Standalone CLI tooling (`oracle doctor`, `oracle setup`) is intentionally outside bootstrap and executor guarantees.
 
 ## Event typing
 
@@ -61,7 +61,7 @@ Legacy event types (`CommandSucceeded`, `CommandFailed`) are mapped automaticall
 | API | `Sources/OracleOS/API/IntentAPI.swift` | Runtime intake boundary |
 | Bootstrap | `Sources/OracleOS/Runtime/RuntimeBootstrap.swift` | Canonical kernel factory with async recovery |
 | Container | `Sources/OracleOS/Runtime/RuntimeContainer.swift` | Single authority for 18+ shared services |
-| Context | `Sources/OracleOS/Runtime/RuntimeContext.swift` | Peripheral services (from container) |
+| Context | `Sources/OracleOS/Runtime/RuntimeContext.swift` | Compile-time boundary guard only; not live runtime authority |
 | Orchestration | `Sources/OracleOS/Runtime/RuntimeOrchestrator.swift` | Linear runtime coordination |
 | Planning | `Sources/OracleOS/Planning/MainPlanner+Planner.swift` | Intent -> Command planning |
 | Execution | `Sources/OracleOS/Execution/VerifiedExecutor.swift` | Policy + routed command execution |
@@ -79,15 +79,18 @@ Legacy event types (`CommandSucceeded`, `CommandFailed`) are mapped automaticall
 ## Bootstrap flow
 
 ```text
-Entry point (Controller / MCP / CLI)
+Main-path entry point (Controller Host / MCP)
   → RuntimeBootstrap.makeBootstrappedRuntime()
   → RuntimeContainer created with all 18+ services
   → CommitCoordinator.recoverIfNeeded()
   → RecoveryReport returned (WAL entries, events replayed)
   → BootstrappedRuntime bundle returned
-  → RuntimeContext.init(container:) for peripheral services
   → Runtime ready for intents
 ```
+
+CLI tooling exception: `oracle doctor` and `oracle setup` construct
+`DefaultProcessAdapter()` directly for interactive shell work. They are
+standalone utilities and do not participate in this bootstrap flow.
 
 ### Recovery guarantees
 
@@ -108,7 +111,8 @@ Entry point (Controller / MCP / CLI)
 ## Remaining hardening focus
 
 - Keep `AgentLoop` intake-only and free of planning/execution logic.
-- Keep all user-facing entrypoints (controller/CLI/MCP/recipes) on the same
+- Keep all main-path entrypoints (Controller Host, MCP, MCP-backed recipes) on the same
   `IntentAPI -> RuntimeOrchestrator` path via `RuntimeBootstrap.makeBootstrappedRuntime()`.
+- Keep standalone CLI tooling explicitly out-of-band unless the runtime boundary is deliberately expanded.
 - Continue expanding architecture integrity tests that guard bypass regressions.
 - Ensure all new entry points use async bootstrap with recovery.

@@ -7,7 +7,7 @@ import XCTest
 /// no legacy planner symbols, no stray executor instantiations, no rogue
 /// container constructions survive in the production source tree.
 ///
-/// Complementary behavioral tests live in `ExecutionBoundaryEnforcementTests`.
+/// Complementary behavioral tests live in `ExecutionBoundaryBehaviorTests`.
 class TransitionalArtifactRemovalTests: XCTestCase {
 
     // MARK: - Source helpers

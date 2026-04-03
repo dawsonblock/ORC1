@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-03 (ORC1-main-8 — honesty pass)  
+**Last updated:** 2026-04-03 (ORC1-main-9 — doc + test taxonomy pass)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -56,6 +56,19 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 3. **`MCPDispatch.swift` line count has been reduced** from earlier versions to ~359 lines. Routing, timeout, and tool dispatch remain in one file; splitting is not currently blocking.  
 4. **CI is wired.** `.github/workflows/ci.yml` (build + swift test + mcp_boundary_guard) and `.github/workflows/architecture.yml` (architecture_guard.py) are present and run on every push and pull request.
 5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
+
+---
+
+## ORC1-main-9 Honesty Pass — Changes Made
+
+| Item | File(s) | Status |
+|---|---|---|
+| Active docs still preserved obsolete `makeDefault`, universal CLI bootstrap, and live `RuntimeContext` constructor stories | `docs/runtime_invariants.md`, `docs/architecture/runtime_spine.md`, `ProjectMemory/known-good-patterns/runtime-bootstrap.md`, `ProjectMemory/architecture-decisions/ADR-001-runtime-consolidation.md`, `ProjectMemory/roadmap-state.md` | Fixed — aligned to `makeBootstrappedRuntime()`, `submitIntent(_:)`, guard-only `RuntimeContext`, and explicit CLI tooling exceptions |
+| Root architecture summary still overclaimed `VerifiedExecutor` as repo-wide gate | `ARCHITECTURE.md` | Fixed — narrowed to main-path side effects; surface labels clarified |
+| MCP instructions overclaimed universal element availability | `ORACLE-MCP.md` | Fixed — narrowed to AX-first plus vision-assisted coverage with explicit limits |
+| Baseline and diagnostics docs implied stronger checked-in proof than the repo actually contains | `BASELINE.md`, `Diagnostics/README.md` | Fixed — numeric certification language removed; docs now point to local regeneration via `scripts/verify-build.sh` / `swift build` / `swift test` |
+| Governance source-scan and runtime behavior proof lived in one mixed file | `Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift`, `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift`, `Tests/OracleOSTests/Governance/TransitionalArtifactRemovalTests.swift` | Fixed — source scans kept in enforcement file; runtime proofs moved to dedicated behavior file with more truthful test names |
+| MCP had scan coverage but no direct dispatch behavior proof | `Tests/OracleOSTests/MCP/MCPDispatchBehaviorTests.swift` | Fixed — added runtime checks for unknown-tool error handling and empty `oracle_experiment_search` candidate rejection |
 
 ---
 

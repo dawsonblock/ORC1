@@ -5,8 +5,9 @@ This document records the non-negotiable runtime architecture rules for Oracle-O
 ## Execution and side effects
 
 1. `VerifiedExecutor.execute(_:)` is the only side-effect execution boundary.
-2. Runtime entry adapters (controller/MCP/recipes/CLI integrations) must submit
-   intents through `IntentAPI`/`RuntimeOrchestrator` instead of executing actions directly.
+2. Main-path runtime entry adapters (Controller Host, MCP, and MCP-backed recipe execution)
+   must submit intents through `IntentAPI`/`RuntimeOrchestrator` instead of executing actions directly.
+   Standalone CLI tooling (`oracle doctor`, `oracle setup`) is an intentional exception.
 3. `ExecutionOutcome` must include domain events for both success and failure paths.
 
 ## State mutation
@@ -30,8 +31,9 @@ This document records the non-negotiable runtime architecture rules for Oracle-O
 
 ## Runtime bootstrap
 
-1. `RuntimeBootstrap.makeDefault(configuration:)` is the canonical kernel factory.
-2. All entry points (MCP, Controller Host, CLI) must use `RuntimeBootstrap`.
+1. `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical async kernel factory for main-path surfaces.
+2. `MCPDispatch` and `ControllerRuntimeBridge` use `RuntimeBootstrap`; standalone CLI tooling
+   (`oracle doctor`, `oracle setup`) intentionally runs outside this path.
 3. Manual construction of `CommitCoordinator` with empty reducers is forbidden.
 4. The bootstrap wires real reducers: `RuntimeStateReducer`, `UIStateReducer`,
    `ProjectStateReducer`, `MemoryStateReducer`.
@@ -41,7 +43,8 @@ This document records the non-negotiable runtime architecture rules for Oracle-O
 1. Planning terminates at `Command`; planners do not execute.
 2. Runtime orchestration follows a linear flow:
    `Intent -> plan -> execute -> commit -> evaluate`.
-3. `RuntimeOrchestrator.runOneCycle(_:)` emits typed events and returns `snapshotID`.
+3. `RuntimeOrchestrator.submitIntent(_:)` is the public runtime cycle entry; it emits
+   typed events through the commit flow and returns `IntentResponse`.
 4. `RuntimeExecutionDriver` is an adapter (`ActionIntent -> Intent`) only.
 
 ## Regression policy

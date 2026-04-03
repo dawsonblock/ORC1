@@ -49,8 +49,10 @@ and cross-actor transfer.
 
 ### 4. RuntimeBootstrap as Canonical Factory
 
-`RuntimeBootstrap.makeDefault(configuration:)` is the canonical kernel factory.
-All entry points (MCP, Controller Host, CLI) must use this factory.
+`RuntimeBootstrap.makeBootstrappedRuntime(configuration:)` is the canonical async
+kernel factory for main-path surfaces. `MCPDispatch` and `ControllerRuntimeBridge`
+use this factory. Standalone CLI tooling (`oracle doctor`, `oracle setup`) is an
+intentional exception and runs outside the bootstrapped runtime.
 
 The bootstrap wires real reducers:
 
@@ -69,8 +71,9 @@ debugging deterministic.
 
 ### 6. RuntimeOrchestrator Emits Typed Events
 
-`RuntimeOrchestrator.runOneCycle(_:)` now emits typed events through the
-commit flow and returns the `snapshotID` from `CommitReceipt`.
+`RuntimeOrchestrator.submitIntent(_:)` is the public runtime cycle entry. It
+emits typed events through the commit flow, while `CommitCoordinator.commit(_:)`
+returns the `snapshotID` inside `CommitReceipt`.
 
 ## Reason
 

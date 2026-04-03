@@ -2,9 +2,13 @@
 
 ## Pattern
 
-All runtime entry points (MCP, Controller Host, CLI) must use
-`RuntimeBootstrap.makeDefault(configuration:)` to obtain a fully-wired
-`RuntimeContainer`.
+Main-path runtime surfaces (`MCPDispatch`, `ControllerRuntimeBridge`) must use
+`RuntimeBootstrap.makeBootstrappedRuntime(configuration:)` to obtain a fully-wired
+`BootstrappedRuntime`.
+
+Standalone CLI tooling (`oracle doctor`, `oracle setup`) is an intentional
+exception. Those utilities construct `DefaultProcessAdapter()` directly and run
+outside the bootstrapped runtime.
 
 ## Rationale
 
@@ -19,9 +23,10 @@ pattern ensures:
 ## Example
 
 ```swift
-// ✅ Correct: Use RuntimeBootstrap
-let container = try RuntimeBootstrap.makeDefault(configuration: .live())
-let orchestrator = RuntimeOrchestrator(container: container)
+// ✅ Correct: Use RuntimeBootstrap for main-path runtime surfaces
+let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .live())
+let container = bootstrapped.container
+let orchestrator = bootstrapped.orchestrator
 
 // ❌ Wrong: Manual construction with empty reducers
 let coordinator = CommitCoordinator(eventStore: store, reducers: [])

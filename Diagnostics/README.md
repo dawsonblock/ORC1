@@ -19,9 +19,11 @@ No build output and no test output were captured. These files are retained
 for historical traceability of the capture attempt but do not certify
 anything about the codebase.
 
-**Authoritative baseline:** 646 tests in 94 suites passing as of ORC1-main-7.
-Reproduce locally with:
+**Authoritative verification path:** re-run validation locally in a supported
+Swift environment. Use `scripts/verify-build.sh` for the repo-standard capture,
+or run the core commands directly:
 
 ```sh
-swift test 2>&1 | tail -5
+swift build -c release
+swift test
 ```

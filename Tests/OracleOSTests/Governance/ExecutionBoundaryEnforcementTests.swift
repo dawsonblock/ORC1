@@ -1,8 +1,9 @@
 import XCTest
 @testable import OracleOS
 
-/// Governance tests that ENFORCE architectural boundaries through real scans and proofs.
-/// These tests fail when architecture drifts, not when developer assumptions are wrong.
+/// Governance tests that enforce architectural boundaries through source scans
+/// and static structural proofs. Runtime behavior proofs live in
+/// ExecutionBoundaryBehaviorTests.
 final class ExecutionBoundaryEnforcementTests: XCTestCase {
 
     // MARK: - Real Enforcement: Source Code Scans
@@ -144,101 +145,13 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
                       "Governance tests must check for forbidden Process() usage")
     }
 
-    // MARK: - Real Enforcement: Behavioral Tests
-
-    /// ENFORCE: RuntimeBootstrap produces valid runtimes
-    @MainActor
-    func testRuntimeBootstrapIsDeterministic() async throws {
-        // Create two runtimes with the same config
-        let config = RuntimeConfig.test()
-        
-        let runtime1 = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: config)
-        let runtime2 = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: config)
-        
-        // Both must be structurally valid
-        XCTAssertNotNil(runtime1.container)
-        XCTAssertNotNil(runtime2.container)
-        // Note: session IDs are per-instance UUIDs by design — determinism
-        // refers to structural validity, not identical session identity.
-    }
-
-    /// ENFORCE: EventReducer is applied before state is visible
-    @MainActor
-    func testCommitCoordinatorAppliesReducersBeforeVisibility() async throws {
-        let store = MemoryEventStore()
-        let reducer = RuntimeStateReducer()
-        let coordinator = CommitCoordinator(eventStore: store, reducers: [reducer])
-        
-        // Empty commit should fail
-        do {
-            _ = try await coordinator.commit([])
-            XCTFail("Empty commit must throw CommitError.emptyCommit")
-        } catch CommitError.emptyCommit {
-            // Expected
-        }
-    }
-
-    /// ENFORCE: VerifiedExecutor is the only execution path
-    @MainActor
-    func testVerifiedExecutorIsOnlyExecutionPath() async throws {
-        let policyEngine = PolicyEngine.shared
-        let processAdapter = DefaultProcessAdapter(policyEngine: policyEngine)
-        
-        let commandRouter = CommandRouter(
-            workspaceRunner: WorkspaceRunner(processAdapter: processAdapter),
-            repositoryIndexer: RepositoryIndexer(processAdapter: processAdapter)
-        )
-        
-        let executor = VerifiedExecutor(
-            policyEngine: policyEngine,
-            commandRouter: commandRouter,
-            preconditionsValidator: PreconditionsValidator(),
-            postconditionsValidator: PostconditionsValidator()
-        )
-        
-        // Verify executor is the sole interface for command execution
-        let command = Command(
-            id: UUID(),
-            type: .code,
-            payload: .code(CodeAction(name: "test")),
-            metadata: CommandMetadata(intentID: UUID(), source: "test")
-        )
-        
-        let result = try await executor.execute(command)
-        XCTAssertNotNil(result)
-        XCTAssertFalse(result.events.isEmpty, "Execution must emit events")
-    }
-
-    /// ENFORCE: Planner is called only through RuntimeOrchestrator
-    @MainActor
-    func testPlannerIsCalledThroughOrchestratorOnly() async throws {
-        // This is verified by source code scan (grep), but we also test the interface
-        let planner = MainPlanner()
-        
-        let context = PlannerContext(
-            state: WorldStateModel(),
-            memories: [],
-            repositorySnapshot: nil
-        )
-        
-        let intent = Intent(
-            id: UUID(),
-            domain: .code,
-            objective: "test",
-            metadata: [:]
-        )
-        
-        // Planner must accept typed Intent, not loose arguments
-        let command = try await planner.plan(intent: intent, context: context)
-        XCTAssertNotNil(command, "Planner must return typed Command")
-    }
-
     // MARK: - Meta-test: Governance test presence
 
     /// ENFORCE: Test files that verify boundaries must exist
     func testGovernanceTestsExist() {
         let requiredTests = [
             "Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift",
+            "Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift",
             "Tests/OracleOSTests/Governance/ArchitectureFreezeTests.swift",
             "Tests/OracleOSTests/Governance/RuntimeInvariantTests.swift",
         ]
@@ -249,25 +162,5 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
                 "Required governance test missing: \(testFile)"
             )
         }
-    }
-}
-
-// MARK: - Helper Extensions
-
-private extension RuntimeConfig {
-    static func test() -> RuntimeConfig {
-        let tmp = FileManager.default.temporaryDirectory
-        return RuntimeConfig(
-            policyMode: .confirmRisky,
-            approvalRequiredSurfaces: [],
-            blockedApplications: [],
-            protectedOperations: [],
-            traceDirectory: tmp,
-            recipesDirectory: tmp,
-            controllerApprovalRequiredForRiskyActions: false,
-            approvalsDirectory: tmp,
-            projectMemoryDirectory: tmp,
-            experimentsDirectory: tmp
-        )
     }
 }

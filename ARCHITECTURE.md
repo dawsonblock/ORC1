@@ -14,10 +14,10 @@ This spine covers all main-path execution. The experiment subsystem (`oracle_exp
 
 Surfaces:
 
-- Controller
+- Controller host
 - MCP
-- CLI
-- Recipes
+- CLI tooling
+- Recipes (MCP-backed)
 
 ## Dominant Subsystems
 
@@ -581,7 +581,7 @@ Only reusable knowledge is eligible for canonical long-term storage.
 ## Current Enforcement
 
 - runtime owns post-execution updates
-- all side effects flow through `VerifiedExecutor` — the single execution gate
+- all main-path side effects flow through `VerifiedExecutor` — the single execution gate
 - `CommitCoordinator` is the only entity that writes committed state
 - `CommitCoordinator.commit(_:)` returns `CommitReceipt` with `snapshotID`
 - empty commits throw `CommitError.emptyCommit` (no-op commits forbidden)
