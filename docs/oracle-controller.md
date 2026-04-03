@@ -10,15 +10,15 @@ It now supports both developer and packaged-app flows:
 
 ## Components
 
-- `OracleController`: SwiftUI macOS dashboard
-- `OracleControllerHost`: local helper host that links `OracleOS` and owns runtime execution
+- `OracleController`: SwiftUI macOS dashboard and supported operator surface
+- `OracleControllerHost`: bundled helper executable started by the app; boots one `OracleOS` runtime and translates typed app requests into that runtime
 - `OracleControllerShared`: typed IPC models shared by the app and the host
 - `OracleController.xcworkspace`: Xcode workspace entry point
 
 ## What It Does
 
 - live snapshot-based monitor for the current app
-- manual action control for focus, click, type, press, scroll, and wait
+- manual action control for focus, click, type, press, and scroll through the runtime, plus observational wait-condition checks
 - recipe library with create, duplicate, edit, save, delete, and run
 - trace session browser with per-step verification, hashes, and artifact links
 - health panel for permissions, sidecar state, trace directory, and recipe directory
@@ -32,7 +32,9 @@ It now supports both developer and packaged-app flows:
 - one controller app launch starts one local host process
 - one host process owns one runtime trace session
 - the UI never calls heavy OracleOS APIs directly
-- verified actions and recipe runs flow through `OracleControllerHost`
+- `OracleControllerHost` is an adapter layer, not a second runtime authority
+- focus, click, type, press, scroll, and recipe work flow through `OracleControllerHost` into the bootstrapped runtime
+- wait checks are host-local observations via `WaitManager`; they do not commit side effects or pass through `VerifiedExecutor`
 - packaged builds write to `~/Library/Application Support/Oracle OS/`
 - legacy `~/.oracle-os` data is migrated when present
 

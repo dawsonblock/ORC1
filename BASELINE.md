@@ -23,15 +23,16 @@ swift test
 > **Note:** The archived Diagnostics logs (`runtime_baseline_36_build.log`,
 > `runtime_baseline_36_test.log`) contain only `bash: line 1: swift: command not found`
 > and are NOT valid proof artifacts. Use `scripts/verify-build.sh` or run the commands
-> above in a supported Swift environment to regenerate current evidence.
+> above in a supported Swift environment to regenerate current evidence. No checked-in
+> packaged-controller artifact in this repo should be treated as current UI health proof.
 
 ## Canonical Entry Points
 
 | Surface | Entry |
 |---|---|
 | MCP server | `Sources/OracleOS/MCP/MCPServer.swift` → `MCPDispatch.handle(_:)` |
-| Controller app | `Sources/OracleController/` via `OracleController.xcodeproj` |
-| Controller host | `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` |
+| Controller app | Supported operator UI in `Sources/OracleController/` via `OracleController.xcodeproj` |
+| Controller host | Bundled helper adapter in `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` |
 | CLI / oracle tool | `Sources/oracle/` |
 
 ## Canonical Runtime Path
@@ -54,7 +55,7 @@ RuntimeBootstrap.makeBootstrappedRuntime()
 - `MCPDispatch` held both `_bootstrappedRuntime` and `_runtimeContext`. Dual-path risk. *(Resolved — `_runtimeContext` no longer present in MCPDispatch.)*
 - `[String: Any]` dictionaries cross task-group and actor boundaries in MCPDispatch. *(Partially resolved — typed `MCPToolRequest`/`MCPToolResponse` via `MCPBoundary.swift`. Legacy `handle(_ params: [String: Any])` entry point retained for MCPServer compatibility. 214 occurrences remain, mostly at external perception/API boundaries. See `AUDIT.md`.)*
 - Root contained 46 legacy repair scripts, logs, and one-off test files (now quarantined in `tools/quarantine/`).
-- Experimental modules (`vision-sidecar`, `web`) are included in default build surface. *(Unchanged.)*
+- `vision-sidecar` is an optional external service edge and `web` is demo scaffolding. Neither is the supported operator UI. *(Unchanged.)*
 
 ## Phase 6 Goals — Resolution Status (2026-04-03)
 

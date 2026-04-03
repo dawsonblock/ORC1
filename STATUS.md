@@ -12,6 +12,9 @@
 | Swift target | macOS 14+ (arm64) |
 | Source files | ~504 Swift files across 5 products (OracleOS, OracleControllerShared, oracle CLI, OracleControllerHost, OracleController) |
 | Build | Must be verified in a valid Swift environment. See `scripts/verify-build.sh`. |
+| Supported operator UI | `OracleController` native macOS app |
+| Controller host role | `OracleControllerHost` boots one runtime per app launch and adapts UI requests into it |
+| Web surface | Demo/dev scaffolding only; not part of the supported operator contract |
 
 ---
 
@@ -40,6 +43,10 @@ RuntimeOrchestrator.submitIntent(_:)
   → CommitCoordinator.commit(events:)
   → reducers / projections applied
 ```
+
+**Desktop authority map:** `OracleController` → `HostProcessClient` → `OracleControllerHost` → `RuntimeBootstrap.makeBootstrappedRuntime()` → `RuntimeOrchestrator.submitIntent(_:)` → `VerifiedExecutor.execute(_:)` → `CommandRouter`.
+
+**Desktop wait exception:** The controller's Wait action is observational and currently calls `WaitManager.waitFor(...)` in the host. It does not pass through `VerifiedExecutor` because it does not commit side effects.
 
 **Approval flow end-to-end:** The approval token is threaded from the MCP tool call (`approvalRequestID` param) → `executeThroughRuntime(approvalToken:)` → `RuntimeExecutionDriver` → intent metadata → `RuntimeOrchestrator` → `CommandMetadata.approvalToken` → `VerifiedExecutor`. Approval receipts are **action-fingerprint-bound**: `PolicyRules.commandFingerprint(_:)` computes a SHA256 of the serialised command payload; this fingerprint is stored in `ApprovalRequest` and checked by `ApprovalStore.consumeApprovedReceipt` — a different command submitted with the same token is rejected. Consumption is single-use (file deletion in `ApprovalStore`). Responses carry `approvalRequestID` and `approvalStatus` back to the caller.
 

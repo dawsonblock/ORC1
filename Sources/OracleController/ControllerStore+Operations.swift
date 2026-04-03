@@ -178,9 +178,7 @@ extension ControllerStore {
                     )
                     selectedElementID = resultingObservation.focusedElementID
                 }
-                inlineMessage = result.approvalStatus == "pending"
-                    ? (result.message ?? "Action pending approval.")
-                    : (result.success ? (result.message ?? "Action completed.") : (result.message ?? "Action failed."))
+                inlineMessage = result.summaryText
                 if let approvals = response.approvals {
                     approvalQueue = approvals
                 }

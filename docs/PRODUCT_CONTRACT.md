@@ -4,11 +4,13 @@ This file states the live product surface in this checkout. Historical rebuild, 
 
 ## Product Scope
 
-OracleOS is a Swift-native macOS automation runtime with three live surfaces:
+OracleOS is a Swift-native macOS automation runtime with three live entry points and one supported human operator UI:
 
-1. **MCP** — Model Context Protocol tool server
-2. **Controller** — native macOS GUI for human-in-the-loop monitoring and approval
+1. **Controller** — supported native macOS operator UI for monitoring, approvals, recipes, diagnostics, and project memory
+2. **MCP** — Model Context Protocol tool server for programmatic use
 3. **CLI** — `oracle` binary for local setup, diagnostics, and recipe execution
+
+`OracleControllerHost` is the bundled helper adapter for the desktop UI. It boots one `OracleOS` runtime per app launch and forwards typed requests into that runtime. It is not a second planner, executor, or commit authority.
 
 OracleOS is not a cloud service, not a browser product, and not a general-purpose agent framework. It is intentionally scoped to local macOS automation with explicit approval and execution boundaries.
 
@@ -34,11 +36,13 @@ The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MC
 
 See [../ORACLE-MCP.md](../ORACLE-MCP.md) for the user-facing tool catalog.
 
-### 2. Desktop actions are approval-gated when policy requires it
+### 2. Desktop actions that enter the runtime are approval-gated when policy requires it
 
 Risky actions such as click, type, press, hotkey, scroll, focus, window operations, and recipe steps marked `requiresApproval` pass through `PolicyEngine` and may be gated by `ApprovalStore`.
 
 When a gated action pauses, the caller receives an `approval_request_id`. Resuming the action requires that token.
+
+The controller's Wait action is not a side-effecting runtime action. It is an observational condition check handled by the host and therefore does not enter `VerifiedExecutor`.
 
 ### 3. The main runtime spine is stable for main-path effects
 
@@ -68,7 +72,7 @@ Explicit exceptions:
 |---|---|---|
 | **Gated** | User-approved desktop actions | click, type, hotkey through `VerifiedExecutor` |
 | **Service** | Infrastructure persistence | traces, memory, graph, recipes, workflows, telemetry |
-| **Read-only** | Observation and perception | AX inspection, screenshots, sidecar-backed perception |
+| **Read-only** | Observation and perception | AX inspection, screenshots, controller Wait checks, sidecar-backed perception |
 
 `VerifiedExecutor` governs gated desktop actions. Service persistence remains in its own subsystems.
 

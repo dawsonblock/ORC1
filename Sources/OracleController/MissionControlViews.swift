@@ -56,7 +56,7 @@ struct MissionControlWorkspaceView: View {
                     KPIGrid(kpis: missionControl.kpis)
 
                     HStack(alignment: .top, spacing: 18) {
-                        PanelCard("Live Monitor", subtitle: missionControl.snapshot?.observation.windowTitle ?? "Current verified observation") {
+                        PanelCard("Live Monitor", subtitle: missionControl.snapshot?.observation.windowTitle ?? "Current observation snapshot") {
                             ScreenshotPreview(screenshot: missionControl.snapshot?.screenshot ?? store.snapshot?.screenshot)
                                 .frame(maxWidth: .infinity, minHeight: 340)
                         }
@@ -279,7 +279,7 @@ private struct ActivityTimelineCard: View {
     let entries: [MissionActivityEntry]
 
     var body: some View {
-        PanelCard("Recent Activity", subtitle: "Verified timeline across the current session") {
+        PanelCard("Recent Activity", subtitle: "Recent controller and runtime activity") {
             if entries.isEmpty {
                 EmptyStateView(
                     systemImage: "clock.badge.questionmark",

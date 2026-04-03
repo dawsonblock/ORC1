@@ -5,6 +5,9 @@ This directory contains a Vite + React frontend scaffold.
 **Status:** Disconnected dev demo. `web/src/App.tsx` renders hardcoded mock data
 with no real connection to the Swift OracleOS runtime.
 
+The supported operator UI for this repository is the native `OracleController`
+macOS app. This folder is not an alternative control surface.
+
 This surface is not part of the production runtime path. It exists as a visual
 prototype and is not wired to any live data source. Do not treat its displayed
 values as ground truth about system state.

@@ -109,6 +109,7 @@ final class ControllerRuntimeBridge {
     func diagnosticsSnapshot() -> ControllerDiagnosticsSnapshot {
         let traceEvents = diagnosticsBuilder.loadTraceEvents()
         let observation = ObservationBuilder.capture(appName: nil)
+        // AutomationHost is diagnostics-only here. It does not execute controller actions.
         let hostSnapshot = container.automationHost.snapshots.captureSnapshot(appName: observation.app)
         let browserSession = container.browserController.snapshot(
             appName: observation.app,
@@ -194,6 +195,8 @@ final class ControllerRuntimeBridge {
             )
 
         case .wait:
+            // Wait is observational and host-local. It checks a condition without
+            // sending a side effect through VerifiedExecutor or CommandRouter.
             WaitManager.waitFor(
                 condition: request.waitCondition ?? "appFrontmost",
                 value: request.waitValue,

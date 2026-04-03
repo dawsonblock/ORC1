@@ -94,4 +94,49 @@ struct ControllerSharedTests {
         #expect(decoded.params?["recipient"]?.required == true)
         #expect(decoded.rawJSON == "{ \"name\": \"gmail-send\" }")
     }
+
+    @Test
+    func actionRunResultDistinguishesObservedWaitFromVerifiedExecution() {
+        let observedWait = ActionRunResult(
+            request: ActionRequest(kind: .wait, waitCondition: "windowTitleContains", waitValue: "Inbox"),
+            success: true,
+            verified: false,
+            elapsedMs: 25,
+            executedThroughExecutor: false
+        )
+
+        let verifiedClick = ActionRunResult(
+            request: ActionRequest(kind: .click, query: "Send"),
+            success: true,
+            verified: true,
+            elapsedMs: 42,
+            executedThroughExecutor: true
+        )
+
+        #expect(observedWait.disposition == .observed)
+        #expect(observedWait.statusLabel == "Observed")
+        #expect(observedWait.executionPathSummary == "Observed wait condition in the host bridge")
+
+        #expect(verifiedClick.disposition == .verifiedExecution)
+        #expect(verifiedClick.statusLabel == "Verified")
+        #expect(verifiedClick.executionPathSummary == "Executed through the verified runtime path")
+    }
+
+    @Test
+    func actionRunResultPrefersApprovalPendingOverFailureLabel() {
+        let pending = ActionRunResult(
+            request: ActionRequest(kind: .click, query: "Delete"),
+            success: false,
+            verified: false,
+            failureClass: "approval_pending",
+            elapsedMs: 0,
+            approvalRequestID: "approval-1",
+            approvalStatus: "pending",
+            executedThroughExecutor: false
+        )
+
+        #expect(pending.disposition == .awaitingApproval)
+        #expect(pending.statusLabel == "Awaiting Approval")
+        #expect(pending.summaryText == "Action awaiting approval before runtime execution.")
+    }
 }

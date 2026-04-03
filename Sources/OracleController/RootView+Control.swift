@@ -64,7 +64,7 @@ struct ControlWorkspaceView: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    PanelCard("Action Timeline", subtitle: "Recent verified actions") {
+                    PanelCard("Action Timeline", subtitle: "Recent controller action results") {
                         if store.recentActions.isEmpty {
                             EmptyStateView(
                                 systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90",
@@ -79,13 +79,13 @@ struct ControlWorkspaceView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(action.request.displayTitle)
                                                 .font(.system(size: 13, weight: .semibold))
-                                            Text(action.message ?? "Completed")
+                                            Text(action.summaryText)
                                                 .font(.system(size: 11))
                                                 .foregroundStyle(.secondary)
                                         }
                                         Spacer()
                                         VStack(alignment: .trailing, spacing: 6) {
-                                            StatusBadge(label: action.success ? "Verified" : "Failed", tone: action.success ? .good : .danger)
+                                            StatusBadge(label: action.statusLabel, tone: tone(for: action))
                                             Text("\(Int(action.elapsedMs)) ms")
                                                 .font(.system(size: 11, design: .monospaced))
                                                 .foregroundStyle(.secondary)
@@ -252,7 +252,7 @@ struct ActionComposerCard: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Manual Action", subtitle: "All high-signal controls route through the verified executor") {
+        PanelCard("Manual Action", subtitle: "Runtime actions flow through the host bridge; Wait evaluates a condition locally") {
             Picker("Action", selection: $store.actionComposer.kind) {
                 ForEach(ActionKind.allCases) { kind in
                     Text(kind.rawValue.capitalized).tag(kind)
@@ -371,7 +371,7 @@ struct ControlInspectorView: View {
                 PanelCard("Verification", subtitle: "Latest action status") {
                     if let result = store.currentActionResult {
                         HStack {
-                            StatusBadge(label: result.success ? "Verified" : "Failed", tone: result.success ? .good : .danger)
+                                StatusBadge(label: result.statusLabel, tone: tone(for: result))
                             if let failureClass = result.failureClass {
                                 StatusBadge(label: failureClass, tone: .warning)
                             }
@@ -380,8 +380,12 @@ struct ControlInspectorView: View {
                             }
                         }
                         KVRow(key: "Request", value: result.request.displayTitle)
-                        KVRow(key: "Message", value: result.message ?? "No message")
+                            KVRow(key: "Message", value: result.summaryText)
+                            KVRow(key: "Execution Path", value: result.executionPathSummary)
                         KVRow(key: "Elapsed", value: "\(Int(result.elapsedMs)) ms", monospaced: true)
+                            if let verificationStatus = result.verificationStatus {
+                                KVRow(key: "Verification", value: verificationStatus)
+                            }
                         if let commandCategory = result.commandCategory {
                             KVRow(key: "Command", value: commandCategory)
                         }
@@ -427,5 +431,22 @@ struct ControlInspectorView: View {
             }
             .padding(20)
         }
+    }
+}
+
+private func tone(for result: ActionRunResult) -> StatusBadge.Tone {
+    switch result.disposition {
+    case .awaitingApproval:
+        return .warning
+    case .blockedByPolicy:
+        return .danger
+    case .verifiedExecution:
+        return .good
+    case .observed:
+        return .neutral
+    case .partialSuccess:
+        return .warning
+    case .failed:
+        return .danger
     }
 }

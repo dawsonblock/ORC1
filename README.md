@@ -1,22 +1,24 @@
 # OracleOS
 
-OracleOS is a local macOS agent runtime written in Swift. This checkout exposes one main execution core plus three live surfaces: an MCP server, a native controller app, and the `oracle` CLI.
+OracleOS is a local macOS agent runtime written in Swift. The supported human operator surface in this checkout is the native `OracleController` macOS app. The same runtime is also exposed through the MCP server and the `oracle` CLI for programmatic and utility use.
 
 Historical rebuild, handoff, phase, and deployment documents are archived under [docs/archive](docs/archive). They are useful for archaeology, not as the current repo contract.
 
 ## What Is Live
 
 - Main-path execution spine: `RuntimeBootstrap.makeBootstrappedRuntime()` -> `RuntimeOrchestrator.submitIntent(_:)` -> `MainPlanner.plan(intent:state:)` -> `VerifiedExecutor.execute(_:)` -> `CommandRouter` -> `UIRouter` or `CodeRouter` -> `CommitCoordinator.commit(_:)`
+- Desktop operator UI: `OracleController` is the supported local control surface; `OracleControllerHost` is the bundled helper bridge that boots one runtime per app launch and forwards typed requests into that runtime
 - MCP surface: 30 public `oracle_*` tools defined in `Sources/OracleOS/MCP/MCPTools.swift` and dispatched from `Sources/OracleOS/MCP/MCPDispatch.swift`
-- Controller: native macOS UI for approvals, traces, recipes, diagnostics, and project memory
 - CLI: local setup, doctor, status, and related tooling commands
-- Optional service edges: `vision-sidecar/` is an external sidecar boundary; `web/` is a disconnected demo surface, not part of the runtime contract
+- Optional service edge: `vision-sidecar/` is an external sidecar boundary
+- Demo-only surface: `web/` is disconnected scaffolding and not part of the supported runtime contract
 
 ## What This README Does Not Claim
 
 - It is not a live build badge or release certificate. Run `swift build`, `swift test`, and `./scripts/verify-build.sh` for current evidence.
 - It is not a zero-warning guarantee. See [STATUS.md](STATUS.md) and [BASELINE.md](BASELINE.md) for the current evidence posture.
 - It does not claim that every code path goes through the main executor. `oracle_experiment_search` is a deliberate exception path that evaluates candidate patches in isolated git worktrees.
+- It does not claim that every controller affordance enters `VerifiedExecutor`. The desktop Wait action is an observational host-side condition check.
 
 ## Quick Start
 

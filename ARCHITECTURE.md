@@ -14,7 +14,7 @@ This spine covers all main-path execution. The experiment subsystem (`oracle_exp
 
 Surfaces:
 
-- Controller host
+- OracleController via OracleControllerHost (supported macOS operator UI)
 - MCP
 - CLI tooling
 - Recipes (MCP-backed)
@@ -59,11 +59,17 @@ Responsibilities:
 MCP (`oracle mcp`) and the Controller Host use this async factory to obtain a
 fully-wired `BootstrappedRuntime` with recovery already completed.
 
+For the desktop surface, `OracleControllerHost` is a helper adapter only. It boots one runtime per app launch and forwards typed requests from the UI. It does not own planning, execution, or commit authority independently of `OracleOS`.
+
 **CLI diagnostic exception:** `oracle setup` (SetupWizard) and `oracle doctor` (Doctor)
 intentionally bypass the bootstrapped runtime — they construct `DefaultProcessAdapter()`
 directly for interactive/diagnostic shell commands. They run outside the policy-checked
 execution spine by design. See the EXECUTION AUTHORITY NOTE comments at the top of
 `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift`.
+
+**Controller wait exception:** The desktop Wait action is observational. `OracleControllerHost`
+currently evaluates it through `WaitManager.waitFor(...)` instead of sending it into
+`VerifiedExecutor`, because it checks a condition rather than committing side effects.
 
 The `BootstrappedRuntime` bundle contains:
 

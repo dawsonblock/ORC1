@@ -38,15 +38,15 @@ function App() {
             <Activity className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Oracle-OS</h1>
-            <p className="text-slate-400 text-sm font-medium">System Telemetry & Control</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Oracle-OS Web Demo</h1>
+            <p className="text-slate-400 text-sm font-medium">Disconnected mock telemetry for UI exploration</p>
           </div>
         </div>
         
         <div className="flex items-center gap-4 bg-slate-900 rounded-lg px-4 py-2 border border-slate-800 border-l-4 border-l-amber-500">
           <div className="h-3 w-3 rounded-full bg-amber-500 animate-pulse"></div>
-          <span className="font-semibold text-amber-500">{metrics.system.status}</span>
-          <span className="text-slate-500 text-sm ml-2">({metrics.system.mode})</span>
+          <span className="font-semibold text-amber-500">DEMO ONLY</span>
+          <span className="text-slate-500 text-sm ml-2">(mock data, no runtime connection)</span>
         </div>
       </header>
 
@@ -173,7 +173,7 @@ function App() {
           <div className="bg-slate-900/80 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-400">
               <Terminal className="w-4 h-4" />
-              <h2 className="text-sm font-semibold uppercase tracking-wider">Controller Host Stream</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wider">Mock Host Stream</h2>
             </div>
             <div className="flex gap-1">
               <div className="w-3 h-3 rounded-full bg-slate-700"></div>

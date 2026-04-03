@@ -172,13 +172,16 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
     }
 
     nonisolated private static func makeToolResult(from response: IntentResponse) -> ToolResult {
-        let success = response.outcome == .success || response.outcome == .skipped
+        let success = response.outcome == .success
+            || response.outcome == .skipped
+            || response.outcome == .partialSuccess
         let isPlanningFailure = response.summary.lowercased().hasPrefix("planning failed")
         let isApprovalPending = response.approvalRequestID != nil
+        let verified = response.outcome == .success || response.outcome == .skipped
 
         var actionResult: [String: Any] = [
             ActionResultKey.success: success,
-            ActionResultKey.verified: success,
+            ActionResultKey.verified: verified,
             ActionResultKey.executedThroughExecutor: !isPlanningFailure && !isApprovalPending,
             ActionResultKey.message: response.summary,
             ActionResultKey.method: "intent-api",

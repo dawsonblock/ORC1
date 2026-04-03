@@ -57,6 +57,62 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(actionResult?["executed_through_executor"] as? Bool == false)
     }
 
+    @Test("Partial-success responses stay successful but not verified")
+    func partialSuccessResponsesStaySuccessfulButNotVerified() {
+        let response = IntentResponse(
+            intentID: UUID(),
+            outcome: .partialSuccess,
+            summary: "Intent completed with partial verification",
+            cycleID: UUID(),
+            snapshotID: UUID()
+        )
+        let driver = RuntimeExecutionDriver(
+            intentAPI: StubIntentAPI(response: response),
+            surface: .controller
+        )
+
+        let result = driver.execute(
+            intent: ActionIntent.click(app: nil, query: "Save"),
+            plannerDecision: testPlannerDecision(),
+            selectedCandidate: nil
+        )
+
+        let actionResult = result.data?["action_result"] as? [String: Any]
+        #expect(result.success == true)
+        #expect(actionResult?["success"] as? Bool == true)
+        #expect(actionResult?["verified"] as? Bool == false)
+        #expect(actionResult?["failure_class"] as? String == "partial_success")
+        #expect(actionResult?["executed_through_executor"] as? Bool == true)
+    }
+
+    @Test("Approval-pending responses preserve approval metadata and stay non-executed")
+    func approvalPendingResponsesPreserveApprovalMetadata() {
+        let response = IntentResponse(
+            intentID: UUID(),
+            outcome: .failed,
+            summary: "Intent completed: delete draft - approvalPending",
+            cycleID: UUID(),
+            approvalRequestID: "approval-1",
+            approvalStatus: "pending"
+        )
+        let driver = RuntimeExecutionDriver(
+            intentAPI: StubIntentAPI(response: response),
+            surface: .controller
+        )
+
+        let result = driver.execute(
+            intent: ActionIntent.click(app: nil, query: "Delete"),
+            plannerDecision: testPlannerDecision(),
+            selectedCandidate: nil
+        )
+
+        let actionResult = result.data?["action_result"] as? [String: Any]
+        #expect(result.success == false)
+        #expect(actionResult?["approval_request_id"] as? String == "approval-1")
+        #expect(actionResult?["approval_status"] as? String == "pending")
+        #expect(actionResult?["executed_through_executor"] as? Bool == false)
+    }
+
     @Test("Planner normalizes empty action-intent app to nil")
     func plannerNormalizesEmptyActionIntentAppToNil() async throws {
         let planner = MainPlanner()

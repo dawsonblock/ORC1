@@ -8,7 +8,6 @@ import OracleOS
 extension ControllerRuntimeBridge {
     func mapActionResult(request: ActionRequest, result: ToolResult) -> ActionRunResult {
         let actionData = result.data?[ActionResultKey.actionResult] as? [String: Any]
-        let traceData = result.data?[ActionResultKey.trace] as? [String: Any]
         let codeData = result.data?[ActionResultKey.codeExecution] as? [String: Any]
         let method = (actionData?[ActionResultKey.method] as? String) ?? (result.data?[ActionResultKey.method] as? String)
         let observation = ObservationBuilder.capture(appName: request.appName)
@@ -21,6 +20,7 @@ extension ControllerRuntimeBridge {
             verified: actionData?[ActionResultKey.verified] as? Bool ?? result.success,
             message: (actionData?[ActionResultKey.message] as? String) ?? result.error ?? result.suggestion,
             failureClass: actionData?[ActionResultKey.failureClass] as? String,
+            verificationStatus: actionData?[ActionResultKey.verificationStatus] as? String,
             method: method,
             elapsedMs: elapsedMs,
             resultingObservation: map(observation),
@@ -29,6 +29,7 @@ extension ControllerRuntimeBridge {
             protectedOperation: actionData?[ActionResultKey.protectedOperation] as? String,
             appProtectionProfile: actionData?[ActionResultKey.appProtectionProfile] as? String,
             blockedByPolicy: actionData?[ActionResultKey.blockedByPolicy] as? Bool ?? false,
+            executedThroughExecutor: actionData?[ActionResultKey.executedThroughExecutor] as? Bool ?? false,
             policyMode: (actionData?[ActionResultKey.policyDecision] as? [String: Any])?["policy_mode"] as? String,
             commandCategory: codeData?[CodeExecutionResultKey.commandCategory] as? String,
             commandSummary: codeData?[CodeExecutionResultKey.commandSummary] as? String,

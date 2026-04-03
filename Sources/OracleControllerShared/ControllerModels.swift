@@ -143,6 +143,15 @@ public enum ActionKind: String, Codable, Sendable, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
+public enum ActionRunDisposition: String, Sendable, Equatable {
+    case awaitingApproval
+    case blockedByPolicy
+    case verifiedExecution
+    case observed
+    case partialSuccess
+    case failed
+}
+
 public struct ActionRequest: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let kind: ActionKind
@@ -259,6 +268,7 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
     public let verified: Bool
     public let message: String?
     public let failureClass: String?
+    public let verificationStatus: String?
     public let method: String?
     public let elapsedMs: Double
     public let resultingObservation: ObservationSnapshot?
@@ -267,6 +277,7 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
     public let protectedOperation: String?
     public let appProtectionProfile: String?
     public let blockedByPolicy: Bool
+    public let executedThroughExecutor: Bool
     public let policyMode: String?
     public let commandCategory: String?
     public let commandSummary: String?
@@ -282,6 +293,7 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         verified: Bool,
         message: String? = nil,
         failureClass: String? = nil,
+        verificationStatus: String? = nil,
         method: String? = nil,
         elapsedMs: Double,
         resultingObservation: ObservationSnapshot? = nil,
@@ -290,6 +302,7 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         protectedOperation: String? = nil,
         appProtectionProfile: String? = nil,
         blockedByPolicy: Bool = false,
+        executedThroughExecutor: Bool = false,
         policyMode: String? = nil,
         commandCategory: String? = nil,
         commandSummary: String? = nil,
@@ -304,6 +317,7 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         self.verified = verified
         self.message = message
         self.failureClass = failureClass
+        self.verificationStatus = verificationStatus
         self.method = method
         self.elapsedMs = elapsedMs
         self.resultingObservation = resultingObservation
@@ -312,6 +326,7 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         self.protectedOperation = protectedOperation
         self.appProtectionProfile = appProtectionProfile
         self.blockedByPolicy = blockedByPolicy
+        self.executedThroughExecutor = executedThroughExecutor
         self.policyMode = policyMode
         self.commandCategory = commandCategory
         self.commandSummary = commandSummary
@@ -319,6 +334,81 @@ public struct ActionRunResult: Codable, Sendable, Equatable, Identifiable {
         self.buildResultSummary = buildResultSummary
         self.testResultSummary = testResultSummary
         self.patchID = patchID
+    }
+
+    public var isApprovalPending: Bool {
+        approvalStatus == "pending"
+    }
+
+    public var disposition: ActionRunDisposition {
+        if isApprovalPending {
+            return .awaitingApproval
+        }
+        if blockedByPolicy {
+            return .blockedByPolicy
+        }
+        if failureClass == "partial_success" {
+            return .partialSuccess
+        }
+        if executedThroughExecutor {
+            return verified ? .verifiedExecution : (success ? .partialSuccess : .failed)
+        }
+        return success ? .observed : .failed
+    }
+
+    public var statusLabel: String {
+        switch disposition {
+        case .awaitingApproval:
+            return "Awaiting Approval"
+        case .blockedByPolicy:
+            return "Blocked"
+        case .verifiedExecution:
+            return "Verified"
+        case .observed:
+            return "Observed"
+        case .partialSuccess:
+            return "Partial"
+        case .failed:
+            return "Failed"
+        }
+    }
+
+    public var executionPathSummary: String {
+        switch disposition {
+        case .awaitingApproval:
+            return "Awaiting approval before runtime execution"
+        case .blockedByPolicy:
+            return "Blocked before execution by policy"
+        case .verifiedExecution:
+            return "Executed through the verified runtime path"
+        case .observed:
+            return request.kind == .wait
+                ? "Observed wait condition in the host bridge"
+                : "Completed outside the verified runtime path"
+        case .partialSuccess:
+            return "Executed through the verified runtime path with a partial outcome"
+        case .failed:
+            return executedThroughExecutor
+                ? "Failed after entering the verified runtime path"
+                : "Did not enter the verified runtime path"
+        }
+    }
+
+    public var summaryText: String {
+        switch disposition {
+        case .awaitingApproval:
+            return "Action awaiting approval before runtime execution."
+        case .blockedByPolicy:
+            return "Action blocked by policy before execution."
+        case .observed:
+            return message ?? (request.kind == .wait ? "Condition evaluated." : "Action completed.")
+        case .partialSuccess:
+            return message ?? "Action completed with a partial outcome."
+        case .verifiedExecution:
+            return message ?? "Action completed through the verified runtime path."
+        case .failed:
+            return message ?? "Action failed."
+        }
     }
 }
 

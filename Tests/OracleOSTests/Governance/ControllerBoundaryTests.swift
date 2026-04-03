@@ -99,6 +99,26 @@ final class ControllerBoundaryTests: XCTestCase {
         }
     }
 
+    /// AutomationHost may only be used for observational snapshots from the host bridge.
+    func test_controller_runtime_bridge_uses_automation_host_only_for_snapshots() throws {
+        let bridgeFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
+        let content = try String(contentsOf: bridgeFile)
+
+        let automationHostOccurrences = content.components(separatedBy: "automationHost").count - 1
+        XCTAssertEqual(automationHostOccurrences, 1, "ControllerRuntimeBridge should reference AutomationHost exactly once")
+        XCTAssertTrue(content.contains("container.automationHost.snapshots.captureSnapshot("),
+                      "AutomationHost usage in ControllerRuntimeBridge must stay observational-only")
+    }
+
+    /// WaitManager is the only direct non-executor action path allowed in the host bridge.
+    func test_controller_runtime_bridge_limits_direct_wait_manager_usage() throws {
+        let bridgeFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
+        let content = try String(contentsOf: bridgeFile)
+
+        let waitOccurrences = content.components(separatedBy: "WaitManager.waitFor(").count - 1
+        XCTAssertEqual(waitOccurrences, 1, "ControllerRuntimeBridge should contain a single explicit WaitManager bypass")
+    }
+
     /// Controller source files must not commit events directly.
     func test_controller_host_does_not_commit_events_directly() {
         let controllerFiles = swiftFiles(under: "Sources/OracleControllerHost")
