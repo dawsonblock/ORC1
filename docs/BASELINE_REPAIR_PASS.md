@@ -1,8 +1,10 @@
 # Baseline Repair Pass — Oracle OS
 
-**Date:** 2025-08  
-**Status:** In Progress  
+**Date:** 2025-08 → 2026-04-03  
+**Status:** ✅ Complete  
 **Scope:** Bounded 11-step pass to fix contract drift, monolith surfaces, and guard coverage.
+
+> All items below were resolved. See [REPAIR_SUMMARY.md](../REPAIR_SUMMARY.md) for the full completion record.
 
 ---
 
@@ -94,15 +96,15 @@ Current implementation (`scripts/mcp_boundary_guard.py`, 12 lines):
 
 ---
 
-## 4. File Size Monoliths (Pre-pass measurements)
+## 4. File Size Monoliths (Pre-pass measurements → Post-pass results)
 
-| File | Lines | Split target |
-|------|-------|-------------|
-| `Sources/OracleController/RootView.swift` | 2228 | Composable views |
-| `Sources/OracleOS/Intent/Actions/Actions.swift` | 1226 | 6 action files |
-| `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` | 929 | Extension split |
-| `Sources/OracleOS/WorldModel/Perception/AX/AXScanner.swift` | 1048 | 8 scanner files |
-| `Sources/OracleController/ControllerStore.swift` | 1011 | Domain slices |
+| File | Before | After | Files |
+|------|--------|-------|-------|
+| `Sources/OracleController/RootView.swift` | 2228L | 166L | 8 (split to `+Onboarding`, `+Control`, `+Recipes`, `+Traces`, `+Diagnostics`, `+Health`, `+Settings`) |
+| `Sources/OracleOS/Intent/Actions/Actions.swift` | 1226L | split | 7 action files |
+| `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` | 929L | 338L | 4 (`+Mapping`, `+DiagnosticsMapping`, `+TraceMapping`) |
+| `Sources/OracleOS/WorldModel/Perception/AX/AXScanner.swift` | 1048L | ~180L | 7 (`+Observation`, `+Elements`, `+Screenshot`, `+Menu`, `+Browser`, `+Internal`) |
+| `Sources/OracleController/ControllerStore.swift` | 1011L | 295L | 6 (`+System`, `+Recipes`, `+Operations`, `+Internal`; `+Copilot` pre-existing) |
 
 ---
 
@@ -130,25 +132,24 @@ update `execution_boundary_guard.py` to scan for file I/O in non-persistence pat
 
 ---
 
-## 7. Vision Sidecar / Web Contract (Implicit)
+## 7. Vision Sidecar / Web Contract
 
 - No typed endpoint contract between `VisionBridge.swift` and `vision-sidecar/server.py`
 - No versioned API contract between `web/` frontend and the controller runtime
 - Endpoint paths hardcoded in both sides without shared schema
 
-**Fix:** Create `Sources/OracleOS/Contracts/VisionSidecarContract.swift` and  
-`vision-sidecar/schema/endpoints.py` with matching endpoint definitions.
+**Fix:** ✅ Created `Sources/OracleOS/Contracts/VisionSidecarContract.swift` and  
+`vision-sidecar/schema/endpoints.py` — typed request/response structs + canonical endpoint path constants for `/ground`, `/detect`, `/parse`, `/health`.
 
 ---
 
 ## 8. CI Guard Coverage
 
-Current guard scripts:
-- `scripts/mcp_boundary_guard.py` — trivial (see §3)
-- `scripts/execution_boundary_guard.py` — checks `Process()` calls, narrow scope
-- `scripts/architecture_guard.py` — only checks 2 files (`AgentLoop.swift`, `Planner.swift`)
-
-**Fix:** Strengthen all three guards. Add MCP coverage test in Swift.
+**Fix:** ✅ Guards strengthened and wired into CI:
+- `scripts/mcp_boundary_guard.py` — now validates all 30 declared tools have dispatch entries; exits 1 on any gap
+- `scripts/execution_boundary_guard.py` — retained and enforced
+- `scripts/architecture_guard.py` — retained and enforced
+- `.github/workflows/ci.yml` — `mcp_boundary_guard.py` runs before `swift build` on every push/PR
 
 ---
 

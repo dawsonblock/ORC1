@@ -5,8 +5,11 @@ Use this directory as the canonical entry point for the docs that exist in this 
 ## Start Here
 
 - [runtime_invariants.md](runtime_invariants.md) — non-negotiable runtime rules
-- [migration_cleanup.md](migration_cleanup.md) — retired surfaces and cleanup notes
+- [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md) — authoritative product surface and guarantees
 - [oracle-controller.md](oracle-controller.md) — controller architecture and behavior
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — pre-release gate checklist
+- [BASELINE_REPAIR_PASS.md](BASELINE_REPAIR_PASS.md) — completed 11-step repair pass record
+- [migration_cleanup.md](migration_cleanup.md) — retired surfaces and cleanup notes
 
 ## Runtime Baselines
 

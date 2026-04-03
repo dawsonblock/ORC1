@@ -118,6 +118,36 @@ CI automation lives in:
 
 - `.github/workflows/controller-release.yml`
 
+## Source Layout
+
+The controller source is organized into focused extension files; no single file exceeds ~350 lines:
+
+```
+Sources/OracleController/
+  ControllerStore.swift              — @Observable class body: all state vars + init + start()
+  ControllerStore+System.swift       — onboarding flow + system/data management
+  ControllerStore+Recipes.swift      — recipe CRUD + run operations
+  ControllerStore+Operations.swift   — refresh, health, diagnostics, approval, trace, IPC
+  ControllerStore+Internal.swift     — internal helpers: event handling, model application
+  ControllerStore+Copilot.swift      — mission control + chat
+  RootView.swift                     — NavigationSplitView skeleton (~166 lines)
+  RootView+Onboarding.swift          — OnboardingOverlayView
+  RootView+Control.swift             — ControlWorkspaceView + action/approval cards
+  RootView+Recipes.swift             — RecipesWorkspaceView, editor, inspector
+  RootView+Traces.swift              — TracesWorkspaceView + TraceInspectorView
+  RootView+Diagnostics.swift         — DiagnosticsWorkspaceView + inspector
+  RootView+Health.swift              — HealthWorkspaceView + inspector
+  RootView+Settings.swift            — SettingsWorkspaceView + inspector
+
+Sources/OracleControllerHost/
+  ControllerRuntimeBridge.swift              — public API (~338 lines)
+  ControllerRuntimeBridge+Mapping.swift      — core model mappers
+  ControllerRuntimeBridge+DiagnosticsMapping.swift  — diagnostics mappers
+  ControllerRuntimeBridge+TraceMapping.swift — trace event mapper
+```
+
+**Access control note:** `private` members that need cross-file extension access use `internal` (Swift default). `private` in Swift is file-scoped, not type-scoped — methods in a separate extension file cannot see `private` members from the original file.
+
 ## Notes
 
 - The controller is local-only and human-supervised.
