@@ -12,10 +12,11 @@
 |------|---------|
 | `STATUS.md` | Says "REMAINING: Phase 1 Finale — 4 Process() violations in CLI/UI files". Those violations no longer exist in source. File describes past work as open. |
 | `ARCHITECTURE_RULES.md` | Coordinator Ownership table lists 5 coordinators (ExecutionCoordinator, RecoveryCoordinator, DecisionCoordinator, LearningCoordinator, StateCoordinator) that do not exist in source. Also lists `TaskGraph` and `TraceStore` as protected backbone — neither type exists under those names. Also cites `CoordinatorBoundaryTests` in enforcement suite — file does not exist. |
-| `REBUILD_PLAN.md` | Describes in-progress phases. Rebuild is complete. File is a process artifact. |
-| `INDEX.md` | "Rebuild Documentation Index" for a completed rebuild. Stale entry point. |
+| `docs/archive/REBUILD_PLAN.md` | Historical rebuild plan. Kept for archaeology, not as a live contract. |
+| `docs/archive/INDEX.md` | Historical rebuild documentation index. No longer a root entry point. |
+| `docs/archive/DEPLOYMENT_CHECKLIST.md` | Historical deployment checklist. The live release runbook is `docs/RELEASE_CHECKLIST.md`. |
 | `BASELINE.md` | Known Issues section lists `_runtimeContext` dual-path in MCPDispatch. That dual-path is gone. Also lists `RuntimeExecutionDriver` as "transitional bridge slated for removal" — it was retained and scoped correctly, not removed. On balance BASELINE.md is a useful point-in-time record; mark known-issues as resolved. |
-| `PHASE_1_DONE.md`, `PHASE_1_FINALE.md`, `PHASE_1_STATUS.md`, `PHASE_3_DONE.md`, `PHASE_7_DONE.md`, `PHASE_8_DONE.md`, `PHASES_1_2_DONE.md`, `TOTAL_REBUILD_DONE.md`, `COMPLETE_REBUILD_SUMMARY.md`, `HANDOFF.md` | All already marked `[ARCHIVED]`. No further action required. |
+| `docs/archive/PHASE_1_DONE.md`, `docs/archive/PHASE_1_FINALE.md`, `docs/archive/PHASE_1_STATUS.md`, `docs/archive/PHASE_3_DONE.md`, `docs/archive/PHASE_7_DONE.md`, `docs/archive/PHASE_8_DONE.md`, `docs/archive/PHASES_1_2_DONE.md`, `docs/archive/TOTAL_REBUILD_DONE.md`, `docs/archive/COMPLETE_REBUILD_SUMMARY.md`, `docs/archive/HANDOFF.md` | Archived history. Root cleanup moved them out of the live repo surface. |
 
 ---
 

@@ -1,3 +1,5 @@
+> **[ARCHIVED]** Historical deployment checklist for the single-hard-path rebuild. The live release runbook is [../RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md). Do not use this file as the current release procedure.
+
 ════════════════════════════════════════════════════════════════════════════════
                     DEPLOYMENT CHECKLIST: SINGLE-HARD-PATH KERNEL
 ════════════════════════════════════════════════════════════════════════════════

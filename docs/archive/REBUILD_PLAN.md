@@ -1,8 +1,8 @@
-> **[ARCHIVED]** Historical rebuild plan. Rebuild is complete. Current state: see `STATUS.md` and `AUDIT.md`.
+> **[ARCHIVED]** Historical rebuild plan. Rebuild is complete. Current state: see [../../STATUS.md](../../STATUS.md) and [../../AUDIT.md](../../AUDIT.md).
 
 # Single-Hard-Path Runtime: Rebuild Plan
 
-## Completed (Phase 1 u0026 2 - 100% Done)
+## Completed (Phase 1 & 2 - 100% Done)
 
 ✅ Created 4 new Spec types:
   - BuildSpec.swift

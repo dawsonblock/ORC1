@@ -1,14 +1,20 @@
 # Documentation Index
 
-Use this directory as the canonical entry point for the docs that exist in this checkout.
+Use this directory together with the root truth docs. The root holds the current repo contract, and `docs/archive/` holds rebuild and milestone history.
 
 ## Start Here
 
+- [../README.md](../README.md) — repo overview and quick start
+- [../STATUS.md](../STATUS.md) — current repo state and known limits
+- [../ARCHITECTURE.md](../ARCHITECTURE.md) — live runtime model
+- [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md) — live product surface and guarantees
+- [../ORACLE-MCP.md](../ORACLE-MCP.md) — public MCP tool catalog
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — live release gate checklist
+
+## Runtime References
+
 - [runtime_invariants.md](runtime_invariants.md) — non-negotiable runtime rules
-- [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md) — authoritative product surface and guarantees
 - [oracle-controller.md](oracle-controller.md) — controller architecture and behavior
-- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — pre-release gate checklist
-- [BASELINE_REPAIR_PASS.md](BASELINE_REPAIR_PASS.md) — completed 11-step repair pass record
 - [migration_cleanup.md](migration_cleanup.md) — retired surfaces and cleanup notes
 
 ## Runtime Baselines
@@ -20,6 +26,11 @@ Use this directory as the canonical entry point for the docs that exist in this 
 
 - [architecture/runtime_spine.md](architecture/runtime_spine.md) — runtime spine overview
 
+## Archive / History
+
+- [BASELINE_REPAIR_PASS.md](BASELINE_REPAIR_PASS.md) — historical 11-step repair-pass record
+- [archive/](archive/) — archived rebuild, phase, deployment, and handoff docs
+
 ## Notes
 
-- Older status and governance pages referenced by earlier revisions are not part of this checkout.
+- Historical files are kept for archaeology, not as the live repo contract.

@@ -1,10 +1,12 @@
 # Baseline Repair Pass — Oracle OS
 
 **Date:** 2025-08 → 2026-04-03  
-**Status:** ✅ Complete  
+**Status:** Historical pass complete  
 **Scope:** Bounded 11-step pass to fix contract drift, monolith surfaces, and guard coverage.
 
-> All items below were resolved. See [REPAIR_SUMMARY.md](../REPAIR_SUMMARY.md) for the full completion record.
+> This file is a historical repair-pass record. Current repo truth lives in [../STATUS.md](../STATUS.md) and [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md).
+>
+> All items below were resolved for that pass. See [archive/REPAIR_SUMMARY.md](archive/REPAIR_SUMMARY.md) for the archived completion record.
 
 ---
 
@@ -109,7 +111,7 @@ This is false. Verified side-effect producers that exist outside VerifiedExecuto
 `PHASE_3_DONE.md`, `PHASE_7_DONE.md`, `PHASE_8_DONE.md`, `TOTAL_REBUILD_DONE.md`,  
 `COMPLETE_REBUILD_SUMMARY.md`
 
-**Fix:** Add archival banner to each; move to `docs/archive/` eventually.
+**Fix:** Archived under `docs/archive/`; `STATUS.md` remains the current state.
 
 ---
 

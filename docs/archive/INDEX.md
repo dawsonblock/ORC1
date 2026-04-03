@@ -1,10 +1,10 @@
-> **[ARCHIVED]** Historical rebuild documentation index. Rebuild is complete. Current state: see `STATUS.md` and `AUDIT.md`.
+> **[ARCHIVED]** Historical rebuild documentation index. Rebuild is complete. Current state: see [../../STATUS.md](../../STATUS.md) and [../../AUDIT.md](../../AUDIT.md).
 
 # Single-Hard-Path Runtime: Rebuild Documentation Index
 
 ## Quick Links
 
-- **[REBUILD_COMPLETE.txt](REBUILD_COMPLETE.txt)** — Visual summary of all 7 phases
+- `REBUILD_COMPLETE.txt` was part of the earlier rebuild notes and is not preserved in this checkout
 - **[COMPLETE_REBUILD_SUMMARY.md](COMPLETE_REBUILD_SUMMARY.md)** — Comprehensive technical summary
 - **[PHASES_1_2_DONE.md](PHASES_1_2_DONE.md)** — Phases 1-2 detailed walkthrough
 

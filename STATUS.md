@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-03 (ORC1-main-9 — doc + test taxonomy pass)  
+**Last updated:** 2026-04-03 (ORC1-main-10 — root surface cleanup)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -110,8 +110,8 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 | VisionBridge fallback is silent | `VisionBridge.swift` | Fixed — `DefaultProcessAdapter()` fallback now logs `Log.warn("[VisionBridge] Using local DefaultProcessAdapter...")` so fallback is visible in runtime logs |
 | CLI targets lack authority context | `Sources/oracle/Doctor.swift`, `Sources/oracle/SetupWizard.swift` | Fixed — EXECUTION AUTHORITY NOTE comment added to both; clarifies intentional separation from bootstrapped runtime |
 | Docs overclaim execution spine universality | `README.md` | Fixed — "Every effect flows" narrowed to "Every **main-path** effect flows"; experiment subsystem bypass explicitly noted |
-| REPAIR_SUMMARY.md no archived header | `REPAIR_SUMMARY.md` | Fixed — `[ARCHIVED]` header prepended; passes 1–3 covered here, passes 4–6 in STATUS.md |
-| HANDOFF.md stale CLI routing claim | `HANDOFF.md` | Fixed — correcting note added to Phase 1-10% section; CLI tools are intentionally NOT routed through RuntimeOrchestrator |
+| REPAIR_SUMMARY.md no archived header | `docs/archive/REPAIR_SUMMARY.md` | Fixed — `[ARCHIVED]` header prepended; passes 1–3 covered there, passes 4–6 in STATUS.md |
+| HANDOFF.md stale CLI routing claim | `docs/archive/HANDOFF.md` | Fixed — correcting note added to Phase 1-10% section; CLI tools are intentionally NOT routed through RuntimeOrchestrator |
 
 ## Repair Pass 6 — Closed Holes
 
@@ -122,7 +122,7 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 | Raw string keys in recipe mapping | `ActionResult.swift`, `ControllerRuntimeBridge+Mapping.swift`, `RuntimeExecutionDriver.swift` | Fixed — `TraceResultKey` and `RecipeResultKey` enums added; all 14 raw string key uses replaced |
 | VisionBridge mints its own process adapter | `VisionBridge.swift`, `RuntimeBootstrap.swift` | Fixed — `VisionBridge.configure(processAdapter:)` added; `RuntimeBootstrap` wires the shared adapter; fallback to `DefaultProcessAdapter()` preserved for out-of-runtime use |
 | Doc overclaims on experiment path | `README.md`, `ARCHITECTURE.md` | Fixed — removed "replay the winner"; VerifiedExecutor universality narrowed; experiment bypass documented |
-| Stale milestone files mislead readers | `COMPLETE_REBUILD_SUMMARY.md`, `TOTAL_REBUILD_DONE.md`, `PHASE_*_DONE.md`, `PHASES_1_2_DONE.md` | Archived — `[ARCHIVED]` header prepended; `STATUS.md` is the authoritative current state |
+| Stale milestone files mislead readers | `docs/archive/COMPLETE_REBUILD_SUMMARY.md`, `docs/archive/TOTAL_REBUILD_DONE.md`, `docs/archive/PHASE_*_DONE.md`, `docs/archive/PHASES_1_2_DONE.md` | Archived — historical docs moved out of the root; `STATUS.md` is the authoritative current state |
 
 ## Repair Pass 5 — Closed Holes
 
@@ -177,4 +177,4 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 | Release checklist | `docs/RELEASE_CHECKLIST.md` |
 | Baseline point-in-time | `BASELINE.md` |
 
-> Historical milestone docs (`PHASE_*_DONE.md`, `HANDOFF.md`, `TOTAL_REBUILD_DONE.md`, `COMPLETE_REBUILD_SUMMARY.md`) are archived and marked as such. Do not treat them as current state.
+> Historical milestone docs live under `docs/archive/` and are marked as archived. Do not treat them as current state.

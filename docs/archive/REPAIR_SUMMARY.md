@@ -1,6 +1,6 @@
-> **[ARCHIVED]** This document covers repair passes 1–3. Passes 4–6 are recorded in [STATUS.md](STATUS.md). The current authoritative state is STATUS.md.
+> **[ARCHIVED]** This document covers repair passes 1–3. Passes 4–6 are recorded in [../../STATUS.md](../../STATUS.md). The current authoritative state is [../../STATUS.md](../../STATUS.md).
 >
-> The build and test statements below are historical claims from that repair pass, not current certification. Re-run [scripts/verify-build.sh](scripts/verify-build.sh) or local `swift build` / `swift test` in a supported environment for current evidence.
+> The build and test statements below are historical claims from that repair pass, not current certification. Re-run [../../scripts/verify-build.sh](../../scripts/verify-build.sh) or local `swift build` / `swift test` in a supported environment for current evidence.
 
 ---
 
@@ -117,7 +117,7 @@ Created `vision-sidecar/schema/endpoints.py` — Python-side canonical schema de
 | Vision sidecar contract (Step 10) | 2 files |
 | CI + release docs (Step 11) | 3 files |
 
-**Total: 0 features added. 0 APIs removed. Build clean throughout.**
+**Total: 0 features added. 0 APIs removed. Historical pass reported clean builds throughout.**
 
 ---
 

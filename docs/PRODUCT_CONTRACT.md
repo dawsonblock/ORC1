@@ -1,100 +1,99 @@
-# OracleOS Product Contract v2
+# OracleOS Product Contract
 
-> **This file is the authoritative source of truth for what Oracle OS is, does, and guarantees.**  
-> Milestone docs at the repo root are historical artifacts; this file supersedes them.
+This file states the live product surface in this checkout. Historical rebuild, handoff, and phase docs live under [archive/](archive/) and are not current certification.
 
----
+## Product Scope
 
-## What Oracle OS Is
+OracleOS is a Swift-native macOS automation runtime with three live surfaces:
 
-Oracle OS is a **Swift-native macOS automation runtime** that gives AI agents reliable,
-approval-gated control over macOS applications through three surfaces:
+1. **MCP** — Model Context Protocol tool server
+2. **Controller** — native macOS GUI for human-in-the-loop monitoring and approval
+3. **CLI** — `oracle` binary for local setup, diagnostics, and recipe execution
 
-1. **MCP** — Model Context Protocol tool server (30 tools)
-2. **Controller** — Native macOS GUI for human-in-the-loop monitoring and approval
-3. **CLI** — `oracle` binary for scripted access and recipe execution
+OracleOS is not a cloud service, not a browser product, and not a general-purpose agent framework. It is intentionally scoped to local macOS automation with explicit approval and execution boundaries.
 
-Oracle OS is **not** a web service, a cloud product, or a general-purpose agent framework.  
-It is intentionally scoped to macOS desktop automation with a strong sandbox boundary.
+## Live Guarantees
 
----
+### 1. The MCP surface is bounded and implemented
 
-## Core Guarantees
+OracleOS currently exposes 30 tools across 9 categories. Tool names are declared in `Sources/OracleOS/MCP/MCPTools.swift` and dispatched in `Sources/OracleOS/MCP/MCPDispatch.swift`.
 
-### 1. All advertised MCP tools are implemented
+The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift` enforce declared-tool coverage.
 
-Every tool name declared in `MCPTools.swift` must have a corresponding handler in `MCPDispatch.swift`.  
-The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift`  
-enforce this contract on every CI run.
+| Category | Count |
+|---|---:|
+| Perception | 7 |
+| Actions | 7 |
+| Wait | 1 |
+| Recipes | 5 |
+| Vision | 2 |
+| Memory | 2 |
+| Experiments | 1 |
+| Architecture | 2 |
+| Workflows | 3 |
 
-**30 tools in 9 categories:**
+See [../ORACLE-MCP.md](../ORACLE-MCP.md) for the user-facing tool catalog.
 
-| Category | Tools |
-|----------|-------|
-| Perception | `oracle_context`, `oracle_state`, `oracle_find`, `oracle_read`, `oracle_inspect`, `oracle_element_at`, `oracle_screenshot` |
-| Actions | `oracle_click`, `oracle_type`, `oracle_press`, `oracle_hotkey`, `oracle_scroll`, `oracle_focus`, `oracle_window` |
-| Wait | `oracle_wait` |
-| Vision | `oracle_parse_screen`, `oracle_ground` |
-| Memory | `oracle_memory_query`, `oracle_memory_draft` |
-| Experiments | `oracle_experiment_search` |
-| Architecture | `oracle_architecture_review`, `oracle_candidate_review` |
-| Recipes | `oracle_recipes`, `oracle_run`, `oracle_recipe_show`, `oracle_recipe_save`, `oracle_recipe_delete` |
-| Workflows | `oracle_workflow_mine`, `oracle_workflow_list`, `oracle_workflow_execute` |
+### 2. Desktop actions are approval-gated when policy requires it
 
-### 2. Approval-gated actions
+Risky actions such as click, type, press, hotkey, scroll, focus, window operations, and recipe steps marked `requiresApproval` pass through `PolicyEngine` and may be gated by `ApprovalStore`.
 
-Risky actions (click, type, press, hotkey, scroll, focus, window, recipe steps marked `requires_approval`)
-pass through `PolicyEngine` and may be gated on user approval via `ApprovalStore`.  
-An `approval_request_id` token is returned for gated actions and must be supplied to resume them.
+When a gated action pauses, the caller receives an `approval_request_id`. Resuming the action requires that token.
 
-### 3. Runtime spine is stable and not broken by surface changes
+### 3. The main runtime spine is stable for main-path effects
 
-The runtime bootstrap sequence must never be altered without an ADR:
+The current main-path runtime spine is:
 
-```
-RuntimeBootstrap → BootstrappedRuntime → RuntimeContainer → RuntimeOrchestrator
-    → VerifiedExecutor → CommandRouter → WorkspaceRunner / Automation
+```text
+RuntimeBootstrap
+    -> RuntimeOrchestrator
+    -> MainPlanner
+    -> VerifiedExecutor
+    -> CommandRouter
+    -> UIRouter / CodeRouter
+    -> CommitCoordinator
 ```
 
-Surface code (MCP, Controller, CLI) is a consumer of this spine, never a mutator.
+Surface code is a consumer of this spine, not a mutator of it.
 
-### 4. Side-effect taxonomy
+Explicit exceptions:
 
-Three tiers of write operations are recognized:
+- `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`
+- `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
+- `vision-sidecar/` is an optional service edge, not part of committed-state authority
+
+### 4. Side effects follow a three-tier taxonomy
 
 | Tier | Scope | Examples |
-|------|-------|---------|
-| **Gated** | User-approved desktop actions | click, type, hotkey via VerifiedExecutor |
-| **Service** | Infrastructure persistence | telemetry, traces, memory, graph, recipes, workflows |
-| **Read-only** | Perception only | AXScanner, VisionScanner (captures only) |
+|---|---|---|
+| **Gated** | User-approved desktop actions | click, type, hotkey through `VerifiedExecutor` |
+| **Service** | Infrastructure persistence | traces, memory, graph, recipes, workflows, telemetry |
+| **Read-only** | Observation and perception | AX inspection, screenshots, sidecar-backed perception |
 
-`VerifiedExecutor` governs Tier 1 writes only. Tier 2 writes happen in their respective service layers.
+`VerifiedExecutor` governs gated desktop actions. Service persistence remains in its own subsystems.
 
-### 5. Build must be clean
+### 5. Evidence must come from current local verification
 
-`swift build` must produce zero errors and zero warnings.  
-The CI workflow `ci.yml` enforces this on every push to `main`.
+Current evidence comes from local `swift build`, `swift test`, and [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment.
 
----
+Archived repair notes, milestone docs, and checked-in diagnostics are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified as such.
 
-## What Oracle OS Does Not Guarantee
+## What OracleOS Does Not Guarantee
 
-- Vision grounding accuracy (VLM-dependent, best-effort)
-- Experiment search determinism (parallel worktree isolation, OS-scheduler-dependent)
-- Workflow synthesis coverage (pattern mining requires sufficient trace history)
-- Sub-second tool latency (macOS AX accessibility can be slow)
+- Vision grounding accuracy
+- Experiment search determinism
+- Workflow synthesis coverage from sparse trace history
+- Sub-second automation latency on all macOS applications
 
----
+## References
 
-## Architecture Reference
-
-See [docs/architecture/runtime_spine.md](architecture/runtime_spine.md) for the runtime spine ADR.  
-See [docs/BASELINE_REPAIR_PASS.md](BASELINE_REPAIR_PASS.md) for the current repair pass state.  
-See [ProjectMemory/README.md](../ProjectMemory/README.md) for project memory conventions.  
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines.
-
----
-
-## Version
-
-OracleOS v2.0.x — contract established 2025-08 repair pass.
+- [../README.md](../README.md) — repo overview and quick start
+- [../STATUS.md](../STATUS.md) — current repo state and known limits
+- [../ARCHITECTURE.md](../ARCHITECTURE.md) — runtime model and execution spine
+- [../BASELINE.md](../BASELINE.md) — evidence posture and baseline notes
+- [../AUDIT.md](../AUDIT.md) — forensic cleanup findings
+- [../ORACLE-MCP.md](../ORACLE-MCP.md) — full MCP tool reference
+- [architecture/runtime_spine.md](architecture/runtime_spine.md) — runtime spine reference
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — live release gate checklist
+- [BASELINE_REPAIR_PASS.md](BASELINE_REPAIR_PASS.md) — historical repair-pass record
+- [../ProjectMemory/README.md](../ProjectMemory/README.md) — project memory conventions

@@ -7,7 +7,8 @@ Use this checklist before tagging any release. Complete every item in order.
 ## Pre-Release
 
 ### Build & Tests
-- [ ] `swift build` succeeds with zero errors
+- [ ] `swift build` succeeds
+- [ ] Any build warnings are reviewed and either fixed or explicitly noted in `STATUS.md` or `BASELINE.md`
 - [ ] `swift test` passes (all targets)
 - [ ] `python3 scripts/mcp_boundary_guard.py` exits 0 (all 30 MCP tools have dispatch entries)
 - [ ] `python3 scripts/architecture_guard.py` exits 0 (no architectural violations)
@@ -22,9 +23,9 @@ Use this checklist before tagging any release. Complete every item in order.
 
 ### Documentation
 - [ ] `ARCHITECTURE.md` reflects any new module or file splits
-- [ ] `ORACLE-MCP.md` lists all 30 tool signatures (update if tools changed)
+- [ ] `ORACLE-MCP.md` lists the current live MCP tool signatures (update if tools changed)
 - [ ] `docs/runtime_invariants.md` is current
-- [ ] `REPAIR_SUMMARY.md` updated (if repair pass was done)
+- [ ] `STATUS.md` updated for any contract-significant change
 
 ### Security
 - [ ] No secrets, tokens, or credentials committed
