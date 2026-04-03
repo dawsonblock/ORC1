@@ -121,8 +121,22 @@ public struct CodeRouter: @unchecked Sendable {
         case .file(let spec):
             do {
                 try await workspaceRunner?.applyFile(spec)
+                // Resolve the canonical path for the audit event so the event
+                // records the actual on-disk location, not the caller-supplied
+                // (potentially relative) path string.
+                let resolvedPath: String
+                if let root = spec.workspaceRoot {
+                    let rootURL = URL(fileURLWithPath: root, isDirectory: true).standardizedFileURL
+                    let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+                    let canonical = spec.path.hasPrefix("/")
+                        ? URL(fileURLWithPath: spec.path).standardizedFileURL
+                        : rootURL.appendingPathComponent(spec.path).standardizedFileURL
+                    resolvedPath = canonical.path.hasPrefix(rootPrefix) ? canonical.path : spec.path
+                } else {
+                    resolvedPath = spec.path
+                }
                 let fileEvent = DomainEventFactory.fileModified(
-                    path: spec.path,
+                    path: resolvedPath,
                     operation: spec.operation.rawValue,
                     commandID: command.id,
                     intentID: command.metadata.intentID
@@ -132,7 +146,7 @@ public struct CodeRouter: @unchecked Sendable {
                     observations: [
                         ObservationPayload(
                             kind: "fileModified",
-                            content: "File operation: \(spec.operation.rawValue) on \(spec.path)"
+                            content: "File operation: \(spec.operation.rawValue) on \(resolvedPath)"
                         )
                     ],
                     artifacts: [],
