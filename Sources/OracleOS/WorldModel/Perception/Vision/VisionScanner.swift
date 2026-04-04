@@ -445,7 +445,7 @@ public enum VisionScanner {
         ToolResult(
             success: false,
             error: "Vision sidecar not running. \(tool) requires the Python vision sidecar.",
-            suggestion: "Start the sidecar: cd oracle-os-v2/vision-sidecar && python3 server.py &\n" +
+            suggestion: "Start the sidecar: cd vision-sidecar && python3 server.py &\n" +
                         "Or use oracle_find for AX-based element search (works without sidecar)."
         )
     }

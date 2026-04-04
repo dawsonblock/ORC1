@@ -73,4 +73,49 @@ struct SafeRuntimeTests {
         #expect(firstReceipt?.consumed == true)
         #expect(secondReceipt == nil)
     }
+
+    @Test("Approval receipts are action-fingerprint bound")
+    func approvalReceiptsRejectMismatchedFingerprint() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let store = ApprovalStore(rootDirectory: root)
+
+        let approvedCommand = Command(
+            type: .ui,
+            payload: .ui(UIAction(name: "click", app: "Google Chrome", query: "Send")),
+            metadata: CommandMetadata(intentID: UUID(), source: "test")
+        )
+        let differentCommand = Command(
+            type: .ui,
+            payload: .ui(UIAction(name: "click", app: "Google Chrome", query: "Delete")),
+            metadata: CommandMetadata(intentID: UUID(), source: "test")
+        )
+
+        let request = ApprovalRequest(
+            surface: .controller,
+            toolName: "oracle_click",
+            appName: "Google Chrome",
+            displayTitle: "Click Send",
+            reason: "Action requires approval",
+            riskLevel: .risky,
+            protectedOperation: .send,
+            actionFingerprint: PolicyRules.commandFingerprint(approvedCommand),
+            appProtectionProfile: .confirmRisky
+        )
+
+        _ = try store.createRequest(request)
+        _ = try store.approve(requestID: request.id)
+
+        let mismatched = store.consumeApprovedReceipt(
+            requestID: request.id,
+            actionFingerprint: PolicyRules.commandFingerprint(differentCommand)
+        )
+        let matched = store.consumeApprovedReceipt(
+            requestID: request.id,
+            actionFingerprint: PolicyRules.commandFingerprint(approvedCommand)
+        )
+
+        #expect(mismatched == nil)
+        #expect(matched != nil)
+        #expect(matched?.consumed == true)
+    }
 }

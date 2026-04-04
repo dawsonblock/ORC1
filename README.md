@@ -125,10 +125,13 @@ web/                      disconnected demo surface
 ```bash
 swift build
 swift test
+./scripts/verify-build.sh
 python3 scripts/mcp_boundary_guard.py
 python3 scripts/architecture_guard.py
 python3 scripts/execution_boundary_guard.py
 ```
+
+`./scripts/verify-build.sh` is the unified local proof path: it runs the three guard scripts, a release build, and the full Swift test suite.
 
 ## Contributing
 

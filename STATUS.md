@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-03 (ORC1-main-10 — root surface cleanup)  
+**Last updated:** 2026-04-03 (ORC1-main-9 — proof hardening pass)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -10,7 +10,7 @@
 | Property | Status |
 |---|---|
 | Swift target | macOS 14+ (arm64) |
-| Source files | ~504 Swift files across 5 products (OracleOS, OracleControllerShared, oracle CLI, OracleControllerHost, OracleController) |
+| Source files | 504 Swift files under `Sources/` and 118 Swift test files under `Tests/` across 5 products |
 | Build | Must be verified in a valid Swift environment. See `scripts/verify-build.sh`. |
 | Supported operator UI | `OracleController` native macOS app |
 | Controller host role | `OracleControllerHost` boots one runtime per app launch and adapts UI requests into it |
@@ -61,7 +61,7 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 1. **Remaining `[String: Any]` occurrences** in some areas of the codebase. Key boundary `ControllerRuntimeBridge+Mapping.swift` now uses `ActionResultKey` and `CodeExecutionResultKey` typed constants throughout. The `code_execution` sub-dict is still `[String: Any]` structurally — a `ToolResult.data` architecture limitation, not a key-management issue. See `AUDIT.md` for full classification.
 2. ~~**`agentKind` / `plannerFamily` always nil in `ActionRunResult`**~~ **RESOLVED (ORC1-main-6):** `traceSessionID`, `traceStepID`, `agentKind`, and `plannerFamily` fields were removed from `ActionRunResult`. The dead reads from `ControllerRuntimeBridge+Mapping` and dead UI blocks in `RootView+Control.swift` were also removed. `RuntimeExecutionDriver` correctly emits only `cycleID` and `intentID` — no producer-consumer mismatch remains.
 3. **`MCPDispatch.swift` line count has been reduced** from earlier versions to ~359 lines. Routing, timeout, and tool dispatch remain in one file; splitting is not currently blocking.  
-4. **CI is wired.** `.github/workflows/ci.yml` (build + swift test + mcp_boundary_guard) and `.github/workflows/architecture.yml` (architecture_guard.py) are present and run on every push and pull request.
+4. **CI now follows the real local proof path.** `.github/workflows/ci.yml` runs `scripts/verify-build.sh`, which executes `mcp_boundary_guard.py`, `architecture_guard.py`, `execution_boundary_guard.py`, `swift build -c release`, and `swift test`. `.github/workflows/architecture.yml` remains as a focused extra guard job.
 5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
 
 ---

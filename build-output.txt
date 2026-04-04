@@ -1,0 +1,16 @@
+Building for production...
+[0/13] Write sources
+[6/13] Write swift-version--58304C5D6DBC2206.txt
+[8/15] Compiling OracleControllerShared ControllerJSONCoding.swift
+[9/15] Compiling AXorcist GetAttributesCommandHandler.swift
+[10/16] Compiling OracleOS IntentAPI.swift
+[11/19] Compiling oracle Dashboard.swift
+[11/19] Write Objects.LinkFileList
+[12/19] Linking oracle
+[14/19] Compiling OracleControllerHost ControllerHostServer.swift
+[14/19] Write Objects.LinkFileList
+[15/19] Linking OracleControllerHost
+[17/19] Compiling OracleController ControllerStore+Copilot.swift
+[17/19] Write Objects.LinkFileList
+[18/19] Linking OracleController
+Build complete! (88.64s)

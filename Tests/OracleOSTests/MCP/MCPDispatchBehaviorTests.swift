@@ -5,6 +5,17 @@ import XCTest
 @MainActor
 final class MCPDispatchBehaviorTests: XCTestCase {
 
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fm = FileManager.default
+        while true {
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) { return url }
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path { return url }
+            url = parent
+        }
+    }
+
     func testUnknownToolReturnsErrorResponse() async {
         let request = MCPToolRequest(
             version: "1",
@@ -32,6 +43,25 @@ final class MCPDispatchBehaviorTests: XCTestCase {
 
         XCTAssertTrue(response.isError)
         XCTAssertTrue(response.textPayload.contains("No valid candidates provided"))
+    }
+
+    func testExperimentSearchRemainsExplicitAsyncExceptionPath() throws {
+        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let content = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            content.contains("else if toolName == MCPToolName.experimentSearch")
+                && content.contains("result = await handleExperimentSearch(request)"),
+            "oracle_experiment_search must remain an explicit async branch in MCPDispatch.handle"
+        )
+        XCTAssertTrue(
+            content.contains("bootstrapped.container.experimentManager.run(spec: spec)"),
+            "oracle_experiment_search must continue to dispatch through ExperimentManager"
+        )
+        XCTAssertFalse(
+            content.contains("case MCPToolName.experimentSearch:"),
+            "oracle_experiment_search must not silently join the synchronous dispatch(request:) switch"
+        )
     }
 }
 

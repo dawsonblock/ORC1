@@ -1,0 +1,162 @@
+[0/1] Planning build
+Building for debugging...
+[0/8] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.44s)
+Test Suite 'All tests' started at 2026-04-03 20:11:31.304.
+Test Suite 'OracleOSPackageTests.xctest' started at 2026-04-03 20:11:31.307.
+Test Suite 'ActionResultKeyContractTests' started at 2026-04-03 20:11:31.307.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testActionResultToDictNormalSuccessPath]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testActionResultToDictNormalSuccessPath]' passed (0.002 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testActionResultToDictPreservesApprovalPendingFields]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testActionResultToDictPreservesApprovalPendingFields]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testActionResultToDictPreservesBlockedByPolicyTrue]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testActionResultToDictPreservesBlockedByPolicyTrue]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testApprovalRequestIDKeyString]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testApprovalRequestIDKeyString]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testApprovalStatusKeyString]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testApprovalStatusKeyString]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testBlockedByPolicyKeyString]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testBlockedByPolicyKeyString]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testCommandCategoryKeyString]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testCommandCategoryKeyString]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testCommandSummaryKeyString]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testCommandSummaryKeyString]' passed (0.000 seconds).
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testWorkspaceRelativePathKeyString]' started.
+Test Case '-[OracleControllerTests.ActionResultKeyContractTests testWorkspaceRelativePathKeyString]' passed (0.000 seconds).
+Test Suite 'ActionResultKeyContractTests' passed at 2026-04-03 20:11:31.311.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'CommitDurabilityTests' started at 2026-04-03 20:11:31.311.
+Test Case '-[OracleOSTests.CommitDurabilityTests testCommitCoordinatorIsOnlyStateMutator]' started.
+Test Case '-[OracleOSTests.CommitDurabilityTests testCommitCoordinatorIsOnlyStateMutator]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.CommitDurabilityTests testCommitCoordinatorRecoveryIsIdempotent]' started.
+Test Case '-[OracleOSTests.CommitDurabilityTests testCommitCoordinatorRecoveryIsIdempotent]' passed (0.002 seconds).
+Test Case '-[OracleOSTests.CommitDurabilityTests testCommitReceiptProvesDurability]' started.
+Test Case '-[OracleOSTests.CommitDurabilityTests testCommitReceiptProvesDurability]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.CommitDurabilityTests testDeterministicEventOrdering]' started.
+Test Case '-[OracleOSTests.CommitDurabilityTests testDeterministicEventOrdering]' passed (0.004 seconds).
+Test Case '-[OracleOSTests.CommitDurabilityTests testEventEnvelopeIsImmutable]' started.
+Test Case '-[OracleOSTests.CommitDurabilityTests testEventEnvelopeIsImmutable]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.CommitDurabilityTests testWALEnforcesFsyncOnWrite]' started.
+Test Case '-[OracleOSTests.CommitDurabilityTests testWALEnforcesFsyncOnWrite]' passed (0.003 seconds).
+Test Suite 'CommitDurabilityTests' passed at 2026-04-03 20:11:31.322.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.010 (0.011) seconds
+Test Suite 'ControllerBoundaryTests' started at 2026-04-03 20:11:31.322.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_api_types_are_in_api_module]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_api_types_are_in_api_module]' passed (0.002 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_code_intents_do_not_emit_ui_payloads]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_code_intents_do_not_emit_ui_payloads]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_host_does_not_call_executor_directly]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_host_does_not_call_executor_directly]' passed (0.004 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_host_does_not_call_planners_directly]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_host_does_not_call_planners_directly]' passed (0.002 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_host_does_not_commit_events_directly]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_host_does_not_commit_events_directly]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_runtime_bridge_limits_direct_wait_manager_usage]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_runtime_bridge_limits_direct_wait_manager_usage]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_runtime_bridge_uses_automation_host_only_for_snapshots]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_controller_runtime_bridge_uses_automation_host_only_for_snapshots]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_runtime_orchestrator_conforms_to_intent_api]' started.
+Test Case '-[OracleOSTests.ControllerBoundaryTests test_runtime_orchestrator_conforms_to_intent_api]' passed (0.020 seconds).
+Test Suite 'ControllerBoundaryTests' passed at 2026-04-03 20:11:31.354.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.032 (0.032) seconds
+Test Suite 'EventHistoryInvariantTests' started at 2026-04-03 20:11:31.354.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_coordinator_appends_events_then_applies_reducers]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_coordinator_appends_events_then_applies_reducers]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_coordinator_assigns_sequence_numbers]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_coordinator_assigns_sequence_numbers]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_coordinator_empty_commit_is_noop]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_coordinator_empty_commit_is_noop]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_determinism_same_input_identical_sequence]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_commit_determinism_same_input_identical_sequence]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_event_store_filter_by_command_id]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_event_store_filter_by_command_id]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_event_store_is_append_only]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_event_store_is_append_only]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_event_store_sequence_numbers_monotonically_increase]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_event_store_sequence_numbers_monotonically_increase]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_snapshot_requires_event_ancestry]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_snapshot_requires_event_ancestry]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_snapshot_without_ancestry_is_invalid_in_production_flow]' started.
+Test Case '-[OracleOSTests.EventHistoryInvariantTests test_snapshot_without_ancestry_is_invalid_in_production_flow]' passed (0.000 seconds).
+Test Suite 'EventHistoryInvariantTests' passed at 2026-04-03 20:11:31.358.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'EventReplayTests' started at 2026-04-03 20:11:31.358.
+Test Case '-[OracleOSTests.EventReplayTests test_event_replay_builds_timeline]' started.
+Test Case '-[OracleOSTests.EventReplayTests test_event_replay_builds_timeline]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventReplayTests test_event_replay_produces_deterministic_state]' started.
+Test Case '-[OracleOSTests.EventReplayTests test_event_replay_produces_deterministic_state]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.EventReplayTests test_snapshot_reflects_committed_events]' started.
+Test Case '-[OracleOSTests.EventReplayTests test_snapshot_reflects_committed_events]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.EventReplayTests test_timeline_builder_preserves_event_order]' started.
+Test Case '-[OracleOSTests.EventReplayTests test_timeline_builder_preserves_event_order]' passed (0.000 seconds).
+Test Suite 'EventReplayTests' passed at 2026-04-03 20:11:31.359.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'EventStoreDeterminismTests' started at 2026-04-03 20:11:31.359.
+Test Case '-[OracleOSTests.EventStoreDeterminismTests testSameInputIdenticalSequence]' started.
+Test Case '-[OracleOSTests.EventStoreDeterminismTests testSameInputIdenticalSequence]' passed (0.002 seconds).
+Test Suite 'EventStoreDeterminismTests' passed at 2026-04-03 20:11:31.361.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ExecutionBoundaryBehaviorTests' started at 2026-04-03 20:11:31.361.
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testCommitCoordinatorRejectsEmptyCommit]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testCommitCoordinatorRejectsEmptyCommit]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testPlannerAcceptsTypedIntentAndReturnsTypedCommand]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testPlannerAcceptsTypedIntentAndReturnsTypedCommand]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testRuntimeBootstrapProducesIndependentStructuredRuntimes]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testRuntimeBootstrapProducesIndependentStructuredRuntimes]' passed (0.007 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testRuntimeContextHasNoStoredRuntimeAuthority]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testRuntimeContextHasNoStoredRuntimeAuthority]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testVerifiedExecutorExecutesTypedCommandAndEmitsEvents]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryBehaviorTests testVerifiedExecutorExecutesTypedCommandAndEmitsEvents]' passed (0.001 seconds).
+Test Suite 'ExecutionBoundaryBehaviorTests' passed at 2026-04-03 20:11:31.371.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.010 (0.010) seconds
+Test Suite 'ExecutionBoundaryEnforcementTests' started at 2026-04-03 20:11:31.371.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testAllSurfacesUseBootstrap]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testAllSurfacesUseBootstrap]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testCommandPayloadExhaustiveness]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testCommandPayloadExhaustiveness]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testControllerBridgeDoesNotStoreContext]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testControllerBridgeDoesNotStoreContext]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testGovernanceTestsCheckForbiddenPatterns]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testGovernanceTestsCheckForbiddenPatterns]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testGovernanceTestsExist]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testGovernanceTestsExist]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testProcessCreationOnlyInApprovedFiles]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testProcessCreationOnlyInApprovedFiles]' passed (0.048 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testRuntimeContextForbidsExecutionAdjacentServices]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testRuntimeContextForbidsExecutionAdjacentServices]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testUIRouterDoesNotInvokeAutomationHost]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryEnforcementTests testUIRouterDoesNotInvokeAutomationHost]' passed (0.001 seconds).
+Test Suite 'ExecutionBoundaryEnforcementTests' passed at 2026-04-03 20:11:31.423.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.051 (0.052) seconds
+Test Suite 'ExecutionBoundaryTests' started at 2026-04-03 20:11:31.423.
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testAllProcessUsageRouted]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testAllProcessUsageRouted]' passed (0.236 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testNoLegacyPlannersOrExperimentalMemoryExist]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testNoLegacyPlannersOrExperimentalMemoryExist]' passed (0.005 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testNoShellPayloadExists]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testNoShellPayloadExists]' passed (0.111 seconds).
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testVerifiedExecutorRestrictsCommands]' started.
+Test Case '-[OracleOSTests.ExecutionBoundaryTests testVerifiedExecutorRestrictsCommands]' passed (0.008 seconds).
+Test Suite 'ExecutionBoundaryTests' passed at 2026-04-03 20:11:31.783.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.360 (0.360) seconds
+Test Suite 'JSONValueTests' started at 2026-04-03 20:11:31.783.
+Test Case '-[OracleOSTests.JSONValueTests testBoolValueAccessor]' started.
+Test Case '-[OracleOSTests.JSONValueTests testBoolValueAccessor]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testFromLegacyDict_nonSerializableReturnsNil]' started.
+Test Case '-[OracleOSTests.JSONValueTests testFromLegacyDict_nonSerializableReturnsNil]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testFromLegacyDict_roundtrip]' started.
+Test Case '-[OracleOSTests.JSONValueTests testFromLegacyDict_roundtrip]' passed (0.001 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testIntValueAccessor_fromDouble]' started.
+Test Case '-[OracleOSTests.JSONValueTests testIntValueAccessor_fromDouble]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testIntValueAccessor_fromInt]' started.
+Test Case '-[OracleOSTests.JSONValueTests testIntValueAccessor_fromInt]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_array]' started.
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_array]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_bool]' started.
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_bool]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_double]' started.
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_double]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_int]' started.
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_int]' passed (0.000 seconds).
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_nestedObject]' started.
+Test Case '-[OracleOSTests.JSONValueTests testRoundtrip_n

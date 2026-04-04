@@ -107,6 +107,28 @@ final class ControllerBoundaryTests: XCTestCase {
 
         let waitOccurrences = content.components(separatedBy: "WaitManager.waitFor(").count - 1
         XCTAssertEqual(waitOccurrences, 1, "ControllerRuntimeBridge should contain a single explicit WaitManager bypass")
+
+        guard let waitStart = content.range(of: "case .wait:"),
+              let waitEnd = content.range(of: "\n        }\n\n        return mapActionResult", range: waitStart.upperBound..<content.endIndex)
+        else {
+            XCTFail("Could not isolate the .wait case in ControllerRuntimeBridge.swift")
+            return
+        }
+
+        let waitCase = String(content[waitStart.lowerBound..<waitEnd.lowerBound])
+        let nonCommentWaitCase = waitCase
+            .components(separatedBy: .newlines)
+            .filter { line in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                return !trimmed.hasPrefix("//")
+            }
+            .joined(separator: "\n")
+
+        XCTAssertTrue(nonCommentWaitCase.contains("WaitManager.waitFor("), "Wait case must stay host-local through WaitManager")
+        XCTAssertFalse(nonCommentWaitCase.contains("Actions."), "Wait case must stay observational and must not dispatch UI actions")
+        XCTAssertFalse(nonCommentWaitCase.contains("oracleRuntime"), "Wait case must not route through the runtime orchestrator")
+        XCTAssertFalse(nonCommentWaitCase.contains("submitIntent("), "Wait case must not submit an intent into the main execution spine")
+        XCTAssertFalse(nonCommentWaitCase.contains("VerifiedExecutor"), "Wait case must not reference executor authority")
     }
 
     /// Controller source files must not commit events directly.

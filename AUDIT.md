@@ -127,7 +127,7 @@ STATUS.md's claim of 4 open violations is stale — already resolved.
 
 - `Diagnostics/` folder contains logs showing `swift: command not found`. These are not valid build evidence.
 - `BASELINE.md` previously claimed numeric build/test proof more strongly than the repo justified. This was narrowed: baseline docs now describe the verification path and explicitly state that archived diagnostics logs are not valid proof artifacts.
-- CI is live. `.github/workflows/` contains 7 workflow files: `ci.yml`, `architecture.yml`, `apisec-scan.yml`, `codeql.yml`, `controller-release.yml`, `frogbot-scan-and-fix.yml`, `frogbot-scan-pr.yml`. Guard scripts are wired into CI.
+- CI is live. `.github/workflows/` contains 11 workflow files: `apisec-scan.yml`, `architecture.yml`, `ci.yml`, `codacy.yml`, `codeql.yml`, `controller-release.yml`, `frogbot-scan-and-fix.yml`, `frogbot-scan-pr.yml`, `openshift.yml`, `python-package-conda.yml`, and `swift.yml`. Guard scripts are wired into CI.
 - Governance tests exist and appear real. They primarily use source-file text scanning, not type-import checks.
 
 ---

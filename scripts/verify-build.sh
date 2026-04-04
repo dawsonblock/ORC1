@@ -36,6 +36,7 @@ echo "" | tee -a "$RESULT_LOG"
 
 BUILD_PASS=true
 TEST_PASS=true
+GUARDS_PASS=true
 
 # --- Build ---
 if [[ "$MODE" == "all" || "$MODE" == "build" ]]; then
@@ -61,14 +62,32 @@ if [[ "$MODE" == "all" || "$MODE" == "test" ]]; then
     echo "" | tee -a "$RESULT_LOG"
 fi
 
-# --- Boundary guard ---
+# --- Boundary guards ---
 if [[ "$MODE" == "all" ]]; then
     echo "--- mcp_boundary_guard.py ---" | tee -a "$RESULT_LOG"
     if python3 "$REPO_ROOT/scripts/mcp_boundary_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
-        echo "BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
+        echo "MCP_BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
     else
-        echo "BOUNDARY_GUARD: FAIL" | tee -a "$RESULT_LOG"
-        BUILD_PASS=false
+        echo "MCP_BOUNDARY_GUARD: FAIL" | tee -a "$RESULT_LOG"
+        GUARDS_PASS=false
+    fi
+    echo "" | tee -a "$RESULT_LOG"
+
+    echo "--- architecture_guard.py ---" | tee -a "$RESULT_LOG"
+    if python3 "$REPO_ROOT/scripts/architecture_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
+        echo "ARCHITECTURE_GUARD: PASS" | tee -a "$RESULT_LOG"
+    else
+        echo "ARCHITECTURE_GUARD: FAIL" | tee -a "$RESULT_LOG"
+        GUARDS_PASS=false
+    fi
+    echo "" | tee -a "$RESULT_LOG"
+
+    echo "--- execution_boundary_guard.py ---" | tee -a "$RESULT_LOG"
+    if python3 "$REPO_ROOT/scripts/execution_boundary_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
+        echo "EXECUTION_BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
+    else
+        echo "EXECUTION_BOUNDARY_GUARD: FAIL" | tee -a "$RESULT_LOG"
+        GUARDS_PASS=false
     fi
     echo "" | tee -a "$RESULT_LOG"
 fi
@@ -78,7 +97,7 @@ echo "Finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$RESULT_LOG"
 echo "" | tee -a "$RESULT_LOG"
 
 VERDICT="PASS"
-if [[ "$BUILD_PASS" == "false" || "$TEST_PASS" == "false" ]]; then
+if [[ "$BUILD_PASS" == "false" || "$TEST_PASS" == "false" || "$GUARDS_PASS" == "false" ]]; then
     VERDICT="FAIL"
 fi
 

@@ -79,6 +79,27 @@ struct WorktreeSandboxContainmentTests {
         }
     }
 
+    @Test("Rejected traversal leaves outside file untouched")
+    func rejectedTraversalDoesNotMutateOutsideSandbox() throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("oracle-sandbox-boundary-\(UUID().uuidString)", isDirectory: true)
+        let sandboxRoot = tmpDir.appendingPathComponent("sandbox", isDirectory: true)
+        let outsideFile = tmpDir.appendingPathComponent("outside.txt")
+        try FileManager.default.createDirectory(at: sandboxRoot, withIntermediateDirectories: true)
+        try "original".write(to: outsideFile, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let sandbox = makeSandbox(root: sandboxRoot)
+        let patch = makePatch(path: "../outside.txt")
+
+        #expect(throws: SandboxError.self) {
+            try sandbox.apply(patch)
+        }
+
+        let outsideContents = try String(contentsOf: outsideFile, encoding: .utf8)
+        #expect(outsideContents == "original")
+    }
+
     // MARK: - Happy path (real temp directory)
 
     @Test("Valid relative path writes file inside sandbox")

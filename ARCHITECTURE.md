@@ -4,6 +4,8 @@
 
 This document describes the current runtime layers and how they satisfy the governance contract in [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
 
+Executable proof for the boundary claims here lives in `scripts/mcp_boundary_guard.py`, `scripts/architecture_guard.py`, `scripts/execution_boundary_guard.py`, and the governance test suite.
+
 ## Core Spine
 
 Oracle OS has one execution spine:
