@@ -99,7 +99,7 @@ The executor returns `ExecutionOutcome` with events and artifacts;
 
 Forbidden outside the executor and its commit flow:
 
-- Direct writes to `worldState`, `taskGraph`, or runtime memory stores
+- Direct writes to `worldState`, `taskLedger`, or runtime memory stores
   that bypass the verified execution pipeline
 - Spawning processes, writing files, or mutating UI state without
   executor evidence

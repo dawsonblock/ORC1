@@ -52,4 +52,7 @@ node_modules/
 web/node_modules/
 web/dist/
 
+# Compiled root-level test binary (build artifact, not a source file)
+/test
+
 .fake

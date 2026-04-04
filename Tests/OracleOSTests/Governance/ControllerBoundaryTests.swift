@@ -30,16 +30,6 @@ final class ControllerBoundaryTests: XCTestCase {
 
     // MARK: - Tests
 
-    /// IntentAPI protocol must have exactly the two required methods.
-    func test_intent_api_has_required_methods() {
-        // Verify IntentAPI protocol is accessible and has the correct interface
-        // The only public entry points are submitIntent and queryState
-        let apiMethods = ["submitIntent", "queryState"]
-        // If this compiles, the protocol exists with those method names accessible
-        _ = apiMethods
-        XCTAssertTrue(true, "IntentAPI protocol exists with submitIntent and queryState")
-    }
-
     /// IntentResponse and RuntimeSnapshot must be defined in the API layer only.
     func test_api_types_are_in_api_module() {
         // These types should be constructable without importing runtime internals

@@ -485,7 +485,7 @@ the structural understanding required for autonomous software engineering.
 ```
 OracleCore
 ├── Core                    (execution, policy, trace, observation, world)
-├── Runtime                 (agent loop, coordinators, RuntimeBootstrap)
+├── Runtime                 (RuntimeOrchestrator, RuntimeBootstrap, RuntimeContainer, RuntimeContext guard)
 ├── Agent                   (planning, recovery, skills)
 ├── Search                  (candidate generation, search-centric selection)
 ├── StateAbstraction        (compressed semantic UI state)
@@ -522,7 +522,6 @@ Removed or archived modules:
 
 - `MetaReasoning` — removed (added complexity without measurable gains)
 - `Simulation` — removed (rarely useful in UI agents)
-- `WorldModel` — merged into `Core/World`
 - `Screenshot` — merged into `Vision`
 - `Perception` — renamed to `PerceptionEngine`
 
