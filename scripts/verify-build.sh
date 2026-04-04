@@ -10,23 +10,25 @@
 #   ./scripts/verify-build.sh --build-only
 #
 # Outputs:
-#   build-output.txt  — raw swift build output
-#   test-output.txt   — raw swift test output
-#   verify-result.txt — summary with timestamps and pass/fail verdict
+#   local/verify/latest/build-output.txt  — raw swift build output
+#   local/verify/latest/test-output.txt   — raw swift test output
+#   local/verify/latest/verify-result.txt — summary with timestamps and pass/fail verdict
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BUILD_LOG="$REPO_ROOT/build-output.txt"
-TEST_LOG="$REPO_ROOT/test-output.txt"
-RESULT_LOG="$REPO_ROOT/verify-result.txt"
+EVIDENCE_DIR="$REPO_ROOT/local/verify/latest"
+BUILD_LOG="$EVIDENCE_DIR/build-output.txt"
+TEST_LOG="$EVIDENCE_DIR/test-output.txt"
+RESULT_LOG="$EVIDENCE_DIR/verify-result.txt"
 
 MODE="all"
 if [[ "${1:-}" == "--test-only" ]]; then MODE="test"; fi
 if [[ "${1:-}" == "--build-only" ]]; then MODE="build"; fi
 
 cd "$REPO_ROOT"
+mkdir -p "$EVIDENCE_DIR"
 
 echo "=== ORC1 Verify Build ===" | tee "$RESULT_LOG"
 echo "Repo:    $REPO_ROOT" | tee -a "$RESULT_LOG"
@@ -36,6 +38,7 @@ echo "" | tee -a "$RESULT_LOG"
 
 BUILD_PASS=true
 TEST_PASS=true
+GUARDS_PASS=true
 
 # --- Build ---
 if [[ "$MODE" == "all" || "$MODE" == "build" ]]; then
@@ -61,14 +64,32 @@ if [[ "$MODE" == "all" || "$MODE" == "test" ]]; then
     echo "" | tee -a "$RESULT_LOG"
 fi
 
-# --- Boundary guard ---
+# --- Boundary guards ---
 if [[ "$MODE" == "all" ]]; then
     echo "--- mcp_boundary_guard.py ---" | tee -a "$RESULT_LOG"
     if python3 "$REPO_ROOT/scripts/mcp_boundary_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
-        echo "BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
+        echo "MCP_BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
     else
-        echo "BOUNDARY_GUARD: FAIL" | tee -a "$RESULT_LOG"
-        BUILD_PASS=false
+        echo "MCP_BOUNDARY_GUARD: FAIL" | tee -a "$RESULT_LOG"
+        GUARDS_PASS=false
+    fi
+    echo "" | tee -a "$RESULT_LOG"
+
+    echo "--- architecture_guard.py ---" | tee -a "$RESULT_LOG"
+    if python3 "$REPO_ROOT/scripts/architecture_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
+        echo "ARCHITECTURE_GUARD: PASS" | tee -a "$RESULT_LOG"
+    else
+        echo "ARCHITECTURE_GUARD: FAIL" | tee -a "$RESULT_LOG"
+        GUARDS_PASS=false
+    fi
+    echo "" | tee -a "$RESULT_LOG"
+
+    echo "--- execution_boundary_guard.py ---" | tee -a "$RESULT_LOG"
+    if python3 "$REPO_ROOT/scripts/execution_boundary_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
+        echo "EXECUTION_BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
+    else
+        echo "EXECUTION_BOUNDARY_GUARD: FAIL" | tee -a "$RESULT_LOG"
+        GUARDS_PASS=false
     fi
     echo "" | tee -a "$RESULT_LOG"
 fi
@@ -78,16 +99,16 @@ echo "Finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$RESULT_LOG"
 echo "" | tee -a "$RESULT_LOG"
 
 VERDICT="PASS"
-if [[ "$BUILD_PASS" == "false" || "$TEST_PASS" == "false" ]]; then
+if [[ "$BUILD_PASS" == "false" || "$TEST_PASS" == "false" || "$GUARDS_PASS" == "false" ]]; then
     VERDICT="FAIL"
 fi
 
 echo "=== VERDICT: $VERDICT ===" | tee -a "$RESULT_LOG"
 echo "" | tee -a "$RESULT_LOG"
-echo "Evidence files:"
-echo "  Build log: $BUILD_LOG"
-echo "  Test log:  $TEST_LOG"
-echo "  Summary:   $RESULT_LOG"
+echo "Evidence files:" | tee -a "$RESULT_LOG"
+echo "  Build log: $BUILD_LOG" | tee -a "$RESULT_LOG"
+echo "  Test log:  $TEST_LOG" | tee -a "$RESULT_LOG"
+echo "  Summary:   $RESULT_LOG" | tee -a "$RESULT_LOG"
 
 if [[ "$VERDICT" == "FAIL" ]]; then
     exit 1

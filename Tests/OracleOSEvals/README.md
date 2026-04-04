@@ -1,32 +1,35 @@
-# Oracle OS Benchmark Harness
+# Oracle OS Eval Harness
 
-This directory contains the merge-blocking fixture benchmark suites for Oracle OS.
+This directory contains small, deterministic eval fixtures for planner, recovery,
+and workflow logic. These are synthetic in-process scenarios, not full end-to-end
+runtime benchmarks against a live app or repository.
 
-Benchmark families:
+Live files in this directory:
 
-- `OperatorBenchmarks.swift`
-  - browser navigation
-  - workflow-backed browser flow
-  - file operation
-  - ambiguous UI recovery
-- `CodingBenchmarks.swift`
-  - build-break repair
-  - failing-test repair
-  - experiment escalation and ranked patch selection
-- `HybridBenchmarks.swift`
-  - mixed OS handoff into code repair
-  - inspect-project then apply change
+- `UpgradeBenchmarks.swift`
+  - bounded multi-step plan generation
+  - modal recovery planning
+  - workflow confidence / reuse checks
+- `DialogStormTasks.swift`
+  - sequential dialog recovery fixtures
+  - repeated modal interruption handling
+- `PatchFailureTasks.swift`
+  - wrong-file patch recovery fixture
+  - build-break recovery fixture
+  - test-regression recovery fixture
 
 Shared harness files:
 
 - `EvalTask.swift`
-  - benchmark family + per-run snapshot contract
+  - task family definitions and per-run snapshot contract
 - `EvalRunner.swift`
-  - runs bounded repeated tasks and computes metrics
+  - runs repeated synthetic tasks and computes metrics
 - `EvalMetrics.swift`
-  - shared benchmark metrics and comparison formatting
-- `EvalFixtures.swift`
-  - deterministic fixtures, temporary workspaces, and loop test doubles
+  - shared metric calculations and regression formatting
+- `EvalReport.swift`
+  - result envelope for a completed task run
+- `EvalTestCompatibility.swift`
+  - compatibility shims for the test surface
 
 Primary metrics:
 
@@ -38,19 +41,26 @@ Primary metrics:
 - `workflow_reuse_ratio`
 - `ambiguity_failure_count`
 - `patch_selection_success_rate`
+- `recovery_reuse_ratio`
+- `planner_reasoning_ratio`
+- `plan_stability`
+- `wrong_target_rate`
+- `recovery_loop_count`
 
 How to run:
 
 ```bash
-swift test --filter "Operator Benchmarks"
-swift test --filter "Coding Benchmarks"
-swift test --filter "Hybrid Benchmarks"
+swift test --filter "Upgrade Benchmarks"
+swift test --filter "Dialog Storm Tasks"
+swift test --filter "Patch Failure Tasks"
 swift test
 ```
 
 How to interpret:
 
-- Prefer higher success, first-pass success, graph reuse, workflow reuse, and patch-selection success.
-- Prefer lower average steps and ambiguity failures.
-- Recovery success should stay high without masking first-pass regressions.
-- Any planner/runtime change should update the affected benchmark family or add a new benchmark before merge.
+- Treat these as deterministic regression fixtures for planner behavior and metric
+  plumbing, not as proof of live desktop or repo repair performance.
+- A green result here means the local planning/recovery heuristics behaved as the
+  fixture expected.
+- Do not describe these files as merge-blocking empirical benchmarks unless a real
+  end-to-end harness is added.
