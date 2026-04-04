@@ -7,65 +7,61 @@ import OracleOS
 
 extension ControllerRuntimeBridge {
     func mapActionResult(request: ActionRequest, result: ToolResult) -> ActionRunResult {
-        let actionData = result.data?[ActionResultKey.actionResult] as? [String: Any]
-        let codeData = result.data?[ActionResultKey.codeExecution] as? [String: Any]
-        let method = (actionData?[ActionResultKey.method] as? String) ?? (result.data?[ActionResultKey.method] as? String)
+        let actionResult = result.actionResult
+        let codeExecutionResult = result.codeExecutionResult
         let observation = ObservationBuilder.capture(appName: request.appName)
-        let elapsedMs = (actionData?[ActionResultKey.elapsedMs] as? Double)
-            ?? Double(actionData?[ActionResultKey.elapsedMs] as? Int ?? 0)
 
         return ActionRunResult(
             request: request,
-            success: actionData?[ActionResultKey.success] as? Bool ?? result.success,
-            verified: actionData?[ActionResultKey.verified] as? Bool ?? result.success,
-            message: (actionData?[ActionResultKey.message] as? String) ?? result.error ?? result.suggestion,
-            failureClass: actionData?[ActionResultKey.failureClass] as? String,
-            verificationStatus: actionData?[ActionResultKey.verificationStatus] as? String,
-            method: method,
-            elapsedMs: elapsedMs,
+            success: actionResult?.success ?? result.success,
+            verified: actionResult?.verified ?? result.success,
+            message: actionResult?.message ?? result.error ?? result.suggestion,
+            failureClass: actionResult?.failureClass,
+            verificationStatus: actionResult?.verificationStatus?.rawValue,
+            method: actionResult?.method ?? (result.data?[ActionResultKey.method] as? String),
+            elapsedMs: actionResult?.elapsedMs ?? 0,
             resultingObservation: map(observation),
-            approvalRequestID: actionData?[ActionResultKey.approvalRequestID] as? String ?? result.data?[ActionResultKey.approvalRequestID] as? String,
-            approvalStatus: actionData?[ActionResultKey.approvalStatus] as? String ?? result.data?[ActionResultKey.approvalStatus] as? String,
-            protectedOperation: actionData?[ActionResultKey.protectedOperation] as? String,
-            appProtectionProfile: actionData?[ActionResultKey.appProtectionProfile] as? String,
-            blockedByPolicy: actionData?[ActionResultKey.blockedByPolicy] as? Bool ?? false,
-            executedThroughExecutor: actionData?[ActionResultKey.executedThroughExecutor] as? Bool ?? false,
-            policyMode: (actionData?[ActionResultKey.policyDecision] as? [String: Any])?["policy_mode"] as? String,
-            commandCategory: codeData?[CodeExecutionResultKey.commandCategory] as? String,
-            commandSummary: codeData?[CodeExecutionResultKey.commandSummary] as? String,
-            workspaceRelativePath: codeData?[CodeExecutionResultKey.workspaceRelativePath] as? String,
-            buildResultSummary: codeData?[CodeExecutionResultKey.buildResultSummary] as? String,
-            testResultSummary: codeData?[CodeExecutionResultKey.testResultSummary] as? String,
-            patchID: codeData?[CodeExecutionResultKey.patchID] as? String
+            approvalRequestID: actionResult?.approvalRequestID,
+            approvalStatus: actionResult?.approvalStatus,
+            protectedOperation: actionResult?.protectedOperation,
+            appProtectionProfile: actionResult?.appProtectionProfile,
+            blockedByPolicy: actionResult?.blockedByPolicy ?? false,
+            executedThroughExecutor: actionResult?.executedThroughExecutor ?? false,
+            policyMode: actionResult?.policyDecision?.policyMode.rawValue,
+            commandCategory: codeExecutionResult?.commandCategory,
+            commandSummary: codeExecutionResult?.commandSummary,
+            workspaceRelativePath: codeExecutionResult?.workspaceRelativePath,
+            buildResultSummary: codeExecutionResult?.buildResultSummary,
+            testResultSummary: codeExecutionResult?.testResultSummary,
+            patchID: codeExecutionResult?.patchID
         )
     }
 
     func mapRecipeRunResult(recipeName: String, totalStepsFallback: Int, result: ToolResult) -> RecipeRunResultDocument {
-        let data = result.data ?? [:]
-        let stepsCompleted = data[RecipeResultKey.stepsCompleted] as? Int ?? 0
-        let totalSteps = data[RecipeResultKey.totalSteps] as? Int ?? totalStepsFallback
-        let stepResults = (data[RecipeResultKey.stepResults] as? [[String: Any]] ?? []).map { stepData in
+        let recipeRunResult = result.recipeRunResult
+
+        let stepResults = (recipeRunResult?.stepResults ?? []).map { stepResult in
             RecipeRunStepResult(
-                id: stepData[RecipeResultKey.stepIndex] as? Int ?? 0,
-                action: stepData[RecipeResultKey.stepAction] as? String ?? "step",
-                success: stepData[RecipeResultKey.stepSuccess] as? Bool ?? false,
-                durationMs: stepData[RecipeResultKey.stepDurationMs] as? Int ?? 0,
-                error: stepData[RecipeResultKey.stepError] as? String,
-                note: stepData[RecipeResultKey.stepNote] as? String
+                id: stepResult.stepIndex,
+                action: stepResult.action,
+                success: stepResult.success,
+                durationMs: stepResult.durationMs,
+                error: stepResult.error,
+                note: stepResult.note
             )
         }
 
         return RecipeRunResultDocument(
             recipeName: recipeName,
             success: result.success,
-            stepsCompleted: stepsCompleted,
-            totalSteps: totalSteps,
+            stepsCompleted: recipeRunResult?.stepsCompleted ?? 0,
+            totalSteps: recipeRunResult?.totalSteps ?? totalStepsFallback,
             error: result.error,
             traceSessionID: sessionID,
             stepResults: stepResults,
-            paused: (data[RecipeResultKey.pendingApproval] as? Bool) == true,
-            pendingApprovalRequestID: data[ActionResultKey.approvalRequestID] as? String,
-            resumeToken: data[RecipeResultKey.resumeToken] as? String
+            paused: recipeRunResult?.pendingApproval == true,
+            pendingApprovalRequestID: recipeRunResult?.approvalRequestID,
+            resumeToken: recipeRunResult?.resumeToken
         )
     }
 

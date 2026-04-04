@@ -30,6 +30,8 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(result.success == true)
         #expect(result.data?["method"] as? String == "intent-api")
         #expect(actionResult?["executed_through_executor"] as? Bool == true)
+        #expect(result.actionResult?.executedThroughExecutor == true)
+        #expect(result.traceResult?.cycleID == response.cycleID.uuidString)
     }
 
     @Test("Planning-failure responses are marked as non-executed")
@@ -111,6 +113,8 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(actionResult?["approval_request_id"] as? String == "approval-1")
         #expect(actionResult?["approval_status"] as? String == "pending")
         #expect(actionResult?["executed_through_executor"] as? Bool == false)
+        #expect(result.actionResult?.approvalRequestID == "approval-1")
+        #expect(result.actionResult?.approvalStatus == "pending")
     }
 
     @Test("Planner normalizes empty action-intent app to nil")

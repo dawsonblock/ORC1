@@ -87,4 +87,32 @@ public struct PolicyDecision: Codable, Sendable {
             reason: reason
         )
     }
+
+    public static func from(dict: [String: Any]) -> PolicyDecision? {
+        guard let allowed = dict["allowed"] as? Bool,
+              let riskRaw = dict["risk_level"] as? String,
+              let riskLevel = RiskLevel(rawValue: riskRaw),
+              let appProfileRaw = dict["app_protection_profile"] as? String,
+              let appProtectionProfile = AppProtectionProfile(rawValue: appProfileRaw),
+              let surfaceRaw = dict["surface"] as? String,
+              let surface = RuntimeSurface(rawValue: surfaceRaw),
+              let policyModeRaw = dict["policy_mode"] as? String,
+              let policyMode = PolicyMode(rawValue: policyModeRaw)
+        else {
+            return nil
+        }
+
+        return PolicyDecision(
+            allowed: allowed,
+            riskLevel: riskLevel,
+            protectedOperation: (dict["protected_operation"] as? String).flatMap(ProtectedOperation.init(rawValue:)),
+            approvalRequestID: dict["approval_request_id"] as? String,
+            appProtectionProfile: appProtectionProfile,
+            blockedByPolicy: dict["blocked_by_policy"] as? Bool ?? false,
+            surface: surface,
+            policyMode: policyMode,
+            requiresApproval: dict["requires_approval"] as? Bool ?? false,
+            reason: dict["reason"] as? String
+        )
+    }
 }

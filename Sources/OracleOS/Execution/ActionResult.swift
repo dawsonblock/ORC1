@@ -34,8 +34,10 @@ public enum TraceResultKey {
 /// Typed constants for recipe-run result dictionary keys.
 /// Producer: RecipeEngine. Consumer: ControllerRuntimeBridge+Mapping.mapRecipeRunResult.
 public enum RecipeResultKey {
+    public static let recipe            = "recipe"
     public static let stepsCompleted    = "steps_completed"
     public static let totalSteps        = "total_steps"
+    public static let durationMs        = "duration_ms"
     public static let stepResults       = "step_results"
     public static let pendingApproval   = "pending_approval"
     public static let approvalRequestID = "approval_request_id"
@@ -60,6 +62,251 @@ public enum CodeExecutionResultKey {
     public static let buildResultSummary    = "build_result_summary"
     public static let testResultSummary     = "test_result_summary"
     public static let patchID               = "patch_id"
+}
+
+public struct TraceResult: Sendable, Codable, Equatable {
+    public let cycleID: String
+    public let intentID: String
+
+    public init(cycleID: String, intentID: String) {
+        self.cycleID = cycleID
+        self.intentID = intentID
+    }
+
+    public func toDict() -> [String: Any] {
+        [
+            TraceResultKey.cycleID: cycleID,
+            TraceResultKey.intentID: intentID,
+        ]
+    }
+
+    public static func from(dict: [String: Any]) -> TraceResult? {
+        guard let cycleID = dict[TraceResultKey.cycleID] as? String,
+              let intentID = dict[TraceResultKey.intentID] as? String
+        else {
+            return nil
+        }
+
+        return TraceResult(cycleID: cycleID, intentID: intentID)
+    }
+}
+
+public struct CodeExecutionResult: Sendable, Codable, Equatable {
+    public let commandCategory: String?
+    public let commandSummary: String?
+    public let workspaceRelativePath: String?
+    public let buildResultSummary: String?
+    public let testResultSummary: String?
+    public let patchID: String?
+
+    public init(
+        commandCategory: String? = nil,
+        commandSummary: String? = nil,
+        workspaceRelativePath: String? = nil,
+        buildResultSummary: String? = nil,
+        testResultSummary: String? = nil,
+        patchID: String? = nil
+    ) {
+        self.commandCategory = commandCategory
+        self.commandSummary = commandSummary
+        self.workspaceRelativePath = workspaceRelativePath
+        self.buildResultSummary = buildResultSummary
+        self.testResultSummary = testResultSummary
+        self.patchID = patchID
+    }
+
+    public func toDict() -> [String: Any] {
+        var result: [String: Any] = [:]
+        if let commandCategory {
+            result[CodeExecutionResultKey.commandCategory] = commandCategory
+        }
+        if let commandSummary {
+            result[CodeExecutionResultKey.commandSummary] = commandSummary
+        }
+        if let workspaceRelativePath {
+            result[CodeExecutionResultKey.workspaceRelativePath] = workspaceRelativePath
+        }
+        if let buildResultSummary {
+            result[CodeExecutionResultKey.buildResultSummary] = buildResultSummary
+        }
+        if let testResultSummary {
+            result[CodeExecutionResultKey.testResultSummary] = testResultSummary
+        }
+        if let patchID {
+            result[CodeExecutionResultKey.patchID] = patchID
+        }
+        return result
+    }
+
+    public static func from(dict: [String: Any]) -> CodeExecutionResult? {
+        let result = CodeExecutionResult(
+            commandCategory: dict[CodeExecutionResultKey.commandCategory] as? String,
+            commandSummary: dict[CodeExecutionResultKey.commandSummary] as? String,
+            workspaceRelativePath: dict[CodeExecutionResultKey.workspaceRelativePath] as? String,
+            buildResultSummary: dict[CodeExecutionResultKey.buildResultSummary] as? String,
+            testResultSummary: dict[CodeExecutionResultKey.testResultSummary] as? String,
+            patchID: dict[CodeExecutionResultKey.patchID] as? String
+        )
+
+        return result.isEmpty ? nil : result
+    }
+
+    private var isEmpty: Bool {
+        commandCategory == nil
+            && commandSummary == nil
+            && workspaceRelativePath == nil
+            && buildResultSummary == nil
+            && testResultSummary == nil
+            && patchID == nil
+    }
+}
+
+public struct RecipeStepExecutionResult: Sendable, Codable, Equatable {
+    public let stepIndex: Int
+    public let action: String
+    public let success: Bool
+    public let durationMs: Int
+    public let error: String?
+    public let note: String?
+
+    public init(
+        stepIndex: Int,
+        action: String,
+        success: Bool,
+        durationMs: Int,
+        error: String? = nil,
+        note: String? = nil
+    ) {
+        self.stepIndex = stepIndex
+        self.action = action
+        self.success = success
+        self.durationMs = durationMs
+        self.error = error
+        self.note = note
+    }
+
+    public func toDict() -> [String: Any] {
+        var result: [String: Any] = [
+            RecipeResultKey.stepIndex: stepIndex,
+            RecipeResultKey.stepAction: action,
+            RecipeResultKey.stepSuccess: success,
+            RecipeResultKey.stepDurationMs: durationMs,
+        ]
+        if let error {
+            result[RecipeResultKey.stepError] = error
+        }
+        if let note {
+            result[RecipeResultKey.stepNote] = note
+        }
+        return result
+    }
+
+    public static func from(dict: [String: Any]) -> RecipeStepExecutionResult? {
+        guard let action = dict[RecipeResultKey.stepAction] as? String else {
+            return nil
+        }
+
+        return RecipeStepExecutionResult(
+            stepIndex: decodeInt(dict[RecipeResultKey.stepIndex]) ?? 0,
+            action: action,
+            success: dict[RecipeResultKey.stepSuccess] as? Bool ?? false,
+            durationMs: decodeInt(dict[RecipeResultKey.stepDurationMs]) ?? 0,
+            error: dict[RecipeResultKey.stepError] as? String,
+            note: dict[RecipeResultKey.stepNote] as? String
+        )
+    }
+}
+
+public struct RecipeRunResultPayload: Sendable, Codable, Equatable {
+    public let recipeName: String?
+    public let stepsCompleted: Int
+    public let totalSteps: Int
+    public let durationMs: Int?
+    public let stepResults: [RecipeStepExecutionResult]
+    public let pendingApproval: Bool
+    public let approvalRequestID: String?
+    public let resumeToken: String?
+
+    public init(
+        recipeName: String? = nil,
+        stepsCompleted: Int,
+        totalSteps: Int,
+        durationMs: Int? = nil,
+        stepResults: [RecipeStepExecutionResult],
+        pendingApproval: Bool = false,
+        approvalRequestID: String? = nil,
+        resumeToken: String? = nil
+    ) {
+        self.recipeName = recipeName
+        self.stepsCompleted = stepsCompleted
+        self.totalSteps = totalSteps
+        self.durationMs = durationMs
+        self.stepResults = stepResults
+        self.pendingApproval = pendingApproval
+        self.approvalRequestID = approvalRequestID
+        self.resumeToken = resumeToken
+    }
+
+    public func toDict() -> [String: Any] {
+        var result: [String: Any] = [
+            RecipeResultKey.stepsCompleted: stepsCompleted,
+            RecipeResultKey.totalSteps: totalSteps,
+            RecipeResultKey.stepResults: stepResults.map { $0.toDict() },
+        ]
+        if let recipeName {
+            result[RecipeResultKey.recipe] = recipeName
+        }
+        if let durationMs {
+            result[RecipeResultKey.durationMs] = durationMs
+        }
+        if pendingApproval {
+            result[RecipeResultKey.pendingApproval] = true
+        }
+        if let approvalRequestID {
+            result[RecipeResultKey.approvalRequestID] = approvalRequestID
+        }
+        if let resumeToken {
+            result[RecipeResultKey.resumeToken] = resumeToken
+        }
+        return result
+    }
+
+    public static func from(data: [String: Any]) -> RecipeRunResultPayload? {
+        let hasRecipeShape = data[RecipeResultKey.recipe] != nil
+            || data[RecipeResultKey.stepsCompleted] != nil
+            || data[RecipeResultKey.totalSteps] != nil
+            || data[RecipeResultKey.stepResults] != nil
+            || data[RecipeResultKey.pendingApproval] != nil
+            || data[RecipeResultKey.resumeToken] != nil
+        guard hasRecipeShape else {
+            return nil
+        }
+
+        let stepResults = (data[RecipeResultKey.stepResults] as? [[String: Any]] ?? []).compactMap {
+            RecipeStepExecutionResult.from(dict: $0)
+        }
+
+        return RecipeRunResultPayload(
+            recipeName: data[RecipeResultKey.recipe] as? String,
+            stepsCompleted: decodeInt(data[RecipeResultKey.stepsCompleted]) ?? 0,
+            totalSteps: decodeInt(data[RecipeResultKey.totalSteps]) ?? 0,
+            durationMs: decodeInt(data[RecipeResultKey.durationMs]),
+            stepResults: stepResults,
+            pendingApproval: data[RecipeResultKey.pendingApproval] as? Bool ?? false,
+            approvalRequestID: data[RecipeResultKey.approvalRequestID] as? String ?? data[ActionResultKey.approvalRequestID] as? String,
+            resumeToken: data[RecipeResultKey.resumeToken] as? String
+        )
+    }
+}
+
+private func decodeInt(_ value: Any?) -> Int? {
+    if let intValue = value as? Int {
+        return intValue
+    }
+    if let doubleValue = value as? Double {
+        return Int(doubleValue)
+    }
+    return nil
 }
 
 public struct ActionResult: Sendable, Codable {
@@ -179,8 +426,8 @@ public struct ActionResult: Sendable, Codable {
             method: dict[ActionResultKey.method] as? String,
             verificationStatus: verificationStatus,
             failureClass: dict[ActionResultKey.failureClass] as? String,
-            elapsedMs: dict[ActionResultKey.elapsedMs] as? Double ?? 0,
-            policyDecision: nil,
+            elapsedMs: (dict[ActionResultKey.elapsedMs] as? Double) ?? Double(dict[ActionResultKey.elapsedMs] as? Int ?? 0),
+            policyDecision: (dict[ActionResultKey.policyDecision] as? [String: Any]).flatMap(PolicyDecision.from(dict:)),
             protectedOperation: dict[ActionResultKey.protectedOperation] as? String,
             approvalRequestID: dict[ActionResultKey.approvalRequestID] as? String,
             approvalStatus: dict[ActionResultKey.approvalStatus] as? String,

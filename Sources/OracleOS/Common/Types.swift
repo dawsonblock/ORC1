@@ -21,19 +21,42 @@ public struct ToolResult: @unchecked Sendable {
     public let error: String?
     public let suggestion: String?
     public let context: ContextInfo?
+    public let actionResult: ActionResult?
+    public let traceResult: TraceResult?
+    public let codeExecutionResult: CodeExecutionResult?
+    public let recipeRunResult: RecipeRunResultPayload?
 
     public init(
         success: Bool,
         data: [String: Any]? = nil,
         error: String? = nil,
         suggestion: String? = nil,
-        context: ContextInfo? = nil
+        context: ContextInfo? = nil,
+        actionResult: ActionResult? = nil,
+        traceResult: TraceResult? = nil,
+        codeExecutionResult: CodeExecutionResult? = nil,
+        recipeRunResult: RecipeRunResultPayload? = nil
     ) {
+        let resolvedActionResult = actionResult ?? Self.extractActionResult(from: data)
+        let resolvedTraceResult = traceResult ?? Self.extractTraceResult(from: data)
+        let resolvedCodeExecutionResult = codeExecutionResult ?? Self.extractCodeExecutionResult(from: data)
+        let resolvedRecipeRunResult = recipeRunResult ?? Self.extractRecipeRunResult(from: data)
+
         self.success = success
-        self.data = data
+        self.data = Self.mergeData(
+            data: data,
+            actionResult: resolvedActionResult,
+            traceResult: resolvedTraceResult,
+            codeExecutionResult: resolvedCodeExecutionResult,
+            recipeRunResult: resolvedRecipeRunResult
+        )
         self.error = error
         self.suggestion = suggestion
         self.context = context
+        self.actionResult = resolvedActionResult
+        self.traceResult = resolvedTraceResult
+        self.codeExecutionResult = resolvedCodeExecutionResult
+        self.recipeRunResult = resolvedRecipeRunResult
     }
 
     /// Convert to MCP-compatible dictionary for JSON serialization.
@@ -44,6 +67,76 @@ public struct ToolResult: @unchecked Sendable {
         if let suggestion { result["suggestion"] = suggestion }
         if let context { result["context"] = context.toDict() }
         return result
+    }
+}
+
+private extension ToolResult {
+    static func extractActionResult(from data: [String: Any]?) -> ActionResult? {
+        guard let dict = data?[ActionResultKey.actionResult] as? [String: Any] else {
+            return nil
+        }
+        return ActionResult.from(dict: dict)
+    }
+
+    static func extractTraceResult(from data: [String: Any]?) -> TraceResult? {
+        guard let dict = data?[ActionResultKey.trace] as? [String: Any] else {
+            return nil
+        }
+        return TraceResult.from(dict: dict)
+    }
+
+    static func extractCodeExecutionResult(from data: [String: Any]?) -> CodeExecutionResult? {
+        guard let dict = data?[ActionResultKey.codeExecution] as? [String: Any] else {
+            return nil
+        }
+        return CodeExecutionResult.from(dict: dict)
+    }
+
+    static func extractRecipeRunResult(from data: [String: Any]?) -> RecipeRunResultPayload? {
+        guard let data else {
+            return nil
+        }
+        return RecipeRunResultPayload.from(data: data)
+    }
+
+    static func mergeData(
+        data: [String: Any]?,
+        actionResult: ActionResult?,
+        traceResult: TraceResult?,
+        codeExecutionResult: CodeExecutionResult?,
+        recipeRunResult: RecipeRunResultPayload?
+    ) -> [String: Any]? {
+        var merged = data ?? [:]
+
+        if let actionResult {
+            merged[ActionResultKey.actionResult] = actionResult.toDict()
+            if merged[ActionResultKey.method] == nil, let method = actionResult.method {
+                merged[ActionResultKey.method] = method
+            }
+            if merged[ActionResultKey.approvalRequestID] == nil, let approvalRequestID = actionResult.approvalRequestID {
+                merged[ActionResultKey.approvalRequestID] = approvalRequestID
+            }
+            if merged[ActionResultKey.approvalStatus] == nil, let approvalStatus = actionResult.approvalStatus {
+                merged[ActionResultKey.approvalStatus] = approvalStatus
+            }
+        }
+
+        if let traceResult {
+            merged[ActionResultKey.trace] = traceResult.toDict()
+        }
+
+        if let codeExecutionResult {
+            let codeExecutionData = codeExecutionResult.toDict()
+            if !codeExecutionData.isEmpty {
+                merged[ActionResultKey.codeExecution] = codeExecutionData
+            }
+        }
+
+        if let recipeRunResult {
+            merged.merge(recipeRunResult.toDict()) { _, new in new }
+        }
+
+        return merged.isEmpty ? nil : merged
     }
 }
 

@@ -78,4 +78,46 @@ struct ExecutionKernelBoundaryTests {
         let stamped = actionResultDict != nil && actionResultDict?["executed_through_executor"] as? Bool == true
         #expect(stamped == true)
     }
+
+    @Test("Typed action payloads merge into legacy ToolResult data")
+    func typedActionPayloadsMergeIntoLegacyData() {
+        let result = ToolResult(
+            success: true,
+            actionResult: ActionResult(success: true, method: "intent-api", executedThroughExecutor: true),
+            traceResult: TraceResult(cycleID: "cycle-1", intentID: "intent-1")
+        )
+
+        let actionResultDict = result.data?[ActionResultKey.actionResult] as? [String: Any]
+        let traceDict = result.data?[ActionResultKey.trace] as? [String: Any]
+
+        #expect(result.actionResult?.executedThroughExecutor == true)
+        #expect(actionResultDict?[ActionResultKey.executedThroughExecutor] as? Bool == true)
+        #expect(result.data?[ActionResultKey.method] as? String == "intent-api")
+        #expect(traceDict?[TraceResultKey.cycleID] as? String == "cycle-1")
+    }
+
+    @Test("Legacy recipe payloads are exposed as typed ToolResult views")
+    func legacyRecipePayloadsExposeTypedView() {
+        let result = ToolResult(
+            success: false,
+            data: [
+                RecipeResultKey.recipe: "gmail-send",
+                RecipeResultKey.stepsCompleted: 2,
+                RecipeResultKey.totalSteps: 4,
+                RecipeResultKey.pendingApproval: true,
+                RecipeResultKey.resumeToken: "resume-1",
+                RecipeResultKey.stepResults: [[
+                    RecipeResultKey.stepIndex: 1,
+                    RecipeResultKey.stepAction: "click",
+                    RecipeResultKey.stepSuccess: true,
+                    RecipeResultKey.stepDurationMs: 32,
+                ]],
+            ]
+        )
+
+        #expect(result.recipeRunResult?.recipeName == "gmail-send")
+        #expect(result.recipeRunResult?.pendingApproval == true)
+        #expect(result.recipeRunResult?.resumeToken == "resume-1")
+        #expect(result.recipeRunResult?.stepResults.first?.durationMs == 32)
+    }
 }

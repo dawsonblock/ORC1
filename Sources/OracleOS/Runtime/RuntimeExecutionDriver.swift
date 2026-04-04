@@ -117,18 +117,16 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             } catch {
                 submissionState.result = ToolResult(
                     success: false,
-                    data: [
-                        "summary": "Intent submission failed",
-                        "method": "intent-api",
-                        ActionResultKey.actionResult: [
-                            ActionResultKey.success: false,
-                            ActionResultKey.verified: false,
-                            ActionResultKey.executedThroughExecutor: false,
-                            ActionResultKey.failureClass: "intent_submission_failed",
-                            ActionResultKey.message: error.localizedDescription,
-                        ] as [String: Any],
-                    ],
-                    error: error.localizedDescription
+                    data: ["summary": "Intent submission failed"],
+                    error: error.localizedDescription,
+                    actionResult: ActionResult(
+                        success: false,
+                        verified: false,
+                        message: error.localizedDescription,
+                        method: "intent-api",
+                        failureClass: "intent_submission_failed",
+                        executedThroughExecutor: false
+                    )
                 )
             }
             semaphore.signal()
@@ -153,18 +151,16 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         if timedOut {
             return ToolResult(
                 success: false,
-                data: [
-                    "summary": "Intent submission timed out",
-                    "method": "intent-api",
-                    ActionResultKey.actionResult: [
-                        ActionResultKey.success: false,
-                        ActionResultKey.verified: false,
-                        ActionResultKey.executedThroughExecutor: false,
-                        ActionResultKey.failureClass: "intent_submission_timeout",
-                        ActionResultKey.message: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
-                    ] as [String: Any],
-                ],
-                error: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s"
+                data: ["summary": "Intent submission timed out"],
+                error: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
+                actionResult: ActionResult(
+                    success: false,
+                    verified: false,
+                    message: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
+                    method: "intent-api",
+                    failureClass: "intent_submission_timeout",
+                    executedThroughExecutor: false
+                )
             )
         }
 
@@ -179,52 +175,49 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         let isApprovalPending = response.approvalRequestID != nil
         let verified = response.outcome == .success || response.outcome == .skipped
 
-        var actionResult: [String: Any] = [
-            ActionResultKey.success: success,
-            ActionResultKey.verified: verified,
-            ActionResultKey.executedThroughExecutor: !isPlanningFailure && !isApprovalPending,
-            ActionResultKey.message: response.summary,
-            ActionResultKey.method: "intent-api",
-        ]
+        let failureClass: String?
         if response.outcome == .partialSuccess {
-            actionResult[ActionResultKey.failureClass] = "partial_success"
+            failureClass = "partial_success"
         } else if response.outcome == .failed {
             if isApprovalPending {
-                actionResult[ActionResultKey.failureClass] = "approval_pending"
+                failureClass = "approval_pending"
             } else {
-                actionResult[ActionResultKey.failureClass] = isPlanningFailure ? "planning_failed" : "runtime_failed"
+                failureClass = isPlanningFailure ? "planning_failed" : "runtime_failed"
             }
+        } else {
+            failureClass = nil
         }
-        // Carry approval metadata in a stable location so controller and MCP
-        // surfaces read from the same field — not inferred or nested differently.
-        if let requestID = response.approvalRequestID {
-            actionResult[ActionResultKey.approvalRequestID] = requestID
-        }
-        if let status = response.approvalStatus {
-            actionResult[ActionResultKey.approvalStatus] = status
-        }
+
+        let actionResult = ActionResult(
+            success: success,
+            verified: verified,
+            message: response.summary,
+            method: "intent-api",
+            failureClass: failureClass,
+            approvalRequestID: response.approvalRequestID,
+            approvalStatus: response.approvalStatus,
+            executedThroughExecutor: !isPlanningFailure && !isApprovalPending
+        )
+
+        let traceResult = TraceResult(
+            cycleID: response.cycleID.uuidString,
+            intentID: response.intentID.uuidString
+        )
 
         var data: [String: Any] = [
             "summary": response.summary,
             "cycleID": response.cycleID.uuidString,
-            "method": "intent-api",
-            ActionResultKey.actionResult: actionResult,
-            ActionResultKey.trace: [
-                TraceResultKey.cycleID: response.cycleID.uuidString,
-                TraceResultKey.intentID: response.intentID.uuidString,
-            ] as [String: Any],
         ]
         if let snapshotID = response.snapshotID {
             data["snapshot_id"] = snapshotID.uuidString
-        }
-        if let requestID = response.approvalRequestID {
-            data[ActionResultKey.approvalRequestID] = requestID
         }
 
         return ToolResult(
             success: success,
             data: data,
-            error: response.outcome == .failed ? response.summary : nil
+            error: response.outcome == .failed ? response.summary : nil,
+            actionResult: actionResult,
+            traceResult: traceResult
         )
     }
 

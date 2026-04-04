@@ -184,20 +184,26 @@ public enum RecipeEngine {
                 )
 
                 let totalDuration = Int(Date().timeIntervalSince(startTime) * 1000)
-                var data = result.data ?? [:]
-                data["recipe"] = recipe.name
-                data["steps_completed"] = stepResults.count
-                data["total_steps"] = recipe.steps.count
-                data["duration_ms"] = totalDuration
-                data["step_results"] = stepResults.map { stepResultDict($0) }
-                data["pending_approval"] = true
-                data["resume_token"] = token
+                let recipeRunResult = RecipeRunResultPayload(
+                    recipeName: recipe.name,
+                    stepsCompleted: stepResults.count,
+                    totalSteps: recipe.steps.count,
+                    durationMs: totalDuration,
+                    stepResults: stepResults.map(recipeStepExecutionResult),
+                    pendingApproval: true,
+                    approvalRequestID: result.actionResult?.approvalRequestID,
+                    resumeToken: token
+                )
 
                 return ToolResult(
                     success: false,
-                    data: data,
+                    data: result.data,
                     error: result.error ?? "Recipe paused pending approval",
-                    suggestion: "Approve the pending action in Oracle Controller, then resume this recipe with the provided resume token and approval request id."
+                    suggestion: "Approve the pending action in Oracle Controller, then resume this recipe with the provided resume token and approval request id.",
+                    actionResult: result.actionResult,
+                    traceResult: result.traceResult,
+                    codeExecutionResult: result.codeExecutionResult,
+                    recipeRunResult: recipeRunResult
                 )
             }
 
@@ -220,16 +226,10 @@ public enum RecipeEngine {
                 }
 
                 let totalDuration = Int(Date().timeIntervalSince(startTime) * 1000)
-                var failureData: [String: Any] = [
-                    "recipe": recipe.name,
-                    "failed_step": step.id,
-                    "failed_action": step.action,
-                    "error": result.error ?? "Unknown error",
-                    "steps_completed": max(0, stepResults.count - 1),
-                    "total_steps": recipe.steps.count,
-                    "duration_ms": totalDuration,
-                    "step_results": stepResults.map { stepResultDict($0) },
-                ]
+                var failureData = result.data ?? [:]
+                failureData["error"] = result.error ?? "Unknown error"
+                failureData["failed_step"] = step.id
+                failureData["failed_action"] = step.action
 
                 if let app = recipe.app {
                     let context = AXScanner.getContext(appName: app)
@@ -242,11 +242,24 @@ public enum RecipeEngine {
                     failureData["failed_note"] = note
                 }
 
+                let recipeRunResult = RecipeRunResultPayload(
+                    recipeName: recipe.name,
+                    stepsCompleted: max(0, stepResults.count - 1),
+                    totalSteps: recipe.steps.count,
+                    durationMs: totalDuration,
+                    stepResults: stepResults.map(recipeStepExecutionResult),
+                    approvalRequestID: result.actionResult?.approvalRequestID
+                )
+
                 return ToolResult(
                     success: false,
                     data: failureData,
                     error: "Recipe '\(recipe.name)' failed at step \(step.id) (\(step.note ?? step.action)): \(result.error ?? "")",
-                    suggestion: "Check the current_context and failed_step details. Use oracle_screenshot for visual debugging."
+                    suggestion: "Check the current_context and failed_step details. Use oracle_screenshot for visual debugging.",
+                    actionResult: result.actionResult,
+                    traceResult: result.traceResult,
+                    codeExecutionResult: result.codeExecutionResult,
+                    recipeRunResult: recipeRunResult
                 )
             }
 
@@ -255,19 +268,23 @@ public enum RecipeEngine {
                 let waitResult = handleWaitAfter(resolvedWaitAfter, appName: recipe.app)
                 if !waitResult.success {
                     let totalDuration = Int(Date().timeIntervalSince(startTime) * 1000)
+                    let recipeRunResult = RecipeRunResultPayload(
+                        recipeName: recipe.name,
+                        stepsCompleted: stepResults.count,
+                        totalSteps: recipe.steps.count,
+                        durationMs: totalDuration,
+                        stepResults: stepResults.map(recipeStepExecutionResult)
+                    )
+
                     return ToolResult(
                         success: false,
                         data: [
-                            "recipe": recipe.name,
-                            "failed_step": step.id,
+                    "failed_step": step.id,
                             "error": "Action succeeded but expected state didn't materialize: \(waitResult.error ?? "")",
-                            "steps_completed": stepResults.count,
-                            "total_steps": recipe.steps.count,
-                            "duration_ms": totalDuration,
-                            "step_results": stepResults.map { stepResultDict($0) },
                         ],
                         error: "Recipe '\(recipe.name)' step \(step.id) wait_after failed: \(waitResult.error ?? "")",
-                        suggestion: "The action succeeded but the expected result didn't appear. Use oracle_context and oracle_screenshot to diagnose."
+                        suggestion: "The action succeeded but the expected result didn't appear. Use oracle_context and oracle_screenshot to diagnose.",
+                        recipeRunResult: recipeRunResult
                     )
                 }
             }
@@ -279,13 +296,13 @@ public enum RecipeEngine {
 
         return ToolResult(
             success: true,
-            data: [
-                "recipe": recipe.name,
-                "steps_completed": stepResults.count,
-                "total_steps": recipe.steps.count,
-                "duration_ms": totalDuration,
-                "step_results": stepResults.map { stepResultDict($0) },
-            ]
+            recipeRunResult: RecipeRunResultPayload(
+                recipeName: recipe.name,
+                stepsCompleted: stepResults.count,
+                totalSteps: recipe.steps.count,
+                durationMs: totalDuration,
+                stepResults: stepResults.map(recipeStepExecutionResult)
+            )
         )
     }
 
@@ -597,20 +614,19 @@ public enum RecipeEngine {
 
     // MARK: - Result Formatting
 
-    private static func stepResultDict(_ result: RecipeStepResult) -> [String: Any] {
-        var dict: [String: Any] = [
-            "step": result.stepId,
-            "action": result.action,
-            "success": result.success,
-            "duration_ms": result.durationMs,
-        ]
-        if let error = result.error { dict["error"] = error }
-        if let note = result.note { dict["note"] = note }
-        return dict
+    private static func recipeStepExecutionResult(_ result: RecipeStepResult) -> RecipeStepExecutionResult {
+        RecipeStepExecutionResult(
+            stepIndex: result.stepId,
+            action: result.action,
+            success: result.success,
+            durationMs: result.durationMs,
+            error: result.error,
+            note: result.note
+        )
     }
 
     private static func isPendingApproval(_ result: ToolResult) -> Bool {
-        (result.data?["approval_status"] as? String) == ApprovalStatus.pending.rawValue
-            || (result.data?["pending_approval"] as? Bool) == true
+        result.actionResult?.approvalStatus == ApprovalStatus.pending.rawValue
+            || result.recipeRunResult?.pendingApproval == true
     }
 }
