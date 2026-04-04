@@ -87,23 +87,28 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
         }
     }
 
-    /// ENFORCE: All execution surfaces must use RuntimeBootstrap
-    func testAllSurfacesUseBootstrap() throws {
-        // oracle CLI (Sources/oracle/main.swift) is intentionally thin:
-        // it delegates to MCPServer which bootstraps internally via MCPDispatch.
-        // Only direct bootstrap surfaces are checked here.
-        let executionSurfaces = [
+    /// ENFORCE: Direct runtime bootstrap ownership stays explicit.
+    func testDirectBootstrapOwnersStayExplicit() throws {
+        let directBootstrapOwners = [
             "Sources/OracleControllerHost/ControllerRuntimeBridge.swift",
-            "Sources/OracleOS/MCP/MCPDispatch.swift",
+            "Sources/OracleOS/MCP/MCPRuntimeHost.swift",
         ]
-        
-        for surfacePath in executionSurfaces {
-            guard FileManager.default.fileExists(atPath: surfacePath) else { continue }
-            let content = try String(contentsOfFile: surfacePath, encoding: .utf8)
-            
+
+        for ownerPath in directBootstrapOwners {
+            guard FileManager.default.fileExists(atPath: ownerPath) else { continue }
+            let content = try String(contentsOfFile: ownerPath, encoding: .utf8)
+
             XCTAssertTrue(content.contains("RuntimeBootstrap") || content.contains("makeBootstrappedRuntime"),
-                          "\(surfacePath) must use RuntimeBootstrap for entry")
+                          "\(ownerPath) must use RuntimeBootstrap for entry")
         }
+
+        let dispatchPath = "Sources/OracleOS/MCP/MCPDispatch.swift"
+        let dispatchContent = try String(contentsOfFile: dispatchPath, encoding: .utf8)
+
+        XCTAssertTrue(dispatchContent.contains("MCPRuntimeHost"),
+                      "MCPDispatch must delegate runtime lifecycle ownership to MCPRuntimeHost")
+        XCTAssertFalse(dispatchContent.contains("_bootstrappedRuntime"),
+                       "MCPDispatch must not reintroduce an ad hoc cached runtime")
     }
 
     /// ENFORCE: ControllerRuntimeBridge does not store RuntimeContext

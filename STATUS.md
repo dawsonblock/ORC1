@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-03 (ORC1-main-9 — proof hardening pass)  
+**Last updated:** 2026-04-04 (typed boundary hardening pass)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -14,6 +14,8 @@
 | Build | Must be verified in a valid Swift environment. See `scripts/verify-build.sh`. |
 | Supported operator UI | `OracleController` native macOS app |
 | Controller host role | `OracleControllerHost` boots one runtime per app launch and adapts UI requests into it |
+| MCP runtime lifecycle owner | `MCPRuntimeHost` owns reusable bootstrap/reuse/reset semantics; `MCPDispatch` remains the public MCP entrypoint |
+| Shared controller contracts | Split across `ControllerModels.swift`, `ControllerDiagnosticsModels.swift`, and `ControllerTraceModels.swift` |
 | Web surface | Demo/dev scaffolding only; not part of the supported operator contract |
 
 ---
@@ -58,11 +60,22 @@ Protected live backbone: `VerifiedExecutor`, `CommitCoordinator`, `RuntimeBootst
 
 ## Known Open Issues
 
-1. **Remaining `[String: Any]` occurrences** in some areas of the codebase. Key boundary `ControllerRuntimeBridge+Mapping.swift` now uses `ActionResultKey` and `CodeExecutionResultKey` typed constants throughout. The `code_execution` sub-dict is still `[String: Any]` structurally — a `ToolResult.data` architecture limitation, not a key-management issue. See `AUDIT.md` for full classification.
+1. **Remaining `[String: Any]` occurrences** still exist at external edges and compatibility seams. The live controller/runtime path now populates `actionResult`, `traceResult`, `codeExecutionResult`, and `recipeRunResult` natively; the legacy `ToolResult.data` sub-dicts remain only as merged compatibility export and for a small number of external-edge consumers. See `AUDIT.md` for the broader classification.
 2. ~~**`agentKind` / `plannerFamily` always nil in `ActionRunResult`**~~ **RESOLVED (ORC1-main-6):** `traceSessionID`, `traceStepID`, `agentKind`, and `plannerFamily` fields were removed from `ActionRunResult`. The dead reads from `ControllerRuntimeBridge+Mapping` and dead UI blocks in `RootView+Control.swift` were also removed. `RuntimeExecutionDriver` correctly emits only `cycleID` and `intentID` — no producer-consumer mismatch remains.
-3. **`MCPDispatch.swift` line count has been reduced** from earlier versions to ~359 lines. Routing, timeout, and tool dispatch remain in one file; splitting is not currently blocking.  
+3. **`MCPDispatch.swift` remains the public entrypoint, but reusable runtime ownership is now explicit.** `MCPRuntimeHost` owns runtime reuse/reset semantics and focused tests cover reuse, bootstrap failure, unknown-tool handling, and the fast error path for `oracle_experiment_search`. Routing still lives in the existing per-domain dispatch extensions.
 4. **CI now follows the real local proof path.** `.github/workflows/ci.yml` runs `scripts/verify-build.sh`, which executes `mcp_boundary_guard.py`, `architecture_guard.py`, `execution_boundary_guard.py`, `swift build -c release`, and `swift test`. `.github/workflows/architecture.yml` remains as a focused extra guard job.
 5. **ARCHITECTURE_RULES.md** had 5 ghost coordinator types and 2 ghost backbone modules (now corrected — see `AUDIT.md`).
+
+---
+
+## Typed Boundary Hardening Pass — Changes Made
+
+| Item | File(s) | Status |
+|---|---|---|
+| `RuntimeExecutionDriver` only populated typed action/trace payloads while code-execution metadata depended on legacy backfill | `Sources/OracleOS/Runtime/RuntimeExecutionDriver.swift`, `Tests/OracleOSTests/Core/RuntimeExecutionDriverBoundaryTests.swift` | Fixed — code intents now populate `codeExecutionResult` natively on success and submission-failure paths; legacy `code_execution` data is merged only for compatibility |
+| MCP runtime cache ownership was hidden inside `MCPDispatch` | `Sources/OracleOS/MCP/MCPRuntimeHost.swift`, `Sources/OracleOS/MCP/MCPDispatch.swift`, `Tests/OracleOSTests/MCP/MCPDispatchBehaviorTests.swift` | Fixed — reusable runtime lifecycle moved into `MCPRuntimeHost`; timeout race removed and lifecycle behavior now has direct proof |
+| Shared controller-host contracts were all grouped in one monolithic file | `Sources/OracleControllerShared/ControllerModels.swift`, `Sources/OracleControllerShared/ControllerDiagnosticsModels.swift`, `Sources/OracleControllerShared/ControllerTraceModels.swift` | Fixed — shared contracts now follow stable ownership boundaries: action/control/session, diagnostics/host state, and trace/recipe/dashboard |
+| Typed bridge mapping could regress back to nested dictionary probing without an automated tripwire | `scripts/architecture_guard.py` | Fixed — architecture guard now requires typed `ToolResult` access in `ControllerRuntimeBridge+Mapping.swift` and forbids the old nested action/code/recipe probes |
 
 ---
 

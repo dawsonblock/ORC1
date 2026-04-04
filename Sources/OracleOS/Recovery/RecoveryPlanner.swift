@@ -223,10 +223,15 @@ public final class RecoveryPlanner: @unchecked Sendable {
         switch failure {
         case .modalBlocking, .unexpectedDialog:
             probability += state.modalPresent ? 0.3 : 0
+        case .permissionBlocked:
+            probability += state.modalPresent ? 0.1 : 0.05
         case .wrongFocus:
             probability += state.targetApplication != nil ? 0.25 : 0
         case .patchApplyFailed:
             probability += state.patchApplied ? 0.2 : 0
+        case .buildFailed:
+            probability += state.repoOpen ? 0.1 : 0
+            probability += state.patchApplied ? 0.15 : 0
         case .testFailed:
             probability += state.repoOpen ? 0.15 : 0
         case .workflowReplayFailure:

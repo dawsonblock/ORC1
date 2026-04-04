@@ -76,6 +76,7 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         selectedCandidate: ElementCandidate?,
         approvalToken: String? = nil
     ) -> ToolResult {
+        let codeExecutionResult = Self.makeCodeExecutionResult(from: intent)
         let domain: IntentDomain = intent.agentKind == .code ? .code :
             .ui
 
@@ -113,7 +114,10 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         Task.detached(priority: .userInitiated) { [submissionState, semaphore] in
             do {
                 let response = try await api.submitIntent(typedIntent)
-                submissionState.result = Self.makeToolResult(from: response)
+                submissionState.result = Self.makeToolResult(
+                    from: response,
+                    codeExecutionResult: codeExecutionResult
+                )
             } catch {
                 submissionState.result = ToolResult(
                     success: false,
@@ -126,7 +130,8 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                         method: "intent-api",
                         failureClass: "intent_submission_failed",
                         executedThroughExecutor: false
-                    )
+                    ),
+                    codeExecutionResult: codeExecutionResult
                 )
             }
             semaphore.signal()
@@ -160,14 +165,18 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                     method: "intent-api",
                     failureClass: "intent_submission_timeout",
                     executedThroughExecutor: false
-                )
+                ),
+                codeExecutionResult: codeExecutionResult
             )
         }
 
         return submissionState.result
     }
 
-    nonisolated private static func makeToolResult(from response: IntentResponse) -> ToolResult {
+    nonisolated private static func makeToolResult(
+        from response: IntentResponse,
+        codeExecutionResult: CodeExecutionResult?
+    ) -> ToolResult {
         let success = response.outcome == .success
             || response.outcome == .skipped
             || response.outcome == .partialSuccess
@@ -217,8 +226,23 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             data: data,
             error: response.outcome == .failed ? response.summary : nil,
             actionResult: actionResult,
-            traceResult: traceResult
+            traceResult: traceResult,
+            codeExecutionResult: codeExecutionResult
         )
+    }
+
+    nonisolated private static func makeCodeExecutionResult(from intent: ActionIntent) -> CodeExecutionResult? {
+        guard intent.agentKind == .code else {
+            return nil
+        }
+
+        let codeExecutionResult = CodeExecutionResult(
+            commandCategory: intent.commandCategory,
+            commandSummary: intent.commandSummary,
+            workspaceRelativePath: intent.workspaceRelativePath
+        )
+
+        return codeExecutionResult.toDict().isEmpty ? nil : codeExecutionResult
     }
 
     private static func encodeActionIntent(_ intent: ActionIntent) -> String? {

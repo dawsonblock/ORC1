@@ -117,6 +117,75 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(result.actionResult?.approvalStatus == "pending")
     }
 
+    @Test("Code action intents populate codeExecutionResult natively")
+    func codeActionIntentsPopulateCodeExecutionResultNatively() {
+        let response = IntentResponse(
+            intentID: UUID(),
+            outcome: .success,
+            summary: "Intent completed",
+            cycleID: UUID(),
+            snapshotID: UUID()
+        )
+        let driver = RuntimeExecutionDriver(
+            intentAPI: StubIntentAPI(response: response),
+            surface: .controller
+        )
+        let intent = ActionIntent.code(
+            command: CommandSpec(
+                category: .build,
+                executable: "swift",
+                arguments: ["build"],
+                workspaceRoot: "/tmp/workspace",
+                workspaceRelativePath: "Package.swift",
+                summary: "swift build"
+            )
+        )
+
+        let result = driver.execute(
+            intent: intent,
+            plannerDecision: testPlannerDecision(),
+            selectedCandidate: nil
+        )
+
+        let codeExecutionData = result.data?[ActionResultKey.codeExecution] as? [String: Any]
+
+        #expect(result.codeExecutionResult?.commandCategory == CodeCommandCategory.build.rawValue)
+        #expect(result.codeExecutionResult?.commandSummary == "swift build")
+        #expect(result.codeExecutionResult?.workspaceRelativePath == "Package.swift")
+        #expect(codeExecutionData?[CodeExecutionResultKey.commandCategory] as? String == CodeCommandCategory.build.rawValue)
+        #expect(codeExecutionData?[CodeExecutionResultKey.commandSummary] as? String == "swift build")
+        #expect(codeExecutionData?[CodeExecutionResultKey.workspaceRelativePath] as? String == "Package.swift")
+    }
+
+    @Test("Code action submission failures keep native codeExecutionResult")
+    func codeActionSubmissionFailuresKeepNativeCodeExecutionResult() {
+        let driver = RuntimeExecutionDriver(
+            intentAPI: ThrowingIntentAPI(),
+            surface: .mcp
+        )
+        let intent = ActionIntent.code(
+            command: CommandSpec(
+                category: .test,
+                executable: "swift",
+                arguments: ["test"],
+                workspaceRoot: "/tmp/workspace",
+                workspaceRelativePath: "Tests/OracleOSTests",
+                summary: "swift test"
+            )
+        )
+
+        let result = driver.execute(
+            intent: intent,
+            plannerDecision: testPlannerDecision(),
+            selectedCandidate: nil
+        )
+
+        #expect(result.success == false)
+        #expect(result.codeExecutionResult?.commandCategory == CodeCommandCategory.test.rawValue)
+        #expect(result.codeExecutionResult?.commandSummary == "swift test")
+        #expect(result.codeExecutionResult?.workspaceRelativePath == "Tests/OracleOSTests")
+    }
+
     @Test("Planner normalizes empty action-intent app to nil")
     func plannerNormalizesEmptyActionIntentAppToNil() async throws {
         let planner = MainPlanner()
@@ -183,6 +252,17 @@ private actor StubIntentAPI: IntentAPI {
     func submitIntent(_ intent: Intent) async throws -> IntentResponse {
         _ = intent
         return response
+    }
+
+    func queryState() async throws -> RuntimeSnapshot {
+        RuntimeSnapshot()
+    }
+}
+
+private actor ThrowingIntentAPI: IntentAPI {
+    func submitIntent(_ intent: Intent) async throws -> IntentResponse {
+        _ = intent
+        throw NSError(domain: "RuntimeExecutionDriverBoundaryTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "submit failed"])
     }
 
     func queryState() async throws -> RuntimeSnapshot {

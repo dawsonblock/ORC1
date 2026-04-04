@@ -31,6 +31,43 @@ struct RecoveryPlannerTests {
         #expect(plans.first?.recoveryOperators.contains { $0.kind == .rollbackPatch || $0.kind == .revertPatch } == true)
     }
 
+    @Test("TaskContext preserves explicit preferred agent kind for code recovery goals")
+    func taskContextPreservesExplicitPreferredAgentKind() {
+        let taskContext = TaskContext.from(
+            goal: Goal(
+                description: "recover from applying a patch to the wrong file",
+                workspaceRoot: "/tmp/workspace",
+                preferredAgentKind: .code
+            ),
+            workspaceRoot: URL(fileURLWithPath: "/tmp/workspace", isDirectory: true)
+        )
+
+        #expect(taskContext.agentKind == .code)
+        #expect(taskContext.phases == [.engineering])
+    }
+
+    @Test("Permission-blocked recovery clears benchmark threshold when a modal is present")
+    func permissionBlockedRecoveryClearsBenchmarkThreshold() {
+        let planner = MainPlanner()
+        let state = makeState(modalPresent: true)
+        let plans = planner.plan(failure: .permissionBlocked, state: state)
+
+        #expect(!plans.isEmpty)
+        #expect(plans.first?.recoveryOperators.contains { $0.kind == .dismissModal } == true)
+        #expect((plans.first?.estimatedRecoveryProbability ?? 0) > 0.5)
+    }
+
+    @Test("Build-failed recovery clears benchmark threshold when patch rollback is available")
+    func buildFailureRecoveryClearsBenchmarkThreshold() {
+        let planner = MainPlanner()
+        let state = makeState(patchApplied: true)
+        let plans = planner.plan(failure: .buildFailed, state: state)
+
+        #expect(!plans.isEmpty)
+        #expect(plans.first?.recoveryOperators.contains { $0.kind == .rollbackPatch } == true)
+        #expect((plans.first?.estimatedRecoveryProbability ?? 0) > 0.5)
+    }
+
     @Test("Recovery plans are sorted by probability descending")
     func plansSortedByProbabilityDescending() {
         let planner = MainPlanner()

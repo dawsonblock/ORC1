@@ -34,7 +34,7 @@ public struct TaskContext: Sendable, Codable, Equatable {
         goal: Goal,
         workspaceRoot: URL? = nil
     ) -> TaskContext {
-        let agentKind = GoalClassifier.classify(
+        let agentKind = goal.preferredAgentKind ?? GoalClassifier.classify(
             description: goal.description,
             workspaceRoot: workspaceRoot
         )

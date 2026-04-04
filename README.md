@@ -9,7 +9,9 @@ Historical rebuild, handoff, phase, and deployment documents are archived under 
 - Main-path execution spine: `RuntimeBootstrap.makeBootstrappedRuntime()` -> `RuntimeOrchestrator.submitIntent(_:)` -> `MainPlanner.plan(intent:state:)` -> `VerifiedExecutor.execute(_:)` -> `CommandRouter` -> `UIRouter` or `CodeRouter` -> `CommitCoordinator.commit(_:)`
 - Desktop operator UI: `OracleController` is the supported local control surface; `OracleControllerHost` is the bundled helper bridge that boots one runtime per app launch and forwards typed requests into that runtime
 - MCP surface: 30 public `oracle_*` tools defined in `Sources/OracleOS/MCP/MCPTools.swift` and dispatched from `Sources/OracleOS/MCP/MCPDispatch.swift`
+- MCP runtime lifecycle: `MCPDispatch` remains the public tool entrypoint, while `MCPRuntimeHost` owns reusable runtime bootstrap, reuse, and reset semantics for the MCP host process
 - CLI: local setup, doctor, status, and related tooling commands
+- Internal result boundary: live controller/runtime action, trace, code-execution, and recipe payloads use typed `ToolResult` views; legacy nested dictionaries remain compatibility export only
 - Optional service edge: `vision-sidecar/` is an external sidecar boundary
 - Demo-only surface: `web/` is disconnected scaffolding and not part of the supported runtime contract
 
@@ -102,6 +104,8 @@ Explicit exceptions:
 - `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
 - `vision-sidecar/` is an optional service boundary, not a committed-state authority
 
+For the MCP surface, `MCPDispatch` is the single public entrypoint and `MCPRuntimeHost` is the only reusable runtime owner behind it.
+
 ## Repository Layout
 
 ```text
@@ -109,7 +113,7 @@ Sources/
   OracleOS/               runtime, planning, MCP, memory, execution core
   OracleController/       native controller UI
   OracleControllerHost/   controller host process
-  OracleControllerShared/ shared models and protocols
+  OracleControllerShared/ shared action/control, diagnostics, and trace contracts
   oracle/                 CLI entrypoints
 Tests/                    unit, governance, and eval suites
 docs/                     live docs plus archived history
@@ -119,6 +123,8 @@ scripts/                  build, packaging, guard, and verification helpers
 vision-sidecar/           optional Python vision service
 web/                      disconnected demo surface
 ```
+
+`OracleControllerShared` is intentionally split by stable contract boundaries: `ControllerModels.swift` for action/control/session models, `ControllerDiagnosticsModels.swift` for diagnostics and host state, and `ControllerTraceModels.swift` for trace, recipe, and dashboard payloads.
 
 ## Development
 

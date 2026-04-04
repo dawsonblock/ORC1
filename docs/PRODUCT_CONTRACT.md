@@ -12,6 +12,10 @@ OracleOS is a Swift-native macOS automation runtime with three live entry points
 
 `OracleControllerHost` is the bundled helper adapter for the desktop UI. It boots one `OracleOS` runtime per app launch and forwards typed requests into that runtime. It is not a second planner, executor, or commit authority.
 
+`MCPDispatch` is the public MCP tool entrypoint. `MCPRuntimeHost` owns reusable runtime bootstrap, reuse, and reset semantics for the MCP host process behind that entrypoint.
+
+`OracleControllerShared` is intentionally split across `ControllerModels.swift`, `ControllerDiagnosticsModels.swift`, and `ControllerTraceModels.swift` so the shared desktop contract mirrors action/control, diagnostics/host state, and trace/recipe/dashboard ownership boundaries.
+
 OracleOS is not a cloud service, not a browser product, and not a general-purpose agent framework. It is intentionally scoped to local macOS automation with explicit approval and execution boundaries.
 
 ## Live Guarantees
@@ -76,7 +80,11 @@ Explicit exceptions:
 
 `VerifiedExecutor` governs gated desktop actions. Service persistence remains in its own subsystems.
 
-### 5. Evidence must come from current local verification
+### 5. The live controller/runtime result seam is typed internally
+
+The live controller/runtime result seam is typed internally. `ToolResult` exposes `actionResult`, `traceResult`, `codeExecutionResult`, and `recipeRunResult`, and the controller host mapping layer consumes those typed views directly. Legacy nested dictionaries remain only as compatibility export at the outer result seam.
+
+### 6. Evidence must come from current local verification
 
 Current evidence comes from local `swift build`, `swift test`, and [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment.
 
