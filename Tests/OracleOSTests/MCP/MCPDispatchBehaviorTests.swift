@@ -5,6 +5,10 @@ import XCTest
 @MainActor
 final class MCPDispatchBehaviorTests: XCTestCase {
 
+    private enum TestBootstrapError: Error {
+        case failed
+    }
+
     private func repositoryRoot() -> URL {
         var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fm = FileManager.default
@@ -17,6 +21,7 @@ final class MCPDispatchBehaviorTests: XCTestCase {
     }
 
     func testUnknownToolReturnsErrorResponse() async {
+        let start = Date()
         let request = MCPToolRequest(
             version: "1",
             name: "oracle_not_a_real_tool",
@@ -24,12 +29,15 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         )
 
         let response = await MCPDispatch.handle(request)
+        let elapsed = Date().timeIntervalSince(start)
 
         XCTAssertTrue(response.isError)
         XCTAssertTrue(response.textPayload.contains("Unknown tool: oracle_not_a_real_tool"))
+        XCTAssertLessThan(elapsed, 15, "Unknown-tool responses must not wait for the full MCP timeout")
     }
 
     func testExperimentSearchRejectsEmptyCandidates() async {
+        let start = Date()
         let request = MCPToolRequest(
             version: "1",
             name: MCPToolName.experimentSearch,
@@ -40,14 +48,70 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         )
 
         let response = await MCPDispatch.handle(request)
+        let elapsed = Date().timeIntervalSince(start)
 
         XCTAssertTrue(response.isError)
         XCTAssertTrue(response.textPayload.contains("No valid candidates provided"))
+        XCTAssertLessThan(elapsed, 15, "Empty experiment-search validation must not wait for the long async timeout")
+    }
+
+    func testRuntimeHostReusesBootstrappedRuntimeUntilReset() async throws {
+        var bootstrapCount = 0
+        let runtimeHost = MCPRuntimeHost {
+            bootstrapCount += 1
+            return try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+
+        let first = try await runtimeHost.runtime()
+        let second = try await runtimeHost.runtime()
+
+        XCTAssertEqual(bootstrapCount, 1)
+        XCTAssertTrue(first.container === second.container)
+
+        runtimeHost.reset()
+
+        let third = try await runtimeHost.runtime()
+
+        XCTAssertEqual(bootstrapCount, 2)
+        XCTAssertFalse(first.container === third.container)
+    }
+
+    func testRuntimeHostDoesNotCacheBootstrapFailures() async throws {
+        var bootstrapCount = 0
+        let runtimeHost = MCPRuntimeHost {
+            bootstrapCount += 1
+            if bootstrapCount == 1 {
+                throw TestBootstrapError.failed
+            }
+            return try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+
+        do {
+            _ = try await runtimeHost.runtime()
+            XCTFail("Expected the first bootstrap attempt to fail")
+        } catch TestBootstrapError.failed {
+            XCTAssertNil(runtimeHost.existingRuntime)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let bootstrapped = try await runtimeHost.runtime()
+        XCTAssertEqual(bootstrapCount, 2)
+        XCTAssertTrue(bootstrapped.container === runtimeHost.existingRuntime?.container)
     }
 
     func testExperimentSearchRemainsExplicitAsyncExceptionPath() throws {
         let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            content.contains("runtimeHost = MCPRuntimeHost()"),
+            "MCPDispatch must delegate runtime lifecycle ownership to MCPRuntimeHost"
+        )
+        XCTAssertFalse(
+            content.contains("_bootstrappedRuntime"),
+            "MCPDispatch must not keep ad hoc static runtime state once MCPRuntimeHost exists"
+        )
 
         XCTAssertTrue(
             content.contains("else if toolName == MCPToolName.experimentSearch")

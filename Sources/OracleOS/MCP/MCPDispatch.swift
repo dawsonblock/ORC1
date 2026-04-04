@@ -6,24 +6,18 @@ import Foundation
 //   scripts/mcp_boundary_guard.py      – CI shell check
 //   Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift – Swift unit test
 //
-// Architecture note: dispatch() is synchronous and runs on @MainActor.
-// oracle_experiment_search is the sole exception: it is handed to an async
-// handler because ExperimentManager.run() is async throws.
+// Architecture note: the public async handle entrypoint is not main-actor bound
+// so timeout enforcement can race actual work. The synchronous dispatch(request:)
+// path still runs on @MainActor. oracle_experiment_search remains the sole async
+// exception because ExperimentManager.run() is async throws.
 
-@MainActor
 public enum MCPDispatch {
     private static let toolTimeoutSeconds: TimeInterval = 60
-    private static var _bootstrappedRuntime: BootstrappedRuntime?
-
-    private static func getBootstrappedRuntime() async throws -> BootstrappedRuntime {
-        if let existing = _bootstrappedRuntime { return existing }
-        let built = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .live())
-        _bootstrappedRuntime = built
-        return built
-    }
+    @MainActor private static let runtimeHost = MCPRuntimeHost()
 
     // MARK: - Public entry points
 
+    @MainActor
     public static func handle(_ params: [String: Any]) async -> [String: Any] {
         switch MCPToolRequest.decodeResult(from: params) {
         case .success(let request):
@@ -43,8 +37,7 @@ public enum MCPDispatch {
 
     public static func handle(_ request: MCPToolRequest) async -> MCPToolResponse {
         do {
-            let bootstrapped = try await getBootstrappedRuntime()
-            bootstrapped.container.memoryStore.setWorkspaceRoot(FileManager.default.currentDirectoryPath)
+            _ = try await runtimeHost.runtime(currentWorkspaceRoot: FileManager.default.currentDirectoryPath)
         } catch { return .error("Bootstrap failed") }
 
         let toolName = request.name
@@ -57,13 +50,12 @@ public enum MCPDispatch {
                 group.addTask { @Sendable in
                     let result: MCPToolResponse
                     if toolName == MCPToolName.screenshot {
-                        result = await MainActor.run { handleScreenshot(request) }
+                        result = await handleScreenshot(request)
                     } else if toolName == MCPToolName.experimentSearch {
                         result = await handleExperimentSearch(request)
                     } else {
-                        result = await MainActor.run {
-                            formatTypedResult(dispatch(request: request), toolName: toolName)
-                        }
+                        let dispatched = await dispatch(request: request)
+                        result = formatTypedResult(dispatched, toolName: toolName)
                     }
                     return RespWrapper(payload: result)
                 }
@@ -71,7 +63,9 @@ public enum MCPDispatch {
                     try await Task.sleep(nanoseconds: UInt64(actualTimeout * 1_000_000_000))
                     return RespWrapper(payload: nil)
                 }
-                return try await group.next() ?? RespWrapper(payload: nil)
+                let first = try await group.next() ?? RespWrapper(payload: nil)
+                group.cancelAll()
+                return first
             }
         } catch { response = RespWrapper(payload: nil) }
 
@@ -80,6 +74,7 @@ public enum MCPDispatch {
 
     // MARK: - Special handlers
 
+    @MainActor
     private static func handleScreenshot(_ request: MCPToolRequest) -> MCPToolResponse {
         let res = AXScanner.screenshot(appName: request.string("app"), fullResolution: request.bool("full_resolution") ?? false)
         guard res.success, let data = res.data, let b64 = data["image"] as? String else {
@@ -88,8 +83,9 @@ public enum MCPDispatch {
         return .imageAndCaption(base64: b64, mimeType: data["mime_type"] as? String ?? "image/png", caption: "Screenshot")
     }
 
+    @MainActor
     private static func handleExperimentSearch(_ request: MCPToolRequest) async -> MCPToolResponse {
-        guard let bootstrapped = _bootstrappedRuntime else {
+        guard let bootstrapped = runtimeHost.existingRuntime else {
             return .error("Runtime not bootstrapped")
         }
         let goalDescription = request.string("goal_description") ?? ""
@@ -177,10 +173,14 @@ public enum MCPDispatch {
 
     // MARK: - Synchronous dispatch (all tools except oracle_screenshot and oracle_experiment_search)
 
+    @MainActor
     private static func dispatch(request: MCPToolRequest) -> ToolResult {
         let tool = request.name
-        let container = _bootstrappedRuntime!.container
-        let runtime = _bootstrappedRuntime!.orchestrator
+        guard let bootstrapped = runtimeHost.existingRuntime else {
+            return ToolResult(success: false, error: "Runtime not bootstrapped")
+        }
+        let container = bootstrapped.container
+        let runtime = bootstrapped.orchestrator
 
         switch tool {
 

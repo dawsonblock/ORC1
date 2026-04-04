@@ -208,6 +208,36 @@ RULES = {
             ),
         ],
     },
+    "Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift": {
+        "forbidden": [
+            (
+                "result.data?[ActionResultKey.actionResult]",
+                "Controller bridge mapping must not reintroduce nested action_result dictionary probing",
+            ),
+            (
+                "result.data?[ActionResultKey.codeExecution]",
+                "Controller bridge mapping must not reintroduce nested code_execution dictionary probing",
+            ),
+            (
+                "data[RecipeResultKey.stepResults] as? [[String: Any]]",
+                "Controller bridge mapping must not rebuild recipe results from nested step-result dictionaries",
+            ),
+            (
+                "actionData?[ActionResultKey.policyDecision]",
+                "Controller bridge mapping must not read policy state from nested dictionary payloads",
+            ),
+        ],
+        "required": [
+            (
+                "result.actionResult",
+                "Controller bridge mapping must use typed action results on the live boundary",
+            ),
+            (
+                "result.recipeRunResult",
+                "Controller bridge mapping must use typed recipe results on the live boundary",
+            ),
+        ],
+    },
 }
 
 
