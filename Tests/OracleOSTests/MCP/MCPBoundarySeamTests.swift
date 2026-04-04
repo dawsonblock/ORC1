@@ -12,8 +12,12 @@ final class MCPBoundarySeamTests: XCTestCase {
         ]
 
         let response = await MCPDispatch.handle(params)
+        let content = response["content"] as? [[String: Any]]
+        let text = content?.compactMap { $0["text"] as? String }.joined(separator: "\n") ?? ""
 
         XCTAssertEqual(response["isError"] as? Bool, true)
+        XCTAssertTrue(text.contains("invalidArguments") || text.contains("not JSON-serializable"),
+                      "Response should surface specific decode failure reason, got: \(text)")
     }
 
     func testLegacyParamsAdapterAcceptsScalarArguments() async {
@@ -34,8 +38,7 @@ final class MCPBoundarySeamTests: XCTestCase {
         let boundaryPath = "Sources/OracleOS/MCP/MCPBoundary.swift"
         let content = try String(contentsOfFile: boundaryPath, encoding: .utf8)
 
-        XCTAssertTrue(content.contains("func from(legacyValue value: Any)"), "JSONValue must support generic legacy Foundation bridging")
-        XCTAssertTrue(content.contains("guard let decoded = JSONValue.from(legacyValue: rawArgs) else { return nil }"),
-                      "MCPToolRequest.decode(from:) must reject non-JSON arguments instead of silently collapsing them")
+        XCTAssertTrue(content.contains("func from(legacyValue value: Any)"),
+                      "JSONValue must support generic legacy Foundation bridging via from(legacyValue:)")
     }
 }
