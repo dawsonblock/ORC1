@@ -4,6 +4,16 @@ import Foundation
 import OracleControllerShared
 
 extension ControllerStore {
+    func present(_ error: any Error) {
+        if let hostError = error as? HostClientError,
+           let status = hostError.connectionStatus
+        {
+            apply(hostConnection: status)
+        }
+
+        errorMessage = error.localizedDescription
+    }
+
     func handle(_ event: ControllerHostEvent) {
         switch event.kind {
         case .actionStarted:
@@ -76,6 +86,34 @@ extension ControllerStore {
                 chatProviderStatus = providerStatus
             }
         }
+    }
+
+    func apply(hostConnection status: HostConnectionStatus) {
+        let previous = hostConnection
+        guard previous != status else { return }
+
+        hostConnection = status
+
+        if status.requiresAttention {
+            isBusy = false
+            if errorMessage == nil || previous.requiresAttention || errorMessage == previous.detailText {
+                errorMessage = status.detailText
+            }
+            return
+        }
+
+        if status.isConnected,
+           previous.requiresAttention,
+           errorMessage == previous.detailText
+        {
+            errorMessage = nil
+            inlineMessage = "OracleControllerHost reconnected."
+        }
+    }
+
+    func bootstrapHost() async throws {
+        let response = try await send(.init(command: .bootstrap, appName: monitorAppName.nilIfBlank))
+        applyBootstrap(response.bootstrap)
     }
 
     func applyBootstrap(_ bootstrap: DashboardBootstrap?) {
@@ -266,7 +304,7 @@ extension ControllerStore {
                 approvalQueue = approvals
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 }

@@ -12,7 +12,7 @@ extension ControllerStore {
                 syncSelectionAfterRecipeRefresh()
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -26,7 +26,7 @@ extension ControllerStore {
 
             apply(recipe: recipe)
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -107,7 +107,7 @@ extension ControllerStore {
             await loadRecipes()
             apply(recipe: recipe)
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -123,7 +123,7 @@ extension ControllerStore {
             await loadRecipes()
             createRecipe()
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -152,7 +152,7 @@ extension ControllerStore {
                 errorMessage = response.errorMessage ?? "Recipe run failed"
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 }

@@ -72,6 +72,14 @@ struct RootView: View {
                 set: { if !$0 { store.errorMessage = nil } }
             ),
             actions: {
+                if store.hostConnection.requiresAttention,
+                   store.errorMessage == store.hostConnection.detailText
+                {
+                    Button("Retry Host") {
+                        store.errorMessage = nil
+                        Task { await store.retryHostConnection() }
+                    }
+                }
                 Button("OK", role: .cancel) {
                     store.errorMessage = nil
                 }
@@ -82,7 +90,9 @@ struct RootView: View {
         )
         .task {
             await store.start()
-            await store.updateMonitoring()
+            if store.isLoaded {
+                await store.updateMonitoring()
+            }
         }
         .onChange(of: store.selectedSection) { _, section in
             Task {

@@ -13,7 +13,7 @@ extension ControllerStore {
             }
             await refreshMissionControl()
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -24,7 +24,7 @@ extension ControllerStore {
                 self.health = health
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -42,7 +42,7 @@ extension ControllerStore {
             selectedProjectMemoryID = selectedProjectMemoryID ?? diagnostics.projectMemory.first?.id
             selectedArchitectureFindingID = selectedArchitectureFindingID ?? diagnostics.architectureFindings.first?.id
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -59,7 +59,23 @@ extension ControllerStore {
                 )
             )
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
+        }
+    }
+
+    func retryHostConnection() async {
+        do {
+            isBusy = true
+            errorMessage = nil
+            defer { isBusy = false }
+
+            try await bootstrapHost()
+            await refreshHealth()
+            await loadDiagnostics()
+            await refreshMissionControl()
+            isLoaded = true
+        } catch {
+            present(error)
         }
     }
 
@@ -75,7 +91,7 @@ extension ControllerStore {
                 approvalQueue = approvals
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -99,7 +115,7 @@ extension ControllerStore {
                 await resumeRecipeRun(resumeToken: resumeToken, approvalRequestID: approval.id)
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -111,7 +127,7 @@ extension ControllerStore {
             }
             markRejectedApproval(approval)
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -125,7 +141,7 @@ extension ControllerStore {
                 }
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -142,7 +158,7 @@ extension ControllerStore {
             self.selectedSection = .traces
             await loadDiagnostics()
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -156,7 +172,7 @@ extension ControllerStore {
 
     func send(_ request: ControllerHostRequest) async throws -> ControllerHostResponse {
         guard let hostClient else {
-            throw HostClientError.hostExited
+            throw HostClientError.hostExited(status: nil)
         }
         return try await hostClient.send(request)
     }
@@ -187,7 +203,7 @@ extension ControllerStore {
                 errorMessage = response.errorMessage ?? "Action failed"
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 }

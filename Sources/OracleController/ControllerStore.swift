@@ -168,6 +168,7 @@ final class ControllerStore {
     var isLoaded = false
     var showOnboarding = false
     var onboardingStep: OnboardingStep = .welcome
+    var hostConnection: HostConnectionStatus = .idle
 
     var errorMessage: String?
     var inlineMessage: String?
@@ -255,9 +256,14 @@ final class ControllerStore {
     }
 
     init() {
-        self.hostClient = HostProcessClient { [weak self] event in
-            self?.handle(event)
-        }
+        self.hostClient = HostProcessClient(
+            eventHandler: { [weak self] event in
+                self?.handle(event)
+            },
+            lifecycleHandler: { [weak self] status in
+                self?.apply(hostConnection: status)
+            }
+        )
     }
 
     func start() async {
@@ -277,12 +283,11 @@ final class ControllerStore {
                 .compactMap { $0 }
                 .joined(separator: " ")
             }
-            let response = try await send(.init(command: .bootstrap, appName: monitorAppName.nilIfBlank))
-            applyBootstrap(response.bootstrap)
+            try await bootstrapHost()
             await loadDiagnostics()
             isLoaded = true
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 

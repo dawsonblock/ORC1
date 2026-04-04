@@ -48,7 +48,7 @@ extension ControllerStore {
                 chatProviderStatus = providerStatus
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -95,7 +95,7 @@ extension ControllerStore {
             }
         } catch {
             chatInput = prompt
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -115,7 +115,7 @@ extension ControllerStore {
                 chatProviderStatus = providerStatus
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 

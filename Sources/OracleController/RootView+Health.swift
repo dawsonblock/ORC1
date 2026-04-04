@@ -24,14 +24,17 @@ struct HealthWorkspaceView: View {
                             }
                             GridRow {
                                 KVRow(key: "Policy Mode", value: health.policyMode)
-                                KVRow(key: "Controller", value: health.controllerConnected ? "Connected" : "Offline")
+                                KVRow(key: "Host Bridge", value: store.hostConnection.label)
                             }
                             GridRow {
+                                KVRow(key: "Controller", value: controllerStatusValue(health: health))
                                 KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
-                                KVRow(key: "Claude MCP", value: health.claudeConfigured ? "Configured" : "Missing")
                             }
                             GridRow {
+                                KVRow(key: "Claude MCP", value: health.claudeConfigured ? "Configured" : "Missing")
                                 KVRow(key: "Bundle Mode", value: health.runningFromAppBundle ? "Packaged App" : "Developer")
+                            }
+                            GridRow {
                                 KVRow(key: "Bundled Host", value: health.bundledHostAvailable ? "Embedded" : "Missing")
                             }
                             GridRow {
@@ -47,13 +50,24 @@ struct HealthWorkspaceView: View {
                                 KVRow(key: "Vision Install", value: health.visionInstallPath)
                             }
                         }
+
+                        if store.hostConnection.requiresAttention {
+                            hostAttentionCard
+                                .padding(.top, 14)
+                        }
                     } else {
                         EmptyStateView(
                             systemImage: "cross.case.fill",
                             title: "No Health Snapshot",
-                            message: "Refresh health to inspect permissions, sidecar availability, and runtime directories."
+                            message: store.hostConnection.requiresAttention
+                                ? store.hostConnection.detailText
+                                : "Refresh health to inspect permissions, sidecar availability, and runtime directories."
                         )
                         .frame(height: 220)
+
+                        if store.hostConnection.requiresAttention {
+                            hostAttentionCard
+                        }
                     }
                 }
 
@@ -92,6 +106,9 @@ struct HealthWorkspaceView: View {
                         }
 
                         HStack(spacing: 10) {
+                            Button("Retry Host Connection") {
+                                Task { await store.retryHostConnection() }
+                            }
                             Button("Install Vision Bootstrap") {
                                 Task { await store.installVisionBootstrap() }
                             }
@@ -108,6 +125,42 @@ struct HealthWorkspaceView: View {
             .padding(20)
         }
     }
+
+    private var hostAttentionCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(ControllerTheme.warning)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Host Bridge Attention Needed")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(store.hostConnection.detailText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Button("Retry Host") {
+                Task { await store.retryHostConnection() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(12)
+        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func controllerStatusValue(health: HealthStatus) -> String {
+        if store.hostConnection.phase == .launching {
+            return "Starting"
+        }
+        if store.hostConnection.requiresAttention {
+            return "Offline"
+        }
+        return health.controllerConnected ? "Connected" : "Offline"
+    }
 }
 
 struct HealthInspectorView: View {
@@ -117,10 +170,12 @@ struct HealthInspectorView: View {
         ScrollView {
             PanelCard("System Summary", subtitle: "What still blocks a frictionless operator loop") {
                 if let health = store.health {
+                    KVRow(key: "Host Bridge", value: store.hostConnection.label)
+                    KVRow(key: "Host Detail", value: store.hostConnection.detailText)
                     KVRow(key: "Claude MCP", value: health.claudeConfigured ? "Configured" : "Missing")
                     KVRow(key: "Sidecar Version", value: health.visionSidecarVersion ?? "Unknown")
                     KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
-                    KVRow(key: "Controller", value: health.controllerConnected ? "Connected" : "Offline")
+                    KVRow(key: "Controller", value: controllerStatusValue(health: health))
                     KVRow(key: "Policy Mode", value: health.policyMode)
                     KVRow(key: "App Support", value: health.applicationSupportPath, monospaced: true)
                     KVRow(key: "Logs", value: health.logsDirectoryPath, monospaced: true)
@@ -133,12 +188,50 @@ struct HealthInspectorView: View {
                     EmptyStateView(
                         systemImage: "stethoscope",
                         title: "No Health Data",
-                        message: "Refresh the dashboard to populate controller diagnostics."
+                        message: store.hostConnection.requiresAttention
+                            ? store.hostConnection.detailText
+                            : "Refresh the dashboard to populate controller diagnostics."
                     )
                     .frame(height: 260)
                 }
             }
             .padding(20)
         }
+    }
+
+    private var hostAttentionCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(ControllerTheme.warning)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Host Bridge Attention Needed")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(store.hostConnection.detailText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Button("Retry Host") {
+                Task { await store.retryHostConnection() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(12)
+        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func controllerStatusValue(health: HealthStatus) -> String {
+        if store.hostConnection.phase == .launching {
+            return "Starting"
+        }
+        if store.hostConnection.requiresAttention {
+            return "Offline"
+        }
+        return health.controllerConnected ? "Connected" : "Offline"
     }
 }

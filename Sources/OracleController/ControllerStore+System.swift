@@ -45,7 +45,7 @@ extension ControllerStore {
             await refreshHealth()
             inlineMessage = "Vision bootstrap installed. Enable the sidecar when you are ready."
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -57,7 +57,7 @@ extension ControllerStore {
             await refreshHealth()
             inlineMessage = "Vision bootstrap repaired."
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -109,7 +109,7 @@ extension ControllerStore {
             inlineMessage = "Exported diagnostics to \(destination.lastPathComponent)."
             NSWorkspace.shared.activateFileViewerSelecting([destination])
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 
@@ -138,7 +138,7 @@ extension ControllerStore {
                 await loadApprovalRequests()
             }
         } catch {
-            errorMessage = error.localizedDescription
+            present(error)
         }
     }
 }

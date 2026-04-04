@@ -132,6 +132,10 @@ struct ControlWorkspaceView: View {
                     VStack(alignment: .trailing, spacing: 10) {
                         HStack(spacing: 8) {
                             StatusBadge(
+                                label: store.hostConnection.label,
+                                tone: hostTone
+                            )
+                            StatusBadge(
                                 label: store.health?.visionSidecarRunning == true ? "Sidecar Ready" : "Sidecar Optional",
                                 tone: store.health?.visionSidecarRunning == true ? .good : .warning
                             )
@@ -180,12 +184,51 @@ struct ControlWorkspaceView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
 
+                if store.hostConnection.requiresAttention {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "bolt.horizontal.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(hostTone.color)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Host Bridge Requires Attention")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text(store.hostConnection.detailText)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer()
+
+                        Button("Retry Host") {
+                            Task { await store.retryHostConnection() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(12)
+                    .background(hostTone.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+
                 if let inlineMessage = store.inlineMessage, !inlineMessage.isEmpty {
                     Text(inlineMessage)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    private var hostTone: StatusBadge.Tone {
+        switch store.hostConnection.phase {
+        case .connected:
+            return .good
+        case .launching, .idle:
+            return .neutral
+        case .disconnected:
+            return .warning
+        case .failed:
+            return .danger
         }
     }
 }

@@ -7,6 +7,7 @@ struct ControllerStatusBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            statusChip("Host", store.hostConnection.label, tone: hostTone)
             statusChip("Runtime", runtimeValue, tone: runtimeTone)
             statusChip("Monitor", store.autoRefreshEnabled ? "Active" : "Paused", tone: store.autoRefreshEnabled ? .neutral : .warning)
             statusChip("Copilot", store.chatProviderStatus?.state == .ready ? "Ready" : "Setup", tone: store.chatProviderStatus?.state == .ready ? .good : .warning)
@@ -27,6 +28,12 @@ struct ControllerStatusBar: View {
     }
 
     private var runtimeValue: String {
+        if store.hostConnection.phase == .launching {
+            return "Launching"
+        }
+        if store.hostConnection.requiresAttention {
+            return "Unavailable"
+        }
         guard let health = store.health else { return "Loading" }
         if !health.controllerConnected {
             return "Disconnected"
@@ -35,11 +42,33 @@ struct ControllerStatusBar: View {
     }
 
     private var runtimeTone: StatusBadge.Tone {
+        if store.hostConnection.phase == .launching {
+            return .neutral
+        }
+        if store.hostConnection.phase == .failed {
+            return .danger
+        }
+        if store.hostConnection.phase == .disconnected {
+            return .warning
+        }
         guard let health = store.health else { return .neutral }
         if !health.controllerConnected {
             return .warning
         }
         return health.permissions.allSatisfy { $0.granted } ? .good : .warning
+    }
+
+    private var hostTone: StatusBadge.Tone {
+        switch store.hostConnection.phase {
+        case .connected:
+            return .good
+        case .launching, .idle:
+            return .neutral
+        case .disconnected:
+            return .warning
+        case .failed:
+            return .danger
+        }
     }
 
     private func statusChip(_ title: String, _ value: String, tone: StatusBadge.Tone) -> some View {

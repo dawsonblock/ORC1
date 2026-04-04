@@ -22,6 +22,130 @@ public struct ControllerSession: Codable, Sendable, Equatable {
     }
 }
 
+public enum HostConnectionPhase: String, Codable, Sendable, Equatable {
+    case idle
+    case launching
+    case connected
+    case disconnected
+    case failed
+}
+
+public enum HostFailureReason: String, Codable, Sendable, Equatable {
+    case binaryNotFound
+    case binaryNotRunnable
+    case launchFailed
+    case pipeUnavailable
+    case exited
+    case protocolError
+    case unknown
+}
+
+public struct HostConnectionStatus: Codable, Sendable, Equatable {
+    public let phase: HostConnectionPhase
+    public let failureReason: HostFailureReason?
+    public let detail: String?
+
+    public init(
+        phase: HostConnectionPhase,
+        failureReason: HostFailureReason? = nil,
+        detail: String? = nil
+    ) {
+        self.phase = phase
+        self.failureReason = failureReason
+        self.detail = detail
+    }
+
+    public static var idle: Self {
+        Self(phase: .idle)
+    }
+
+    public static var launching: Self {
+        Self(phase: .launching)
+    }
+
+    public static var connected: Self {
+        Self(phase: .connected)
+    }
+
+    public static func disconnected(reason: HostFailureReason = .exited, detail: String? = nil) -> Self {
+        Self(phase: .disconnected, failureReason: reason, detail: detail)
+    }
+
+    public static func failed(reason: HostFailureReason, detail: String? = nil) -> Self {
+        Self(phase: .failed, failureReason: reason, detail: detail)
+    }
+
+    public var label: String {
+        switch phase {
+        case .idle:
+            return "Idle"
+        case .launching:
+            return "Launching"
+        case .connected:
+            return "Connected"
+        case .disconnected:
+            return "Disconnected"
+        case .failed:
+            switch failureReason {
+            case .binaryNotFound:
+                return "Missing"
+            case .binaryNotRunnable:
+                return "Not Runnable"
+            case .launchFailed:
+                return "Launch Failed"
+            case .pipeUnavailable:
+                return "Unavailable"
+            case .protocolError:
+                return "Protocol Error"
+            case .unknown, .exited, nil:
+                return "Error"
+            }
+        }
+    }
+
+    public var detailText: String {
+        if let detail, !detail.isEmpty {
+            return detail
+        }
+
+        switch phase {
+        case .idle:
+            return "OracleControllerHost has not been started yet."
+        case .launching:
+            return "Starting OracleControllerHost."
+        case .connected:
+            return "OracleControllerHost is ready for controller requests."
+        case .disconnected:
+            return "OracleControllerHost stopped responding. Retry to relaunch the local bridge."
+        case .failed:
+            switch failureReason {
+            case .binaryNotFound:
+                return "OracleControllerHost could not be found. Install the bundled app helper or set ORACLE_CONTROLLER_HOST_PATH for development."
+            case .binaryNotRunnable:
+                return "OracleControllerHost was found but is not executable. Check file permissions or the development override path."
+            case .launchFailed:
+                return "OracleControllerHost failed to launch."
+            case .pipeUnavailable:
+                return "OracleControllerHost launched without usable stdin/stdout pipes."
+            case .protocolError:
+                return "OracleControllerHost returned an invalid response. Rebuild or relaunch the host."
+            case .exited:
+                return "OracleControllerHost exited before the controller finished the request."
+            case .unknown, nil:
+                return "OracleControllerHost is unavailable."
+            }
+        }
+    }
+
+    public var requiresAttention: Bool {
+        phase == .failed || phase == .disconnected
+    }
+
+    public var isConnected: Bool {
+        phase == .connected
+    }
+}
+
 public struct ElementFrameSnapshot: Codable, Sendable, Equatable {
     public let x: Double
     public let y: Double

@@ -33,6 +33,32 @@ struct ControllerSharedTests {
     }
 
     @Test
+    func hostConnectionStatusSummarizesMissingHostClearly() {
+        let status = HostConnectionStatus.failed(reason: .binaryNotFound)
+
+        #expect(status.phase == .failed)
+        #expect(status.failureReason == .binaryNotFound)
+        #expect(status.label == "Missing")
+        #expect(status.requiresAttention)
+        #expect(status.detailText.contains("ORACLE_CONTROLLER_HOST_PATH"))
+    }
+
+    @Test
+    func hostConnectionStatusRoundTripsThroughJSON() throws {
+        let status = HostConnectionStatus.disconnected(
+            reason: .exited,
+            detail: "OracleControllerHost exited with status 15."
+        )
+
+        let encoded = try ControllerJSONCoding.makeEncoder().encode(status)
+        let decoded = try ControllerJSONCoding.makeDecoder().decode(HostConnectionStatus.self, from: encoded)
+
+        #expect(decoded == status)
+        #expect(decoded.label == "Disconnected")
+        #expect(decoded.detailText == "OracleControllerHost exited with status 15.")
+    }
+
+    @Test
     func traceEnvelopeRoundTrips() throws {
         let step = TraceStepViewModel(
             sessionID: "session-1",
