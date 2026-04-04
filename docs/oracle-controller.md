@@ -12,7 +12,7 @@ It now supports both developer and packaged-app flows:
 
 - `OracleController`: SwiftUI macOS dashboard and supported operator surface
 - `OracleControllerHost`: bundled helper executable started by the app; boots one `OracleOS` runtime and translates typed app requests into that runtime
-- `OracleControllerShared`: typed IPC models shared by the app and the host
+- `OracleControllerShared`: typed IPC models shared by the app and the host, split across action/control/session, diagnostics/host state, and trace/recipe/dashboard contracts
 - `OracleController.xcworkspace`: Xcode workspace entry point
 
 ## What It Does

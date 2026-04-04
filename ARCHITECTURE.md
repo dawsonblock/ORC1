@@ -14,6 +14,8 @@ Oracle OS has one execution spine:
 
 This spine covers all main-path execution. The experiment subsystem (`oracle_experiment_search`) is a privileged side path that bypasses this spine by design: it dispatches directly from `MCPDispatch` to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`, without involving `RuntimeOrchestrator` or `VerifiedExecutor`.
 
+For the MCP surface, `MCPDispatch` is the public tool entrypoint and `MCPRuntimeHost` is the explicit reusable runtime owner behind it. `MCPRuntimeHost` is the component that calls `RuntimeBootstrap.makeBootstrappedRuntime()`, caches the bootstrapped runtime for the MCP host process, and owns reset semantics.
+
 Surfaces:
 
 - OracleController via OracleControllerHost (supported macOS operator UI)
@@ -58,10 +60,15 @@ Responsibilities:
 - fail closed on policy ambiguity
 
 `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical kernel factory.
-MCP (`oracle mcp`) and the Controller Host use this async factory to obtain a
-fully-wired `BootstrappedRuntime` with recovery already completed.
+`MCPRuntimeHost` and `ControllerRuntimeBridge` are the direct main-path owners
+that call this async factory to obtain a fully-wired `BootstrappedRuntime` with
+recovery already completed.
 
 For the desktop surface, `OracleControllerHost` is a helper adapter only. It boots one runtime per app launch and forwards typed requests from the UI. It does not own planning, execution, or commit authority independently of `OracleOS`.
+
+The live controller/runtime result seam is typed internally. `RuntimeExecutionDriver` populates typed `ToolResult` payload views (`actionResult`, `traceResult`, `codeExecutionResult`, `recipeRunResult`) and `ControllerRuntimeBridge+Mapping` consumes those typed views directly. Legacy nested dictionaries remain compatibility/export transport only.
+
+`OracleControllerShared` is split by stable contract boundaries: `ControllerModels.swift` for action/control/session models, `ControllerDiagnosticsModels.swift` for diagnostics and host state, and `ControllerTraceModels.swift` for trace, recipe, and dashboard payloads.
 
 **CLI diagnostic exception:** `oracle setup` (SetupWizard) and `oracle doctor` (Doctor)
 intentionally bypass the bootstrapped runtime — they construct `DefaultProcessAdapter()`

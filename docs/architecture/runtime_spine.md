@@ -36,6 +36,8 @@ typed `Intent` values and forwards them to `IntentAPI.submitIntent(_:)`.
 9. `RuntimeContainer` is the single authority for all shared services (18+ properties).
 10. `RuntimeContext` is a compile-time boundary guard only; it is not part of the live runtime path.
 11. Standalone CLI tooling (`oracle doctor`, `oracle setup`) is intentionally outside bootstrap and executor guarantees.
+12. `MCPDispatch` is the public MCP entrypoint, but `MCPRuntimeHost` is the direct reusable bootstrap owner for the MCP surface.
+13. The live controller/runtime `ToolResult` seam uses typed payload views internally; legacy nested dictionaries are compatibility/export transport only.
 
 ## Event typing
 
@@ -60,6 +62,7 @@ Legacy event types (`CommandSucceeded`, `CommandFailed`) are mapped automaticall
 |--------|------|---------------|
 | API | `Sources/OracleOS/API/IntentAPI.swift` | Runtime intake boundary |
 | Bootstrap | `Sources/OracleOS/Runtime/RuntimeBootstrap.swift` | Canonical kernel factory with async recovery |
+| MCP lifecycle | `Sources/OracleOS/MCP/MCPRuntimeHost.swift` | Explicit reusable runtime owner for the MCP host process |
 | Container | `Sources/OracleOS/Runtime/RuntimeContainer.swift` | Single authority for 18+ shared services |
 | Context | `Sources/OracleOS/Runtime/RuntimeContext.swift` | Compile-time boundary guard only; not live runtime authority |
 | Orchestration | `Sources/OracleOS/Runtime/RuntimeOrchestrator.swift` | Linear runtime coordination |
@@ -79,7 +82,7 @@ Legacy event types (`CommandSucceeded`, `CommandFailed`) are mapped automaticall
 ## Bootstrap flow
 
 ```text
-Main-path entry point (Controller Host / MCP)
+Main-path bootstrap owner (`ControllerRuntimeBridge` / `MCPRuntimeHost`)
   → RuntimeBootstrap.makeBootstrappedRuntime()
   → RuntimeContainer created with all 18+ services
   → CommitCoordinator.recoverIfNeeded()
@@ -87,6 +90,8 @@ Main-path entry point (Controller Host / MCP)
   → BootstrappedRuntime bundle returned
   → Runtime ready for intents
 ```
+
+`MCPDispatch` stays above this flow as the public MCP tool entrypoint and delegates runtime lifecycle to `MCPRuntimeHost`.
 
 CLI tooling exception: `oracle doctor` and `oracle setup` construct
 `DefaultProcessAdapter()` directly for interactive shell work. They are
@@ -111,7 +116,7 @@ standalone utilities and do not participate in this bootstrap flow.
 ## Remaining hardening focus
 
 - Keep `AgentLoop` intake-only and free of planning/execution logic.
-- Keep all main-path entrypoints (Controller Host, MCP, MCP-backed recipes) on the same
+- Keep all main-path entrypoints (Controller Host, MCP via `MCPRuntimeHost`, MCP-backed recipes) on the same
   `IntentAPI -> RuntimeOrchestrator` path via `RuntimeBootstrap.makeBootstrappedRuntime()`.
 - Keep standalone CLI tooling explicitly out-of-band unless the runtime boundary is deliberately expanded.
 - Continue expanding architecture integrity tests that guard bypass regressions.

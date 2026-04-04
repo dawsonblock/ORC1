@@ -9,8 +9,11 @@ public enum RuntimeBootstrap {
     ///
     /// This is the ONLY authorized way to create the bootstrapped runtime for
     /// main-path surfaces. Current callers:
-    ///   - MCPDispatch (oracle mcp → MCPServer → MCPDispatch.getBootstrappedRuntime)
+    ///   - MCPRuntimeHost (oracle mcp → MCPServer → MCPDispatch → MCPRuntimeHost)
     ///   - ControllerRuntimeBridge (OracleController host)
+    ///
+    /// MCPDispatch remains the public MCP tool entrypoint, but reusable runtime
+    /// lifecycle ownership lives in MCPRuntimeHost.
     ///
     /// CLI tooling exception: `oracle doctor` (Doctor.swift) and `oracle setup`
     /// (SetupWizard.swift) are standalone utilities that intentionally operate

@@ -32,8 +32,9 @@ This document records the non-negotiable runtime architecture rules for Oracle-O
 ## Runtime bootstrap
 
 1. `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical async kernel factory for main-path surfaces.
-2. `MCPDispatch` and `ControllerRuntimeBridge` use `RuntimeBootstrap`; standalone CLI tooling
-   (`oracle doctor`, `oracle setup`) intentionally runs outside this path.
+2. `MCPRuntimeHost` and `ControllerRuntimeBridge` are the direct main-path bootstrap owners.
+   `MCPDispatch` remains the public MCP entrypoint but delegates lifecycle ownership to `MCPRuntimeHost`.
+   Standalone CLI tooling (`oracle doctor`, `oracle setup`) intentionally runs outside this path.
 3. Manual construction of `CommitCoordinator` with empty reducers is forbidden.
 4. The bootstrap wires real reducers: `RuntimeStateReducer`, `UIStateReducer`,
    `ProjectStateReducer`, `MemoryStateReducer`.
@@ -46,6 +47,7 @@ This document records the non-negotiable runtime architecture rules for Oracle-O
 3. `RuntimeOrchestrator.submitIntent(_:)` is the public runtime cycle entry; it emits
    typed events through the commit flow and returns `IntentResponse`.
 4. `RuntimeExecutionDriver` is an adapter (`ActionIntent -> Intent`) only.
+5. Internal `ToolResult` consumers on the live controller/runtime seam must prefer typed payload views over nested `[String: Any]` probing.
 
 ## Regression policy
 

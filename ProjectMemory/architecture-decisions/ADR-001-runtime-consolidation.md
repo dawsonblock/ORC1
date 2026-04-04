@@ -50,9 +50,11 @@ and cross-actor transfer.
 ### 4. RuntimeBootstrap as Canonical Factory
 
 `RuntimeBootstrap.makeBootstrappedRuntime(configuration:)` is the canonical async
-kernel factory for main-path surfaces. `MCPDispatch` and `ControllerRuntimeBridge`
-use this factory. Standalone CLI tooling (`oracle doctor`, `oracle setup`) is an
-intentional exception and runs outside the bootstrapped runtime.
+kernel factory for main-path surfaces. `MCPRuntimeHost` and `ControllerRuntimeBridge`
+are the direct bootstrap owners that use this factory. `MCPDispatch` remains the
+public MCP entrypoint but delegates runtime lifecycle ownership to `MCPRuntimeHost`.
+Standalone CLI tooling (`oracle doctor`, `oracle setup`) is an intentional exception
+and runs outside the bootstrapped runtime.
 
 The bootstrap wires real reducers:
 
@@ -103,12 +105,13 @@ By consolidating to one canonical path:
 - `Sources/OracleOS/State/Stores/SnapshotStore.swift` (modified)
 - `Sources/OracleOS/State/Reducers/*.swift` (modified)
 - `Sources/OracleOS/Runtime/RuntimeOrchestrator.swift` (modified)
+- `Sources/OracleOS/MCP/MCPRuntimeHost.swift` (new)
 - `Sources/OracleOS/MCP/MCPDispatch.swift` (modified)
 - `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` (modified)
 
 ## Evidence
 
-- All 638 tests pass
+- Current full verification passes: 661 tests across 94 suites, plus `scripts/verify-build.sh`
 - Reducer purity tests confirm idempotency
 - Architecture integrity tests guard bypass regressions
 

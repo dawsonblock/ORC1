@@ -2,9 +2,12 @@
 
 ## Pattern
 
-Main-path runtime surfaces (`MCPDispatch`, `ControllerRuntimeBridge`) must use
+Main-path runtime bootstrap owners (`MCPRuntimeHost`, `ControllerRuntimeBridge`) must use
 `RuntimeBootstrap.makeBootstrappedRuntime(configuration:)` to obtain a fully-wired
 `BootstrappedRuntime`.
+
+`MCPDispatch` remains the public MCP entrypoint, but it delegates reusable runtime lifecycle
+ownership to `MCPRuntimeHost` instead of owning an ad hoc cached runtime directly.
 
 Standalone CLI tooling (`oracle doctor`, `oracle setup`) is an intentional
 exception. Those utilities construct `DefaultProcessAdapter()` directly and run
@@ -35,4 +38,4 @@ let coordinator = CommitCoordinator(eventStore: store, reducers: [])
 ## Enforcement
 
 - `RuntimeKernelBootstrapTests` verifies the bootstrap returns real reducers
-- Governance tests check that MCP and Controller use `RuntimeBootstrap`
+- Governance tests check that `MCPRuntimeHost` and `ControllerRuntimeBridge` are the direct bootstrap owners and that `MCPDispatch` delegates lifecycle ownership to `MCPRuntimeHost`
