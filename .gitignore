@@ -56,3 +56,9 @@ web/dist/
 /test
 
 .fake
+# Verification evidence (local only)
+build-output.txt
+test-output.txt
+verify-result.txt
+local/verify/
+.oracle/*.sqlite3

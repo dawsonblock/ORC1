@@ -6,21 +6,21 @@ import Testing
 @Suite("Dialog Storm Tasks")
 struct DialogStormTasks {
 
-    @Test("Permission dialog storm benchmark recovers from sequential modals")
+    @Test("Permission dialog storm fixture recovers from sequential modals")
     func permissionDialogStormBenchmark() async {
         let report = await EvalRunner.run(task: makePermissionDialogStormTask())
         #expect(report.metrics.successRate == 1)
         #expect(report.metrics.recoverySuccessRate == 1)
     }
 
-    @Test("Save-before-close storm benchmark handles save confirmations")
+    @Test("Save-before-close storm fixture handles save confirmations")
     func saveBeforeCloseStormBenchmark() async {
         let report = await EvalRunner.run(task: makeSaveBeforeCloseStormTask())
         #expect(report.metrics.successRate == 1)
         #expect(report.metrics.recoverySuccessRate == 1)
     }
 
-    @Test("Update notification storm benchmark dismisses cascading dialogs")
+    @Test("Update notification storm fixture dismisses cascading dialogs")
     func updateNotificationStormBenchmark() async {
         let report = await EvalRunner.run(task: makeUpdateNotificationStormTask())
         #expect(report.metrics.successRate == 1)
@@ -51,8 +51,7 @@ struct DialogStormTasks {
                 usedStableGraph: false,
                 usedWorkflow: false,
                 recoveryAttempted: true,
-                patchSelectionSucceeded: false,
-                successOverride: true
+                patchSelectionSucceeded: false
             )
         }
     }
@@ -79,8 +78,7 @@ struct DialogStormTasks {
                 usedStableGraph: false,
                 usedWorkflow: false,
                 recoveryAttempted: true,
-                patchSelectionSucceeded: false,
-                successOverride: true
+                patchSelectionSucceeded: false
             )
         }
     }
@@ -107,8 +105,7 @@ struct DialogStormTasks {
                 usedStableGraph: false,
                 usedWorkflow: false,
                 recoveryAttempted: true,
-                patchSelectionSucceeded: false,
-                successOverride: true
+                patchSelectionSucceeded: false
             )
         }
     }
