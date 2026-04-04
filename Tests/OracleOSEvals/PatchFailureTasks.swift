@@ -6,21 +6,21 @@ import Testing
 @Suite("Patch Failure Tasks")
 struct PatchFailureTasks {
 
-    @Test("Wrong file patch benchmark recovers from misapplied patch")
+    @Test("Wrong file patch fixture recovers from misapplied patch")
     func wrongFilePatchBenchmark() async {
         let report = await EvalRunner.run(task: makeWrongFilePatchTask())
         #expect(report.metrics.successRate == 1)
         #expect(report.metrics.recoverySuccessRate == 1)
     }
 
-    @Test("Build break patch benchmark recovers from broken build")
+    @Test("Build break patch fixture recovers from broken build")
     func buildBreakPatchBenchmark() async {
         let report = await EvalRunner.run(task: makeBuildBreakPatchTask())
         #expect(report.metrics.successRate == 1)
         #expect(report.metrics.recoverySuccessRate == 1)
     }
 
-    @Test("Test regression patch benchmark recovers from test regressions")
+    @Test("Test regression patch fixture recovers from test regressions")
     func testRegressionPatchBenchmark() async {
         let report = await EvalRunner.run(task: makeTestRegressionPatchTask())
         #expect(report.metrics.successRate == 1)
@@ -50,8 +50,7 @@ struct PatchFailureTasks {
                 usedStableGraph: false,
                 usedWorkflow: false,
                 recoveryAttempted: true,
-                patchSelectionSucceeded: false,
-                successOverride: true
+                patchSelectionSucceeded: false
             )
         }
     }
@@ -77,8 +76,7 @@ struct PatchFailureTasks {
                 usedStableGraph: false,
                 usedWorkflow: false,
                 recoveryAttempted: true,
-                patchSelectionSucceeded: false,
-                successOverride: true
+                patchSelectionSucceeded: false
             )
         }
     }
@@ -104,8 +102,7 @@ struct PatchFailureTasks {
                 usedStableGraph: false,
                 usedWorkflow: false,
                 recoveryAttempted: true,
-                patchSelectionSucceeded: false,
-                successOverride: true
+                patchSelectionSucceeded: false
             )
         }
     }
