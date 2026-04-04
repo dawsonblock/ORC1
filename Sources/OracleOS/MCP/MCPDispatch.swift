@@ -25,10 +25,20 @@ public enum MCPDispatch {
     // MARK: - Public entry points
 
     public static func handle(_ params: [String: Any]) async -> [String: Any] {
-        guard let request = MCPToolRequest.decode(from: params) else {
-            return ["content": [["type": "text", "text": "{\"success\":false}"]], "isError": true]
+        switch MCPToolRequest.decodeResult(from: params) {
+        case .success(let request):
+            return await handle(request).toLegacyDict()
+        case .failure(let reason):
+            let errorObj: [String: Any] = ["success": false, "error": reason.localizedDescription]
+            let msg: String
+            if let data = try? JSONSerialization.data(withJSONObject: errorObj),
+               let str = String(data: data, encoding: .utf8) {
+                msg = str
+            } else {
+                msg = "{\"success\":false}"
+            }
+            return ["content": [["type": "text", "text": msg]], "isError": true]
         }
-        return await handle(request).toLegacyDict()
     }
 
     public static func handle(_ request: MCPToolRequest) async -> MCPToolResponse {

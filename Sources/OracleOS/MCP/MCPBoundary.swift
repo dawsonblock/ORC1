@@ -1,8 +1,9 @@
 // MCPBoundary.swift
 // Typed contract layer for the MCP server boundary.
 //
-// All data entering or leaving MCPDispatch must pass through these types.
-// No [String: Any] transport. No free-form maps.
+// All data entering or leaving the typed MCP runtime path must pass through these
+// types. Legacy `[String: Any]` transport is confined to the outer JSON-RPC
+// adapter seam (`MCPDispatch.handle(_ params:)` and legacy export helpers).
 //
 // Version field is mandatory on every request and response.
 // Unknown versions are rejected at the boundary — no guessing.
@@ -12,7 +13,7 @@ import Foundation
 // MARK: - JSONValue
 
 /// Closed, Sendable, Codable value type for dynamic MCP arguments and results.
-/// Replaces [String: Any] at every cross-actor and cross-task boundary.
+/// Replaces `[String: Any]` inside the typed MCP runtime path.
 public enum JSONValue: Sendable, Codable, Equatable {
     case null
     case bool(Bool)
@@ -61,16 +62,28 @@ public enum JSONValue: Sendable, Codable, Equatable {
         }
     }
 
-    // MARK: Bridging from legacy [String: Any]
+    // MARK: Bridging from legacy Foundation values
 
-    /// Losslessly convert a JSON-safe [String: Any] dictionary to JSONValue.
+    /// Convert a JSON-safe Foundation value to JSONValue.
+    /// Accepts dictionaries, arrays, strings, numbers, booleans, and NSNull.
+    /// Fails and returns nil for non-JSON-serializable values.
+    /// Note: numeric values are canonicalized through JSON round-trip — a Foundation
+    /// Double such as 1.0 may decode as `.int(1)` due to the decoder's Int-first strategy.
+    public static func from(legacyValue value: Any) -> JSONValue? {
+        let wrapped: [String: Any] = ["value": value]
+        guard JSONSerialization.isValidJSONObject(wrapped),
+              let data = try? JSONSerialization.data(withJSONObject: wrapped),
+              let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data),
+              let jsonValue = decoded["value"]
+        else { return nil }
+        return jsonValue
+    }
+
+    /// Convert a JSON-safe [String: Any] dictionary to JSONValue.
+    /// Subject to the same numeric canonicalization as `from(legacyValue:)`.
     /// Fails and returns nil for non-JSON-serializable values.
     public static func from(legacyDict dict: [String: Any]) -> JSONValue? {
-        guard JSONSerialization.isValidJSONObject(dict),
-              let data = try? JSONSerialization.data(withJSONObject: dict),
-              let decoded = try? JSONDecoder().decode(JSONValue.self, from: data)
-        else { return nil }
-        return decoded
+        from(legacyValue: dict)
     }
 
     /// Convert JSONValue back to a Foundation object for APIs that still require it.
@@ -146,23 +159,36 @@ public struct MCPToolRequest: Sendable, Codable {
         self.arguments = arguments
     }
 
-    /// Decode from the raw [String: Any] params dict that MCPServer passes in.
-    /// Returns nil if required fields are missing or version is unsupported.
-    public static func decode(from params: [String: Any]) -> MCPToolRequest? {
-        guard let name = params["name"] as? String else { return nil }
-        let rawArgs = params["arguments"] ?? [String: Any]()
-        let arguments: JSONValue
-        if let dict = rawArgs as? [String: Any],
-           let v = JSONValue.from(legacyDict: dict) {
-            arguments = v
-        } else {
-            arguments = .object([:])
-        }
+    /// Decode from the raw `[String: Any]` params dict that the JSON-RPC server
+    /// passes in. This is the sole legacy request adapter seam.
+    /// Returns a typed `Result` so callers can surface specific failure reasons
+    /// (missing name, unsupported version, or non-JSON-serializable arguments).
+    public static func decodeResult(from params: [String: Any]) -> Result<MCPToolRequest, MCPDecodeFailure> {
+        guard let name = params["name"] as? String else { return .failure(.missingName) }
+
         // Version is conveyed at the transport layer; default to "1" for callers
         // that predate explicit versioning.
         let version = params["version"] as? String ?? "1"
-        guard version == "1" else { return nil }
-        return MCPToolRequest(version: version, name: name, arguments: arguments)
+        guard version == "1" else { return .failure(.unsupportedVersion(version)) }
+
+        let arguments: JSONValue
+        if let rawArgs = params["arguments"] {
+            guard let decoded = JSONValue.from(legacyValue: rawArgs) else {
+                return .failure(.invalidArguments)
+            }
+            arguments = decoded
+        } else {
+            arguments = .object([:])
+        }
+
+        return .success(MCPToolRequest(version: version, name: name, arguments: arguments))
+    }
+
+    /// Convenience wrapper around `decodeResult(from:)`.
+    /// Returns nil on any failure; prefer `decodeResult(from:)` where the failure
+    /// reason matters for error reporting.
+    public static func decode(from params: [String: Any]) -> MCPToolRequest? {
+        try? decodeResult(from: params).get()
     }
 
     // MARK: Argument helpers (typed extraction from JSONValue arguments)
@@ -289,6 +315,30 @@ public enum MCPContent: Sendable, Codable {
             try c.encode("image", forKey: .type)
             try c.encode(b64, forKey: .data)
             try c.encode(mime, forKey: .mimeType)
+        }
+    }
+}
+
+// MARK: - Decode Failure
+
+/// Typed failure reason returned by `MCPToolRequest.decodeResult(from:)`.
+public enum MCPDecodeFailure: Error, Sendable, Equatable {
+    /// The `name` field is absent or not a String.
+    case missingName
+    /// The `version` field is present but not supported by this runtime.
+    case unsupportedVersion(String)
+    /// The `arguments` field is present but cannot be bridged to `JSONValue`
+    /// (e.g., it contains a non-JSON-serializable Foundation object).
+    case invalidArguments
+
+    public var localizedDescription: String {
+        switch self {
+        case .missingName:
+            return "MCP request is missing required field \"name\"."
+        case .unsupportedVersion(let v):
+            return "MCP request version \"\(v)\" is not supported. Expected version \"1\"."
+        case .invalidArguments:
+            return "MCP request \"arguments\" field is not JSON-serializable."
         }
     }
 }
