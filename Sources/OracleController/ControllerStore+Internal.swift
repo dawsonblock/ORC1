@@ -116,6 +116,169 @@ extension ControllerStore {
         applyBootstrap(response.bootstrap)
     }
 
+    @discardableResult
+    func requireAcknowledged(_ response: ControllerHostResponse, fallback: String) -> Bool {
+        guard response.acknowledged else {
+            errorMessage = response.errorMessage ?? fallback
+            return false
+        }
+        return true
+    }
+
+    func recordRecipeRun(_ recipeRun: RecipeRunResultDocument, approvals: [ApprovalRequestDocument]?) {
+        latestRecipeRun = recipeRun
+        inlineMessage = recipeRun.summaryText
+        if let approvals {
+            approvalQueue = approvals
+        }
+    }
+
+    func applyHealthResponse(_ response: ControllerHostResponse, fallback: String = "Health snapshot unavailable") {
+        guard let health = response.health else {
+            self.health = nil
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        self.health = health
+    }
+
+    func applySnapshotResponse(_ response: ControllerHostResponse, fallback: String = "Observation snapshot unavailable") {
+        guard let snapshot = response.snapshot else {
+            self.snapshot = nil
+            selectedElementID = nil
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        apply(snapshot: snapshot)
+    }
+
+    func applyDiagnosticsResponse(_ response: ControllerHostResponse, fallback: String = "Diagnostics snapshot unavailable") {
+        guard let diagnostics = response.diagnostics else {
+            self.diagnostics = nil
+            selectedGraphEdgeID = nil
+            selectedWorkflowID = nil
+            selectedExperimentID = nil
+            selectedProjectMemoryID = nil
+            selectedArchitectureFindingID = nil
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        self.diagnostics = diagnostics
+        selectedGraphEdgeID = selectedGraphEdgeID
+            ?? diagnostics.graph.stableEdges.first?.id
+            ?? diagnostics.graph.candidateEdges.first?.id
+            ?? diagnostics.graph.recoveryEdges.first?.id
+        selectedWorkflowID = selectedWorkflowID ?? diagnostics.workflows.first?.id
+        selectedExperimentID = selectedExperimentID ?? diagnostics.experiments.first?.id
+        selectedProjectMemoryID = selectedProjectMemoryID ?? diagnostics.projectMemory.first?.id
+        selectedArchitectureFindingID = selectedArchitectureFindingID ?? diagnostics.architectureFindings.first?.id
+    }
+
+    func applyTraceSessionsResponse(_ response: ControllerHostResponse, fallback: String = "Trace list unavailable") {
+        guard let traceSessions = response.traceSessions else {
+            self.traceSessions = []
+            selectedTraceSessionID = nil
+            traceDetail = nil
+            selectedTraceStepID = nil
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        self.traceSessions = traceSessions
+        let currentSelectionStillExists = selectedTraceSessionID.map { id in
+            traceSessions.contains(where: { $0.id == id })
+        } ?? false
+
+        if !currentSelectionStillExists {
+            selectedTraceSessionID = traceSessions.first?.id
+            traceDetail = nil
+            selectedTraceStepID = nil
+        }
+    }
+
+    @discardableResult
+    func applyTraceDetailResponse(
+        _ response: ControllerHostResponse,
+        requestedID: String,
+        fallback: String = "Trace not found"
+    ) -> Bool {
+        guard let traceDetail = response.traceDetail else {
+            self.traceDetail = nil
+            self.selectedTraceSessionID = requestedID
+            self.selectedTraceStepID = nil
+            self.selectedSection = .traces
+            errorMessage = response.errorMessage ?? fallback
+            return false
+        }
+
+        self.traceDetail = traceDetail
+        self.selectedTraceSessionID = requestedID
+        self.selectedTraceStepID = traceDetail.steps.first?.id
+        self.selectedSection = .traces
+        return true
+    }
+
+    func applyApprovalsResponse(_ response: ControllerHostResponse, fallback: String = "Approval list unavailable") {
+        guard let approvals = response.approvals else {
+            approvalQueue = []
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        approvalQueue = approvals
+    }
+
+    func applyMissionControlResponse(_ response: ControllerHostResponse, fallback: String = "Mission Control snapshot unavailable") {
+        guard let missionControl = response.missionControl else {
+            self.missionControl = nil
+            if let providerStatus = response.chatProviderStatus {
+                chatProviderStatus = providerStatus
+            }
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        self.missionControl = missionControl
+        chatProviderStatus = response.chatProviderStatus ?? missionControl.providerStatus
+    }
+
+    func applyRecipesResponse(_ response: ControllerHostResponse, fallback: String = "Recipe library unavailable") {
+        guard let recipes = response.recipes else {
+            self.recipes = []
+            if selectedRecipeName != nil {
+                createRecipe()
+            }
+            errorMessage = response.errorMessage ?? fallback
+            return
+        }
+
+        self.recipes = recipes
+        syncSelectionAfterRecipeRefresh()
+    }
+
+    @discardableResult
+    func applyRecipeResponse(
+        _ response: ControllerHostResponse,
+        requestedName: String,
+        fallback: String = "Recipe not found"
+    ) -> Bool {
+        guard let recipe = response.recipe else {
+            if selectedRecipeName == requestedName || draftRecipe.name == requestedName {
+                createRecipe()
+            } else {
+                selectedRecipeName = nil
+            }
+            errorMessage = response.errorMessage ?? fallback
+            return false
+        }
+
+        apply(recipe: recipe)
+        return true
+    }
+
     func applyBootstrap(_ bootstrap: DashboardBootstrap?) {
         guard let bootstrap else { return }
         session = bootstrap.session
@@ -236,7 +399,11 @@ extension ControllerStore {
                 apply(recipe: refreshed)
             }
         } else {
-            self.selectedRecipeName = nil
+            if self.selectedRecipeName == draftRecipe.name {
+                createRecipe()
+            } else {
+                self.selectedRecipeName = nil
+            }
         }
     }
 
@@ -296,12 +463,18 @@ extension ControllerStore {
                     resumeToken: resumeToken
                 )
             )
-            if let recipeRun = response.recipeRun {
-                latestRecipeRun = recipeRun
-                inlineMessage = recipeRun.summaryText
+            guard requireAcknowledged(response, fallback: "Recipe resume failed") else {
+                return
             }
-            if let approvals = response.approvals {
-                approvalQueue = approvals
+            if let recipeRun = response.recipeRun {
+                recordRecipeRun(recipeRun, approvals: response.approvals)
+                await loadTraceSessions()
+                if let traceSessionID = recipeRun.traceSessionID {
+                    await loadTraceSession(id: traceSessionID)
+                }
+                await loadDiagnostics()
+            } else {
+                errorMessage = response.errorMessage ?? "Recipe resume failed"
             }
         } catch {
             present(error)

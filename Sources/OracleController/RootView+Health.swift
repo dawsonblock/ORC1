@@ -19,7 +19,7 @@ struct HealthWorkspaceView: View {
                                 KVRow(key: "Recipes", value: "\(health.recipeCount)")
                             }
                             GridRow {
-                                KVRow(key: "Sidecar", value: health.visionSidecarRunning ? "Running" : "Unavailable")
+                                KVRow(key: "Sidecar", value: sidecarStatusValue(store: store, health: health))
                                 KVRow(key: "Model", value: health.visionModelPath ?? "Unknown")
                             }
                             GridRow {
@@ -31,11 +31,12 @@ struct HealthWorkspaceView: View {
                                 KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
                             }
                             GridRow {
-                                KVRow(key: "Claude MCP", value: health.claudeConfigured ? "Configured" : "Missing")
+                                KVRow(key: "Copilot", value: copilotStatusValue(store: store))
                                 KVRow(key: "Bundle Mode", value: health.runningFromAppBundle ? "Packaged App" : "Developer")
                             }
                             GridRow {
                                 KVRow(key: "Bundled Host", value: health.bundledHostAvailable ? "Embedded" : "Missing")
+                                KVRow(key: "Writable Storage", value: health.storageReady ? "Ready" : "Attention")
                             }
                             GridRow {
                                 KVRow(key: "Trace Dir", value: health.traceDirectoryPath)
@@ -61,13 +62,53 @@ struct HealthWorkspaceView: View {
                             title: "No Health Snapshot",
                             message: store.hostConnection.requiresAttention
                                 ? store.hostConnection.detailText
-                                : "Refresh health to inspect permissions, sidecar availability, and runtime directories."
+                                : "Refresh health to inspect permissions, local storage, sidecar availability, and runtime directories."
                         )
                         .frame(height: 220)
 
                         if store.hostConnection.requiresAttention {
                             hostAttentionCard
                         }
+                    }
+                }
+
+                PanelCard("Local Storage", subtitle: "Writable controller data paths under Application Support") {
+                    if let health = store.health {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(health.storageLocations) { location in
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(location.title)
+                                            .font(.system(size: 13, weight: .semibold))
+                                        Text(location.path)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                        if let detail = location.detail, !detail.isEmpty {
+                                            Text(detail)
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    StatusBadge(label: location.writable ? "Writable" : "Attention", tone: location.writable ? .good : .warning)
+                                }
+                                .padding(12)
+                                .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+
+                            if !health.storageIssues.isEmpty {
+                                Text("Fix write access for the flagged paths before relying on traces, approvals, recipes, or graph persistence.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } else {
+                        EmptyStateView(
+                            systemImage: "internaldrive",
+                            title: "No Storage Snapshot",
+                            message: "Refresh health to inspect local controller data paths."
+                        )
+                        .frame(height: 180)
                     }
                 }
 
@@ -172,11 +213,12 @@ struct HealthInspectorView: View {
                 if let health = store.health {
                     KVRow(key: "Host Bridge", value: store.hostConnection.label)
                     KVRow(key: "Host Detail", value: store.hostConnection.detailText)
-                    KVRow(key: "Claude MCP", value: health.claudeConfigured ? "Configured" : "Missing")
+                    KVRow(key: "Copilot", value: copilotStatusValue(store: store))
                     KVRow(key: "Sidecar Version", value: health.visionSidecarVersion ?? "Unknown")
                     KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
                     KVRow(key: "Controller", value: controllerStatusValue(health: health))
                     KVRow(key: "Policy Mode", value: health.policyMode)
+                    KVRow(key: "Local Storage", value: health.storageReady ? "Ready" : "Attention")
                     KVRow(key: "App Support", value: health.applicationSupportPath, monospaced: true)
                     KVRow(key: "Logs", value: health.logsDirectoryPath, monospaced: true)
                     KVRow(key: "Trace Directory", value: health.traceDirectoryPath, monospaced: true)
@@ -233,5 +275,30 @@ struct HealthInspectorView: View {
             return "Offline"
         }
         return health.controllerConnected ? "Connected" : "Offline"
+    }
+}
+
+@MainActor
+private func sidecarStatusValue(store: ControllerStore, health: HealthStatus) -> String {
+    if health.visionSidecarRunning {
+        return "Running"
+    }
+    if store.productStatus?.visionInstalled == true {
+        return "Installed, Offline"
+    }
+    return "Optional"
+}
+
+@MainActor
+private func copilotStatusValue(store: ControllerStore) -> String {
+    guard let status = store.chatProviderStatus else { return "Optional" }
+
+    switch status.state {
+    case .ready:
+        return "Ready"
+    case .setupRequired:
+        return "Optional"
+    case .unavailable:
+        return status.configured ? "Unavailable" : "Optional"
     }
 }

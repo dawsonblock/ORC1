@@ -7,10 +7,7 @@ extension ControllerStore {
     func loadRecipes() async {
         do {
             let response = try await send(.init(command: .listRecipes))
-            if let recipes = response.recipes {
-                self.recipes = recipes
-                syncSelectionAfterRecipeRefresh()
-            }
+            applyRecipesResponse(response)
         } catch {
             present(error)
         }
@@ -19,12 +16,7 @@ extension ControllerStore {
     func selectRecipe(named name: String) async {
         do {
             let response = try await send(.init(command: .loadRecipe, recipeName: name))
-            guard let recipe = response.recipe else {
-                errorMessage = response.errorMessage ?? "Recipe not found"
-                return
-            }
-
-            apply(recipe: recipe)
+            _ = applyRecipeResponse(response, requestedName: name)
         } catch {
             present(error)
         }
@@ -137,18 +129,18 @@ extension ControllerStore {
             isBusy = true
             defer { isBusy = false }
             let response = try await send(.init(command: .runRecipe, recipeName: recipeName, recipeParams: params))
+            guard requireAcknowledged(response, fallback: "Recipe run failed") else {
+                return
+            }
             if let recipeRun = response.recipeRun {
-                latestRecipeRun = recipeRun
-                inlineMessage = recipeRun.summaryText
-                if let approvals = response.approvals {
-                    approvalQueue = approvals
-                }
+                recordRecipeRun(recipeRun, approvals: response.approvals)
                 await loadTraceSessions()
                 if let traceSessionID = recipeRun.traceSessionID {
                     await loadTraceSession(id: traceSessionID)
                 }
                 await loadDiagnostics()
             } else {
+                latestRecipeRun = nil
                 errorMessage = response.errorMessage ?? "Recipe run failed"
             }
         } catch {

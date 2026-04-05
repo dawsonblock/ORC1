@@ -41,12 +41,7 @@ extension ControllerStore {
     func refreshMissionControl() async {
         do {
             let response = try await send(.init(command: .refreshMissionControl, appName: currentMonitorApp))
-            if let missionControl = response.missionControl {
-                self.missionControl = missionControl
-            }
-            if let providerStatus = response.chatProviderStatus {
-                chatProviderStatus = providerStatus
-            }
+            applyMissionControlResponse(response)
         } catch {
             present(error)
         }
@@ -84,12 +79,19 @@ extension ControllerStore {
                     chatPrompt: prompt
                 )
             )
+            guard requireAcknowledged(response, fallback: "Chat request failed") else {
+                chatInput = prompt
+                return
+            }
             if let missionControl = response.missionControl {
                 self.missionControl = missionControl
             }
-            if let conversation = response.chatConversation {
-                chatConversation = conversation
+            guard let conversation = response.chatConversation else {
+                chatInput = prompt
+                errorMessage = response.errorMessage ?? "Chat conversation unavailable"
+                return
             }
+            chatConversation = conversation
             if let providerStatus = response.chatProviderStatus {
                 chatProviderStatus = providerStatus
             }
@@ -108,6 +110,9 @@ extension ControllerStore {
                     chatMessageID: latestAssistantMessage?.id
                 )
             )
+            guard requireAcknowledged(response, fallback: "Chat cancellation failed") else {
+                return
+            }
             if let conversation = response.chatConversation {
                 chatConversation = conversation
             }

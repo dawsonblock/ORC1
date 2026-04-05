@@ -59,6 +59,24 @@ struct ControllerSharedTests {
     }
 
     @Test
+    func storageLocationStatusRoundTripsThroughJSON() throws {
+        let status = StorageLocationStatus(
+            id: "logs",
+            title: "Logs",
+            path: "/tmp/oracle/logs",
+            writable: false,
+            detail: "Current user cannot write to this path."
+        )
+
+        let encoded = try ControllerJSONCoding.makeEncoder().encode(status)
+        let decoded = try ControllerJSONCoding.makeDecoder().decode(StorageLocationStatus.self, from: encoded)
+
+        #expect(decoded == status)
+        #expect(decoded.writable == false)
+        #expect(decoded.detail == "Current user cannot write to this path.")
+    }
+
+    @Test
     func traceEnvelopeRoundTrips() throws {
         let step = TraceStepViewModel(
             sessionID: "session-1",

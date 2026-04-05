@@ -14,6 +14,28 @@ public struct PermissionStatus: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+public struct StorageLocationStatus: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let title: String
+    public let path: String
+    public let writable: Bool
+    public let detail: String?
+
+    public init(
+        id: String,
+        title: String,
+        path: String,
+        writable: Bool,
+        detail: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.path = path
+        self.writable = writable
+        self.detail = detail
+    }
+}
+
 public struct HealthStatus: Codable, Sendable, Equatable {
     public let updatedAt: Date
     public let runtimeVersion: String
@@ -31,6 +53,7 @@ public struct HealthStatus: Codable, Sendable, Equatable {
     public let experimentsDirectoryPath: String
     public let logsDirectoryPath: String
     public let graphDatabasePath: String
+    public let storageLocations: [StorageLocationStatus]
     public let approvalBrokerActive: Bool
     public let controllerConnected: Bool
     public let policyMode: String
@@ -58,6 +81,7 @@ public struct HealthStatus: Codable, Sendable, Equatable {
         experimentsDirectoryPath: String,
         logsDirectoryPath: String,
         graphDatabasePath: String,
+        storageLocations: [StorageLocationStatus],
         approvalBrokerActive: Bool,
         controllerConnected: Bool,
         policyMode: String,
@@ -84,6 +108,7 @@ public struct HealthStatus: Codable, Sendable, Equatable {
         self.experimentsDirectoryPath = experimentsDirectoryPath
         self.logsDirectoryPath = logsDirectoryPath
         self.graphDatabasePath = graphDatabasePath
+        self.storageLocations = storageLocations
         self.approvalBrokerActive = approvalBrokerActive
         self.controllerConnected = controllerConnected
         self.policyMode = policyMode
@@ -93,6 +118,14 @@ public struct HealthStatus: Codable, Sendable, Equatable {
         self.visionInstallPath = visionInstallPath
         self.buildVersion = buildVersion
         self.buildNumber = buildNumber
+    }
+
+    public var storageIssues: [StorageLocationStatus] {
+        storageLocations.filter { !$0.writable }
+    }
+
+    public var storageReady: Bool {
+        storageIssues.isEmpty
     }
 }
 

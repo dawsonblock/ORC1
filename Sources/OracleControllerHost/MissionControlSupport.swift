@@ -62,18 +62,27 @@ extension ControllerRuntimeBridge {
         metrics: RuntimeMetrics,
         providerStatus: ChatProviderStatus
     ) -> [DashboardKPI] {
-        let readinessValue = health.permissions.allSatisfy(\.granted) && health.controllerConnected ? "Ready" : "Attention"
+        let missingPermissions = health.permissions.filter { !$0.granted }
+        let storageIssues = health.storageLocations.filter { !$0.writable }
+        let readinessValue = missingPermissions.isEmpty && health.controllerConnected && storageIssues.isEmpty ? "Ready" : "Attention"
         let readinessTone: DashboardTone = readinessValue == "Ready" ? .good : .warning
         let successRate = diagnostics.graph.globalSuccessRate > 0 ? diagnostics.graph.globalSuccessRate : metrics.actionSuccessRate
         let avgLatency = averageLatency(from: diagnostics, metrics: metrics)
         let stableWorkflowCount = diagnostics.workflows.filter { $0.promotionStatus.lowercased().contains("promot") || $0.promotionStatus.lowercased().contains("stable") }.count
+        let readinessDetail: String
+
+        if !storageIssues.isEmpty {
+            readinessDetail = "\(storageIssues.count) local data path issue(s) need attention"
+        } else {
+            readinessDetail = "\(health.permissions.count - missingPermissions.count)/\(health.permissions.count) permissions granted"
+        }
 
         return [
             DashboardKPI(
                 id: "runtime-readiness",
                 title: "Runtime readiness",
                 value: readinessValue,
-                detail: "\(health.permissions.filter { $0.granted }.count)/\(health.permissions.count) permissions granted",
+                detail: readinessDetail,
                 tone: readinessTone
             ),
             DashboardKPI(
@@ -107,9 +116,9 @@ extension ControllerRuntimeBridge {
             DashboardKPI(
                 id: "copilot",
                 title: "Copilot provider",
-                value: providerStatus.state == .ready ? "Ready" : "Setup",
-                detail: providerStatus.displayName,
-                tone: providerStatus.state == .ready ? .good : .warning
+                value: copilotValue(for: providerStatus),
+                detail: copilotDetail(for: providerStatus),
+                tone: copilotTone(for: providerStatus)
             ),
         ]
     }
@@ -196,6 +205,7 @@ extension ControllerRuntimeBridge {
         providerStatus: ChatProviderStatus
     ) -> [AlertSummary] {
         var alerts: [AlertSummary] = []
+        let storageIssues = health.storageLocations.filter { !$0.writable }
 
         for permission in health.permissions where !permission.granted {
             alerts.append(
@@ -205,6 +215,18 @@ extension ControllerRuntimeBridge {
                     message: permission.detail ?? "Grant access in System Settings to unlock the full controller.",
                     severity: .critical,
                     source: "health"
+                )
+            )
+        }
+
+        if !storageIssues.isEmpty {
+            alerts.append(
+                AlertSummary(
+                    id: "storage-paths",
+                    title: "Local storage needs attention",
+                    message: "Fix write access for \(storageIssues.map(\.title).joined(separator: ", ")) before relying on recipes, approvals, traces, or graph persistence.",
+                    severity: .warning,
+                    source: "storage"
                 )
             )
         }
@@ -221,11 +243,11 @@ extension ControllerRuntimeBridge {
             )
         }
 
-        if providerStatus.state != .ready {
+        if providerStatus.configured && providerStatus.state != .ready {
             alerts.append(
                 AlertSummary(
                     id: "copilot-status",
-                    title: "Copilot setup needed",
+                    title: "Copilot unavailable",
                     message: providerStatus.detail,
                     severity: .warning,
                     source: "copilot"
@@ -284,6 +306,10 @@ extension ControllerRuntimeBridge {
             prompts.append("What permissions are missing, and what should I fix first?")
         }
 
+        if health.storageLocations.contains(where: { !$0.writable }) {
+            prompts.append("Which local data paths are not writable, and how do I fix them?")
+        }
+
         if !approvals.isEmpty {
             prompts.append("Summarize the pending approvals and the safest next step.")
         }
@@ -292,7 +318,7 @@ extension ControllerRuntimeBridge {
             prompts.append("What do the latest traces say about runtime reliability?")
         }
 
-        if providerStatus.state != .ready {
+        if providerStatus.available && !providerStatus.configured {
             prompts.append("How do I finish copilot setup for Oracle Controller?")
         }
 
@@ -314,5 +340,38 @@ extension ControllerRuntimeBridge {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 18 else { return trimmed }
         return String(trimmed.prefix(18)) + "…"
+    }
+
+    private func copilotValue(for status: ChatProviderStatus) -> String {
+        switch status.state {
+        case .ready:
+            return "Ready"
+        case .setupRequired:
+            return "Optional"
+        case .unavailable:
+            return status.configured ? "Unavailable" : "Optional"
+        }
+    }
+
+    private func copilotDetail(for status: ChatProviderStatus) -> String {
+        switch status.state {
+        case .ready:
+            return status.displayName
+        case .setupRequired where !status.configured:
+            return "Optional local advisory assistant."
+        case .setupRequired, .unavailable:
+            return status.detail
+        }
+    }
+
+    private func copilotTone(for status: ChatProviderStatus) -> DashboardTone {
+        switch status.state {
+        case .ready:
+            return .good
+        case .setupRequired:
+            return .neutral
+        case .unavailable:
+            return status.configured ? .warning : .neutral
+        }
     }
 }

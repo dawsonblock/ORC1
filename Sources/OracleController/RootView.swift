@@ -46,8 +46,8 @@ struct RootView: View {
                     Label("Auto Refresh", systemImage: store.autoRefreshEnabled ? "wave.3.right" : "pause.circle")
                 }
                 .toggleStyle(.button)
-                .onChange(of: store.autoRefreshEnabled) { _, _ in
-                    Task { await store.updateMonitoring() }
+                .onChange(of: store.autoRefreshEnabled) { oldValue, _ in
+                    Task { await store.updateMonitoring(previousValue: oldValue) }
                 }
             }
         }

@@ -63,6 +63,7 @@ final class ControllerRuntimeBridge {
         let claudeConfig = loadClaudeConfig()
         let claudeConfigured = (claudeConfig?["mcpServers"] as? [String: Any])?["oracle-os"] != nil
         let health = VisionBridge.healthCheck()
+        let storageLocations = storageLocationStatuses()
         let permissions = [
             PermissionStatus(
                 id: "accessibility",
@@ -94,15 +95,53 @@ final class ControllerRuntimeBridge {
             experimentsDirectoryPath: OracleProductPaths.experimentsDirectory.path,
             logsDirectoryPath: OracleProductPaths.logsDirectory.path,
             graphDatabasePath: OracleProductPaths.graphDatabaseURL.path,
+            storageLocations: storageLocations,
             approvalBrokerActive: container.approvalStore.isActive(),
             controllerConnected: runtimeLifecycle.controllerConnected(),
             policyMode: container.config.policyMode.rawValue,
             runningFromAppBundle: OracleProductPaths.runningFromAppBundle,
-            bundledHostAvailable: OracleProductPaths.runningFromAppBundle,
+            bundledHostAvailable: OracleProductPaths.bundledHelperURL != nil,
             bundledVisionBootstrapAvailable: OracleProductPaths.bundledVisionBootstrapDirectory != nil,
             visionInstallPath: OracleProductPaths.visionInstallDirectory.path,
             buildVersion: OracleProductPaths.buildVersion,
             buildNumber: OracleProductPaths.buildNumber
+        )
+    }
+
+    private func storageLocationStatuses() -> [StorageLocationStatus] {
+        [
+            storageLocationStatus(id: "app-support", title: "Application Support", url: OracleProductPaths.dataRootDirectory),
+            storageLocationStatus(id: "logs", title: "Logs", url: OracleProductPaths.logsDirectory),
+            storageLocationStatus(id: "traces", title: "Traces", url: OracleProductPaths.tracesRootDirectory),
+            storageLocationStatus(id: "recipes", title: "Recipes", url: OracleProductPaths.recipesDirectory),
+            storageLocationStatus(id: "approvals", title: "Approvals", url: OracleProductPaths.approvalsDirectory),
+            storageLocationStatus(id: "project-memory", title: "Project Memory", url: OracleProductPaths.projectMemoryDirectory),
+            storageLocationStatus(id: "experiments", title: "Experiments", url: OracleProductPaths.experimentsDirectory),
+            storageLocationStatus(id: "graph", title: "Graph Storage", url: OracleProductPaths.graphDirectory),
+        ]
+    }
+
+    private func storageLocationStatus(id: String, title: String, url: URL) -> StorageLocationStatus {
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        let exists = fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        let writable = exists && fileManager.isWritableFile(atPath: url.path)
+
+        let detail: String?
+        if writable {
+            detail = nil
+        } else if exists {
+            detail = "Current user cannot write to this path."
+        } else {
+            detail = "Expected local data path is missing."
+        }
+
+        return StorageLocationStatus(
+            id: id,
+            title: title,
+            path: url.path,
+            writable: writable,
+            detail: detail
         )
     }
 

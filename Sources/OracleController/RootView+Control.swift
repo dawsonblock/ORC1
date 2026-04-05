@@ -136,8 +136,8 @@ struct ControlWorkspaceView: View {
                                 tone: hostTone
                             )
                             StatusBadge(
-                                label: store.health?.visionSidecarRunning == true ? "Sidecar Ready" : "Sidecar Optional",
-                                tone: store.health?.visionSidecarRunning == true ? .good : .warning
+                                label: sidecarLabel,
+                                tone: sidecarTone
                             )
                             StatusBadge(
                                 label: store.health?.approvalBrokerActive == true ? "Approval Broker" : "Approvals Offline",
@@ -230,6 +230,26 @@ struct ControlWorkspaceView: View {
         case .failed:
             return .danger
         }
+    }
+
+    private var sidecarLabel: String {
+        if store.health?.visionSidecarRunning == true {
+            return "Sidecar Ready"
+        }
+        if store.productStatus?.visionInstalled == true {
+            return "Sidecar Offline"
+        }
+        return "Sidecar Optional"
+    }
+
+    private var sidecarTone: StatusBadge.Tone {
+        if store.health?.visionSidecarRunning == true {
+            return .good
+        }
+        if store.productStatus?.visionInstalled == true {
+            return .warning
+        }
+        return .neutral
     }
 }
 

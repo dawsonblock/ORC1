@@ -10,7 +10,7 @@ struct ControllerStatusBar: View {
             statusChip("Host", store.hostConnection.label, tone: hostTone)
             statusChip("Runtime", runtimeValue, tone: runtimeTone)
             statusChip("Monitor", store.autoRefreshEnabled ? "Active" : "Paused", tone: store.autoRefreshEnabled ? .neutral : .warning)
-            statusChip("Copilot", store.chatProviderStatus?.state == .ready ? "Ready" : "Setup", tone: store.chatProviderStatus?.state == .ready ? .good : .warning)
+            statusChip("Copilot", copilotValue, tone: copilotTone)
             Spacer()
             if let generatedAt = store.missionControl?.generatedAt {
                 Text("Updated \(generatedAt.formatted(date: .omitted, time: .shortened))")
@@ -38,6 +38,9 @@ struct ControllerStatusBar: View {
         if !health.controllerConnected {
             return "Disconnected"
         }
+        if health.storageLocations.contains(where: { !$0.writable }) {
+            return "Attention"
+        }
         return health.permissions.allSatisfy { $0.granted } ? "Connected" : "Attention"
     }
 
@@ -55,6 +58,9 @@ struct ControllerStatusBar: View {
         if !health.controllerConnected {
             return .warning
         }
+        if health.storageLocations.contains(where: { !$0.writable }) {
+            return .warning
+        }
         return health.permissions.allSatisfy { $0.granted } ? .good : .warning
     }
 
@@ -68,6 +74,30 @@ struct ControllerStatusBar: View {
             return .warning
         case .failed:
             return .danger
+        }
+    }
+
+    private var copilotValue: String {
+        guard let status = store.chatProviderStatus else { return "Optional" }
+        switch status.state {
+        case .ready:
+            return "Ready"
+        case .setupRequired:
+            return "Optional"
+        case .unavailable:
+            return status.configured ? "Unavailable" : "Optional"
+        }
+    }
+
+    private var copilotTone: StatusBadge.Tone {
+        guard let status = store.chatProviderStatus else { return .neutral }
+        switch status.state {
+        case .ready:
+            return .good
+        case .setupRequired:
+            return .neutral
+        case .unavailable:
+            return status.configured ? .warning : .neutral
         }
     }
 

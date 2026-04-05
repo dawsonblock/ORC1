@@ -8,9 +8,7 @@ extension ControllerStore {
     func refreshNow() async {
         do {
             let response = try await send(.init(command: .refreshSnapshot, appName: currentMonitorApp))
-            if let snapshot = response.snapshot {
-                apply(snapshot: snapshot)
-            }
+            applySnapshotResponse(response)
             await refreshMissionControl()
         } catch {
             present(error)
@@ -20,9 +18,7 @@ extension ControllerStore {
     func refreshHealth() async {
         do {
             let response = try await send(.init(command: .getHealth))
-            if let health = response.health {
-                self.health = health
-            }
+            applyHealthResponse(response)
         } catch {
             present(error)
         }
@@ -31,24 +27,15 @@ extension ControllerStore {
     func loadDiagnostics() async {
         do {
             let response = try await send(.init(command: .getDiagnostics))
-            guard let diagnostics = response.diagnostics else { return }
-            self.diagnostics = diagnostics
-            selectedGraphEdgeID = selectedGraphEdgeID
-                ?? diagnostics.graph.stableEdges.first?.id
-                ?? diagnostics.graph.candidateEdges.first?.id
-                ?? diagnostics.graph.recoveryEdges.first?.id
-            selectedWorkflowID = selectedWorkflowID ?? diagnostics.workflows.first?.id
-            selectedExperimentID = selectedExperimentID ?? diagnostics.experiments.first?.id
-            selectedProjectMemoryID = selectedProjectMemoryID ?? diagnostics.projectMemory.first?.id
-            selectedArchitectureFindingID = selectedArchitectureFindingID ?? diagnostics.architectureFindings.first?.id
+            applyDiagnosticsResponse(response)
         } catch {
             present(error)
         }
     }
 
-    func updateMonitoring() async {
+    func updateMonitoring(previousValue: Bool? = nil) async {
         do {
-            _ = try await send(
+            let response = try await send(
                 .init(
                     command: .setMonitoring,
                     monitoring: MonitoringConfiguration(
@@ -58,7 +45,16 @@ extension ControllerStore {
                     )
                 )
             )
+            guard requireAcknowledged(response, fallback: "Monitoring update failed") else {
+                if let previousValue {
+                    autoRefreshEnabled = previousValue
+                }
+                return
+            }
         } catch {
+            if let previousValue {
+                autoRefreshEnabled = previousValue
+            }
             present(error)
         }
     }
@@ -87,9 +83,7 @@ extension ControllerStore {
     func loadApprovalRequests() async {
         do {
             let response = try await send(.init(command: .listApprovalRequests))
-            if let approvals = response.approvals {
-                approvalQueue = approvals
-            }
+            applyApprovalsResponse(response)
         } catch {
             present(error)
         }
@@ -98,9 +92,10 @@ extension ControllerStore {
     func approveApprovalRequest(_ approval: ApprovalRequestDocument) async {
         do {
             let response = try await send(.init(command: .approveApprovalRequest, approvalRequestID: approval.id))
-            if let approvals = response.approvals {
-                approvalQueue = approvals
+            guard requireAcknowledged(response, fallback: "Approval request could not be approved") else {
+                return
             }
+            applyApprovalsResponse(response, fallback: "Approval state unavailable after approval")
             if let pendingAction = currentActionResult,
                pendingAction.approvalStatus == "pending",
                pendingAction.approvalRequestID == approval.id
@@ -122,9 +117,10 @@ extension ControllerStore {
     func rejectApprovalRequest(_ approval: ApprovalRequestDocument) async {
         do {
             let response = try await send(.init(command: .rejectApprovalRequest, approvalRequestID: approval.id))
-            if let approvals = response.approvals {
-                approvalQueue = approvals
+            guard requireAcknowledged(response, fallback: "Approval request could not be rejected") else {
+                return
             }
+            applyApprovalsResponse(response, fallback: "Approval state unavailable after rejection")
             markRejectedApproval(approval)
         } catch {
             present(error)
@@ -134,12 +130,7 @@ extension ControllerStore {
     func loadTraceSessions() async {
         do {
             let response = try await send(.init(command: .listTraceSessions))
-            if let traceSessions = response.traceSessions {
-                self.traceSessions = traceSessions
-                if selectedTraceSessionID == nil {
-                    selectedTraceSessionID = traceSessions.first?.id
-                }
-            }
+            applyTraceSessionsResponse(response)
         } catch {
             present(error)
         }
@@ -148,14 +139,9 @@ extension ControllerStore {
     func loadTraceSession(id: String) async {
         do {
             let response = try await send(.init(command: .loadTraceSession, traceSessionID: id))
-            guard let traceDetail = response.traceDetail else {
-                errorMessage = response.errorMessage ?? "Trace not found"
+            guard applyTraceDetailResponse(response, requestedID: id) else {
                 return
             }
-            self.traceDetail = traceDetail
-            self.selectedTraceSessionID = id
-            self.selectedTraceStepID = traceDetail.steps.first?.id
-            self.selectedSection = .traces
             await loadDiagnostics()
         } catch {
             present(error)
@@ -200,6 +186,7 @@ extension ControllerStore {
                     self.missionControl = missionControl
                 }
             } else {
+                currentActionResult = nil
                 errorMessage = response.errorMessage ?? "Action failed"
             }
         } catch {

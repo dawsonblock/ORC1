@@ -100,9 +100,19 @@ struct OnboardingOverlayView: View {
                 onboardingFacts([
                     "Runtime version: \(store.health?.runtimeVersion ?? "Unknown")",
                     "Bundled host: \(store.productStatus?.bundledHelperAvailable == true ? "available" : "missing")",
+                    "Host bridge: \(store.hostConnection.label)",
+                    "Writable storage: \(store.health.map { $0.storageReady ? "Ready" : "Attention" } ?? "Unknown")",
                     "App bundle mode: \(store.health?.runningFromAppBundle == true ? "enabled" : "development")",
                     "Application Support: \(store.health?.applicationSupportPath ?? store.productStatus?.applicationSupportPath ?? "Unknown")",
                 ])
+
+                if store.hostConnection.requiresAttention {
+                    hostReadinessCard
+                }
+
+                if let health = store.health, !health.storageIssues.isEmpty {
+                    storageReadinessCard
+                }
 
                 if let productStatus = store.productStatus, productStatus.migrationStatus.didMigrateAnything {
                     Text("Imported existing controller data so the packaged app can pick up where the developer setup left off.")
@@ -154,6 +164,66 @@ struct OnboardingOverlayView: View {
                 ])
             }
         }
+    }
+
+    private var hostReadinessCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "bolt.horizontal.circle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(ControllerTheme.warning)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Host Bridge Requires Attention")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(store.hostConnection.detailText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Button("Retry Host") {
+                Task { await store.retryHostConnection() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(12)
+        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var storageReadinessCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "internaldrive.badge.exclamationmark")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(ControllerTheme.warning)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Local Storage Requires Attention")
+                    .font(.system(size: 12, weight: .semibold))
+
+                if let health = store.health {
+                    ForEach(health.storageIssues) { location in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(location.title)
+                                .font(.system(size: 12, weight: .medium))
+                            Text(location.path)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                            if let detail = location.detail, !detail.isEmpty {
+                                Text(detail)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(12)
+        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func permissionStep(
