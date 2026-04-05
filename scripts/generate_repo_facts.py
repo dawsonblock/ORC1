@@ -49,7 +49,10 @@ def parse_products(package_source: str) -> List[Tuple[str, str]]:
 
 def parse_targets(package_source: str) -> List[Tuple[str, str]]:
     matches = re.findall(
-        r"\.\s*(target|executableTarget|testTarget)\s*\(\s*name:\s*\"([^\"]+)\"",
+        (
+            r"\.\s*(target|executableTarget|testTarget)"
+            r"\s*\(\s*name:\s*\"([^\"]+)\""
+        ),
         package_source,
     )
     return [(name, kind) for kind, name in matches]
@@ -81,7 +84,9 @@ def parse_tool_categories(mcp_tools_source: str) -> List[Tuple[str, int]]:
             if current_name is not None:
                 if current_expected != current_count:
                     raise ValueError(
-                        f"MCP category '{current_name}' expected {current_expected} tools but found {current_count}"
+                        "MCP category "
+                        f"'{current_name}' expected {current_expected} "
+                        f"tools but found {current_count}"
                     )
                 categories.append((current_name, current_count))
             current_name = header.group(1)
@@ -95,7 +100,9 @@ def parse_tool_categories(mcp_tools_source: str) -> List[Tuple[str, int]]:
     if current_name is not None:
         if current_expected != current_count:
             raise ValueError(
-                f"MCP category '{current_name}' expected {current_expected} tools but found {current_count}"
+                "MCP category "
+                f"'{current_name}' expected {current_expected} "
+                f"tools but found {current_count}"
             )
         categories.append((current_name, current_count))
 
@@ -105,8 +112,13 @@ def parse_tool_categories(mcp_tools_source: str) -> List[Tuple[str, int]]:
     return categories
 
 
-def render_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> List[str]:
-    table = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
+def render_table(
+    headers: Sequence[str], rows: Sequence[Sequence[str]]
+) -> List[str]:
+    table = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(["---"] * len(headers)) + " |",
+    ]
     for row in rows:
         table.append("| " + " | ".join(row) + " |")
     return table
@@ -130,7 +142,12 @@ def render_markdown() -> str:
     lines: List[str] = [
         "# Repo Facts",
         "",
-        "This file is generated from `Package.swift`, `Sources/OracleOS/MCP/MCPTools.swift`, `Sources/`, `Tests/`, `scripts/`, and `vision-sidecar/` by `python3 scripts/generate_repo_facts.py --write`.",
+        (
+            "This file is generated from `Package.swift`, "
+            "`Sources/OracleOS/MCP/MCPTools.swift`, `Sources/`, `Tests/`, "
+            "`scripts/`, and `vision-sidecar/` by "
+            "`python3 scripts/generate_repo_facts.py --write`."
+        ),
         "Do not edit manually.",
         "",
         "## Package Surface",
@@ -152,13 +169,23 @@ def render_markdown() -> str:
         "### Products",
         "",
     ])
-    lines.extend(render_table(["Product", "Kind"], [[name, kind] for name, kind in products]))
+    lines.extend(
+        render_table(
+            ["Product", "Kind"],
+            [[name, kind] for name, kind in products],
+        )
+    )
     lines.extend([
         "",
         "### Targets",
         "",
     ])
-    lines.extend(render_table(["Target", "Kind"], [[name, kind] for name, kind in targets]))
+    lines.extend(
+        render_table(
+            ["Target", "Kind"],
+            [[name, kind] for name, kind in targets],
+        )
+    )
     lines.extend([
         "",
         "## Tree Inventory",
@@ -170,7 +197,11 @@ def render_markdown() -> str:
             [
                 ["Swift source files under `Sources/`", str(swift_sources)],
                 ["Swift test files under `Tests/`", str(swift_tests)],
-                ["Repo-owned Python files under `scripts/` and `vision-sidecar/`", str(python_files)],
+                [
+                    "Repo-owned Python files under `scripts/` and "
+                    "`vision-sidecar/`",
+                    str(python_files),
+                ],
             ],
         )
     )
@@ -178,10 +209,20 @@ def render_markdown() -> str:
         "",
         "## MCP Surface",
         "",
-        "The tool total is generated from the live `tool(...)` declarations in `Sources/OracleOS/MCP/MCPTools.swift`. Section counts are cross-checked against the category headers in that same file.",
+        (
+            "The tool total is generated from the live `tool(...)` "
+            "declarations in `Sources/OracleOS/MCP/MCPTools.swift`. "
+            "Section counts are cross-checked against the category headers "
+            "in that same file."
+        ),
         "",
     ])
-    lines.extend(render_table(["Category", "Count"], [[name, str(count)] for name, count in tool_categories]))
+    lines.extend(
+        render_table(
+            ["Category", "Count"],
+            [[name, str(count)] for name, count in tool_categories],
+        )
+    )
     lines.extend([
         "",
         f"Total public tools: {total_tools}",
@@ -218,9 +259,19 @@ def check_output(content: str) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate deterministic repo facts from the live tree.")
-    parser.add_argument("--write", action="store_true", help="Write the generated markdown to docs/REPO_FACTS.md")
-    parser.add_argument("--check", action="store_true", help="Fail if docs/REPO_FACTS.md does not match generated output")
+    parser = argparse.ArgumentParser(
+        description="Generate deterministic repo facts from the live tree."
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write the generated markdown to docs/REPO_FACTS.md",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Fail if docs/REPO_FACTS.md does not match generated output",
+    )
     return parser.parse_args()
 
 

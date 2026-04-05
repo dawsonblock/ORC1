@@ -11,7 +11,7 @@ Exact package, tree, and MCP inventory now live in [docs/REPO_FACTS.md](docs/REP
 ## 1. Stale / Misleading Docs
 
 | File | Problem |
-|------|---------|
+| --- | --- |
 | `STATUS.md` | Says "REMAINING: Phase 1 Finale — 4 Process() violations in CLI/UI files". Those violations no longer exist in source. File describes past work as open. |
 | `ARCHITECTURE_RULES.md` | Coordinator Ownership table lists 5 coordinators (ExecutionCoordinator, RecoveryCoordinator, DecisionCoordinator, LearningCoordinator, StateCoordinator) that do not exist in source. Also lists `TaskGraph` and `TraceStore` as protected backbone — neither type exists under those names. Also cites `CoordinatorBoundaryTests` in enforcement suite — file does not exist. |
 | `docs/archive/REBUILD_PLAN.md` | Historical rebuild plan. Kept for archaeology, not as a live contract. |
@@ -27,7 +27,7 @@ Exact package, tree, and MCP inventory now live in [docs/REPO_FACTS.md](docs/REP
 These types are named in ARCHITECTURE_RULES.md as live governing items but do not exist in `Sources/`:
 
 | Named in doc | Actual status |
-|---|---|
+| --- | --- |
 | `ExecutionCoordinator` | Does not exist. No file, no type, no reference in source. |
 | `RecoveryCoordinator` | Does not exist. Recovery logic lives in `Sources/OracleOS/Recovery/` (strategies + coordinator-less). |
 | `DecisionCoordinator` | Does not exist. Planning path goes directly through `MainPlanner` / `RuntimeOrchestrator`. |
@@ -40,7 +40,7 @@ These types are named in ARCHITECTURE_RULES.md as live governing items but do no
 **Backbone modules that DO exist:**
 
 | Module | File |
-|---|---|
+| --- | --- |
 | `VerifiedExecutor` | `Sources/OracleOS/Execution/VerifiedExecutor.swift` |
 | `CommitCoordinator` | `Sources/OracleOS/Events/CommitCoordinator.swift` |
 | `RuntimeBootstrap` | `Sources/OracleOS/Runtime/RuntimeBootstrap.swift` |
@@ -62,6 +62,7 @@ These types are named in ARCHITECTURE_RULES.md as live governing items but do no
 **Result: CLEAN.**
 
 `Process()` is correctly localized to exactly two files:
+
 - `Sources/OracleOS/Execution/DefaultProcessAdapter.swift`
 - `Sources/OracleOS/Execution/DefaultProcessAdapter+Daemon.swift`
 
@@ -78,7 +79,7 @@ A point-in-time scan found `[String: Any]` usage across the codebase. The tables
 ### Category 1 — Acceptable edge bridges (external API)
 
 | File | Reason |
-|------|--------|
+| --- | --- |
 | `Sources/OracleOS/Browser/Perception/DOMScanner.swift` | Browser JS bridge — JSON deserialized from AppleScript/CDP response. External protocol boundary. |
 | `Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Context.swift` | AX API returns untyped dicts; parsing at perception boundary is acceptable. |
 | `Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Shared.swift` | Same — AX framework boundary. |
@@ -91,7 +92,7 @@ A point-in-time scan found `[String: Any]` usage across the codebase. The tables
 ### Category 2 — Temporary compatibility shims (need typed models)
 
 | File | Problem |
-|------|---------|
+| --- | --- |
 | `Sources/OracleOS/MCP/MCPDispatch.swift` | Legacy `handle(_ params: [String: Any])` entry point retained for MCPServer compatibility. Internal result-building dicts are JSON-serialization intermediaries (acceptable). The legacy entry point is the shim. |
 | `Sources/OracleOS/MCP/MCPTools.swift` | Tool schema declarations use `[String: Any]` for JSON schema representation. |
 | `Sources/OracleOS/MCP/MCPServer.swift` | Receives raw stdin JSON; parses to `[String: Any]` before forwarding to MCPDispatch. Edge boundary. |
@@ -104,7 +105,7 @@ A point-in-time scan found `[String: Any]` usage across the codebase. The tables
 **Result after thorough analysis: NONE.** Every site classified as Category 3 in the initial pass resolved to Category 1 or Category 2 on closer inspection:
 
 | File | Initial concern | Corrected classification |
-|------|-----------------|--------------------------|
+| --- | --- | --- |
 | `Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift` | Cross-module dict transport | **Category 2.** `mapActionResult` accesses inherently-dynamic `ToolResult.data`; `recipeDictionary` is a JSON serialization shim for snake_case→camelCase CodingKey mismatch; `loadClaudeConfig` is external JSON. |
 | `Sources/OracleOS/WorldModel/Perception/Vision/VisionBridge.swift` | Dict return type beyond perception boundary | **Category 1.** `detect()` and `parse()` return raw HTTP JSON from the Python sidecar. The result is relayed as-is to the MCP caller via `ToolResult.data`. The whole pipeline is external-to-external relay — `VisionPerceptionContract` typed models are used by the world-model reconciliation path, not the relay path. |
 | `Sources/OracleOS/Intent/Actions/Actions.swift` | Action payload dicts | **Category 2.** The 4 hits are `private extractString/Int/Double/Bool(_ params: [String: Any], ...)` helpers at the MCPDispatch edge. Params originate from MCPServer stdin parsing. |
@@ -118,7 +119,7 @@ A point-in-time scan found `[String: Any]` usage across the codebase. The tables
 **Status: extraction completed.**
 
 | File | Note |
-|------|------|
+| --- | --- |
 | `Sources/OracleOS/MCP/MCPDispatch.swift` | Per-domain extensions split: `MCPDispatch+Architecture.swift`, `MCPDispatch+Memory.swift`, `MCPDispatch+Recipes.swift`, `MCPDispatch+Workflow.swift` exist. Dispatch file is now route-only. |
 | `Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift` | Mixed mapping concerns. Reclassified Category 2 — recipe translation and screenshot/config decoding are edge serialization concerns, not architectural leaks. |
 | `Sources/OracleOS/MCP/MCPTools.swift` | Tool schema declarations remain large but single-purpose. |
