@@ -7,9 +7,10 @@ import OracleControllerShared
 
 struct TracesWorkspaceView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
-        HStack(alignment: .top, spacing: 18) {
+        HStack(alignment: .top, spacing: layout.stackSpacing) {
             PanelCard("Sessions", subtitle: "Ordered JSONL traces emitted by the runtime") {
                 TextField("Search sessions", text: $store.traceSearchText)
                     .textFieldStyle(.roundedBorder)
@@ -38,7 +39,7 @@ struct TracesWorkspaceView: View {
                 }
                 .frame(minHeight: 520)
             }
-            .frame(width: 360)
+            .frame(width: layout.railPanelWidth)
 
             PanelCard("Steps", subtitle: store.traceDetail?.summary.id ?? "Select a session to inspect step-level evidence") {
                 if let traceDetail = store.traceDetail, !traceDetail.steps.isEmpty {
@@ -76,16 +77,17 @@ struct TracesWorkspaceView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .padding(20)
+        .padding(layout.workspacePaddingValue)
     }
 }
 
 struct TraceInspectorView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: layout.stackSpacing) {
                 PanelCard("Trace Step", subtitle: "Action evidence and failure context") {
                     if let step = store.selectedTraceStep {
                         HStack {
@@ -177,7 +179,7 @@ struct TraceInspectorView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 }

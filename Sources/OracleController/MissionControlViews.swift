@@ -20,10 +20,20 @@ struct ControllerStatusBar: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(ControllerTheme.border, lineWidth: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [ControllerTheme.panelRaised.opacity(0.9), ControllerTheme.panelTint.opacity(0.84)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(ControllerTheme.borderStrong.opacity(0.8), lineWidth: 1)
+                )
+                .shadow(color: ControllerTheme.shadow, radius: 16, y: 8)
         )
     }
 
@@ -113,14 +123,17 @@ struct ControllerStatusBar: View {
 
 struct MissionControlWorkspaceView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: layout.stackSpacing) {
                 if let missionControl = store.missionControl {
+                    MissionBriefingCard(store: store, missionControl: missionControl)
+
                     KPIGrid(kpis: missionControl.kpis)
 
-                    HStack(alignment: .top, spacing: 18) {
+                    HStack(alignment: .top, spacing: layout.stackSpacing) {
                         PanelCard("Live Monitor", subtitle: missionControl.snapshot?.observation.windowTitle ?? "Current observation snapshot") {
                             ScreenshotPreview(screenshot: missionControl.snapshot?.screenshot ?? store.snapshot?.screenshot)
                                 .frame(maxWidth: .infinity, minHeight: 340)
@@ -128,20 +141,20 @@ struct MissionControlWorkspaceView: View {
                         .frame(maxWidth: .infinity)
 
                         MissionAlertsCard(missionControl: missionControl)
-                            .frame(width: 360)
+                            .frame(width: layout.railPanelWidth)
                     }
 
-                    HStack(alignment: .top, spacing: 18) {
+                    HStack(alignment: .top, spacing: layout.stackSpacing) {
                         DashboardSeriesCard(series: missionControl.latencySeries, mode: .line)
                         DashboardSeriesCard(series: missionControl.successSeries, mode: .bar)
                         DashboardSeriesCard(series: missionControl.workflowSeries, mode: .bar)
                     }
 
-                    HStack(alignment: .top, spacing: 18) {
+                    HStack(alignment: .top, spacing: layout.stackSpacing) {
                         ActivityTimelineCard(entries: missionControl.recentActivity)
                             .frame(maxWidth: .infinity)
                         WorkflowExperimentCard(workflows: missionControl.workflows, experiments: missionControl.experiments)
-                            .frame(width: 420)
+                            .frame(width: layout.utilityPanelWidth)
                     }
                 } else {
                     PanelCard("Mission Control", subtitle: "Loading live controller state") {
@@ -159,7 +172,7 @@ struct MissionControlWorkspaceView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 }
@@ -202,33 +215,16 @@ struct MissionControlInspectorView: View {
 
 private struct KPIGrid: View {
     let kpis: [DashboardKPI]
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 3)
+    private let columns = [GridItem(.adaptive(minimum: 210, maximum: 260), spacing: 14)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 14) {
             ForEach(kpis) { kpi in
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text(kpi.title)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        StatusBadge(label: kpi.value, tone: tone(for: kpi.tone))
-                    }
-                    Text(kpi.detail)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.7))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(ControllerTheme.border, lineWidth: 1)
-                        )
+                MetricTile(
+                    label: kpi.title,
+                    value: kpi.value,
+                    detail: kpi.detail,
+                    tone: tone(for: kpi.tone)
                 )
             }
         }
@@ -240,6 +236,152 @@ private struct KPIGrid: View {
         case .good: return .good
         case .warning: return .warning
         case .danger: return .danger
+        }
+    }
+}
+
+private struct MissionBriefingCard: View {
+    @Bindable var store: ControllerStore
+    let missionControl: MissionControlSnapshot
+
+    var body: some View {
+        PanelCard("Mission Briefing", subtitle: "Immediate operator posture and best next step", style: .hero) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(headline)
+                        .font(.system(size: 27, weight: .bold, design: .rounded))
+                        .foregroundStyle(ControllerTheme.ink)
+                    Text(summary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(ControllerTheme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    StatusBadge(label: readinessLabel, tone: readinessTone)
+                    Text("Updated \(missionControl.generatedAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(ControllerTheme.muted)
+                }
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 12) {
+                MetricTile(
+                    label: "Focused App",
+                    value: missionControl.snapshot?.observation.appName ?? "None",
+                    detail: missionControl.snapshot?.observation.windowTitle ?? "No active window",
+                    tone: .neutral
+                )
+                MetricTile(
+                    label: "Approvals",
+                    value: "\(missionControl.approvals.count)",
+                    detail: missionControl.approvals.isEmpty ? "No blocked risky work" : "Review pending actions",
+                    tone: missionControl.approvals.isEmpty ? .good : .warning
+                )
+                MetricTile(
+                    label: "Alerts",
+                    value: "\(missionControl.alerts.count)",
+                    detail: missionControl.alerts.first?.title ?? "No critical blockers detected",
+                    tone: missionControl.alerts.contains(where: { $0.severity == .critical }) ? .danger : (missionControl.alerts.isEmpty ? .good : .warning)
+                )
+                MetricTile(
+                    label: "Trace Sessions",
+                    value: "\(missionControl.traceSessions.count)",
+                    detail: missionControl.traceSessions.isEmpty ? "No recent evidence yet" : "Recent runtime evidence available",
+                    tone: missionControl.traceSessions.isEmpty ? .neutral : .good
+                )
+            }
+
+            HStack(spacing: 10) {
+                Button("Refresh Mission Control") {
+                    Task { await store.refreshMissionControl() }
+                }
+                .buttonStyle(ControllerPrimaryButtonStyle())
+
+                Button("Open Control") {
+                    store.selectedSection = .control
+                }
+                .buttonStyle(ControllerSecondaryButtonStyle())
+
+                Button("Review Health") {
+                    store.selectedSection = .health
+                }
+                .buttonStyle(ControllerSecondaryButtonStyle())
+            }
+
+            if let topAlert = missionControl.alerts.first {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: topAlert.severity == .critical ? "exclamationmark.octagon.fill" : "megaphone.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(alertTone(for: topAlert.severity).color)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(topAlert.title)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(topAlert.message)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(ControllerTheme.muted)
+                    }
+                }
+                .padding(12)
+                .background(alertTone(for: topAlert.severity).color.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+        }
+    }
+
+    private var headline: String {
+        if store.hostConnection.requiresAttention {
+            return "Reconnect the host bridge before you continue."
+        }
+        if missionControl.health.permissions.contains(where: { !$0.granted }) {
+            return "Grant the remaining permissions to unlock full control."
+        }
+        if !missionControl.health.storageReady {
+            return "Fix local storage before trusting fresh runtime evidence."
+        }
+        if !missionControl.approvals.isEmpty {
+            return "Pending approvals are the main thing blocking forward progress."
+        }
+        return "The controller is ready for supervised operator work."
+    }
+
+    private var summary: String {
+        if let firstPrompt = missionControl.recommendedPrompts.first {
+            return firstPrompt
+        }
+        return "Use Mission Control to scan readiness, inspect live evidence, and choose the next safe action."
+    }
+
+    private var readinessLabel: String {
+        if store.hostConnection.requiresAttention {
+            return "Host Attention"
+        }
+        if missionControl.health.permissions.contains(where: { !$0.granted }) || !missionControl.health.storageReady {
+            return "Readiness Attention"
+        }
+        return missionControl.approvals.isEmpty ? "Operator Ready" : "Review Approvals"
+    }
+
+    private var readinessTone: StatusBadge.Tone {
+        if store.hostConnection.requiresAttention {
+            return .danger
+        }
+        if missionControl.health.permissions.contains(where: { !$0.granted }) || !missionControl.health.storageReady {
+            return .warning
+        }
+        return missionControl.approvals.isEmpty ? .good : .warning
+    }
+
+    private func alertTone(for severity: AlertSeverity) -> StatusBadge.Tone {
+        switch severity {
+        case .info:
+            return .neutral
+        case .warning:
+            return .warning
+        case .critical:
+            return .danger
         }
     }
 }
@@ -268,10 +410,14 @@ private struct MissionAlertsCard: View {
                             }
                             Text(alert.message)
                                 .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(ControllerTheme.muted)
                         }
                         .padding(12)
-                        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(tone(for: alert.severity).color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(tone(for: alert.severity).color.opacity(0.16), lineWidth: 1)
+                        )
                     }
 
                     ForEach(missionControl.approvals.prefix(3)) { approval in
@@ -280,10 +426,10 @@ private struct MissionAlertsCard: View {
                                 .font(.system(size: 13, weight: .semibold))
                             Text(approval.reason)
                                 .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(ControllerTheme.muted)
                         }
                         .padding(12)
-                        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -365,15 +511,15 @@ private struct ActivityTimelineCard: View {
                                     .font(.system(size: 13, weight: .semibold))
                                 Text(entry.subtitle)
                                     .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ControllerTheme.muted)
                             }
                             Spacer()
                             Text(entry.timestamp.formatted(date: .omitted, time: .shortened))
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(ControllerTheme.muted)
                         }
                         .padding(12)
-                        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -412,7 +558,7 @@ private struct WorkflowExperimentCard: View {
                                     .lineLimit(2)
                                 Text(workflow.promotionStatus)
                                     .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ControllerTheme.muted)
                             }
                             Spacer()
                             StatusBadge(label: "\(Int(workflow.successRate * 100))%", tone: workflow.successRate >= 0.75 ? .good : .warning)
@@ -435,7 +581,7 @@ private struct WorkflowExperimentCard: View {
                                 .font(.system(size: 13, weight: .semibold))
                             Text("Candidates: \(experiment.candidateCount) • Successes: \(experiment.succeededCandidateCount)")
                                 .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(ControllerTheme.muted)
                         }
                     }
                 }

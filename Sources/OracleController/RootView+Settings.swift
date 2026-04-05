@@ -7,10 +7,11 @@ import OracleControllerShared
 
 struct SettingsWorkspaceView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: layout.stackSpacing) {
                 PanelCard("Session Settings", subtitle: "Controller-local behavior, not runtime policy") {
                     Toggle("Auto refresh monitoring", isOn: $store.autoRefreshEnabled)
                         .onChange(of: store.autoRefreshEnabled) { _, _ in
@@ -21,6 +22,10 @@ struct SettingsWorkspaceView: View {
                     Button("Apply Monitor Settings") {
                         Task { await store.updateMonitoring() }
                     }
+                }
+
+                PanelCard("Layout", subtitle: "Adjust sidebar, dock, and workspace sizing live") {
+                    ControllerLayoutEditor()
                 }
 
                 PanelCard("Operations", subtitle: "Open runtime storage used by the controller") {
@@ -66,13 +71,14 @@ struct SettingsWorkspaceView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 }
 
 struct SettingsInspectorView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
@@ -91,7 +97,7 @@ struct SettingsInspectorView: View {
                     .frame(height: 240)
                 }
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 }

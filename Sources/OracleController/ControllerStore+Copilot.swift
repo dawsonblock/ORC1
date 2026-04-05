@@ -124,6 +124,11 @@ extension ControllerStore {
         }
     }
 
+    func clearChatConversation() {
+        chatConversation = ChatConversation(id: UUID().uuidString, title: "Copilot")
+        chatInput = ""
+    }
+
     func applyDraft(_ draft: ChatActionDraft) async {
         switch draft.kind {
         case .action:

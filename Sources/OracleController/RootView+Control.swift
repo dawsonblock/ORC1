@@ -7,24 +7,25 @@ import OracleControllerShared
 
 struct ControlWorkspaceView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: layout.stackSpacing) {
                 controlStatusRow
 
-                HStack(alignment: .top, spacing: 18) {
-                    PanelCard("Live Monitor", subtitle: "Low-frequency screenshot stream") {
+                HStack(alignment: .top, spacing: layout.stackSpacing) {
+                    PanelCard("Live Monitor", subtitle: "Low-frequency screenshot stream", style: .hero) {
                         ScreenshotPreview(screenshot: store.snapshot?.screenshot)
                             .frame(maxWidth: .infinity, minHeight: 420)
                     }
                     .frame(maxWidth: .infinity)
 
                     ActionComposerCard(store: store)
-                        .frame(width: 380)
+                        .frame(width: layout.utilityPanelWidth)
                 }
 
-                HStack(alignment: .top, spacing: 18) {
+                HStack(alignment: .top, spacing: layout.stackSpacing) {
                     PanelCard("Visible Elements", subtitle: "\(store.filteredElements.count) in current observation") {
                         TextField("Filter elements", text: $store.elementSearchText)
                             .textFieldStyle(.roundedBorder)
@@ -37,27 +38,26 @@ struct ControlWorkspaceView: View {
                             )
                             .frame(height: 220)
                         } else {
-                            List(store.filteredElements, selection: $store.selectedElementID) { element in
-                                Button {
-                                    store.selectedElementID = element.id
-                                } label: {
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(element.label ?? element.role ?? element.id)
-                                                .font(.system(size: 13, weight: .semibold))
-                                            Text(element.role ?? element.source)
-                                                .font(.system(size: 11, weight: .medium))
-                                                .foregroundStyle(.secondary)
+                            ScrollView {
+                                LazyVStack(spacing: 10) {
+                                    ForEach(store.filteredElements) { element in
+                                        Button {
+                                            store.selectedElementID = element.id
+                                        } label: {
+                                            ElementListRow(
+                                                element: element,
+                                                isSelected: store.selectedElementID == element.id,
+                                                fill: elementRowFill(for: element)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                    .stroke(element.id == store.selectedElementID ? ControllerTheme.accent.opacity(0.4) : ControllerTheme.border, lineWidth: 1)
+                                            )
                                         }
-                                        Spacer()
-                                        StatusBadge(
-                                            label: element.focused ? "Focused" : element.source.uppercased(),
-                                            tone: element.focused ? .good : .neutral
-                                        )
+                                        .buttonStyle(.plain)
                                     }
                                 }
-                                .buttonStyle(.plain)
-                                .tag(element.id)
+                                .padding(.vertical, 2)
                             }
                             .frame(minHeight: 280)
                         }
@@ -88,34 +88,35 @@ struct ControlWorkspaceView: View {
                                             StatusBadge(label: action.statusLabel, tone: tone(for: action))
                                             Text("\(Int(action.elapsedMs)) ms")
                                                 .font(.system(size: 11, design: .monospaced))
-                                                .foregroundStyle(.secondary)
+                                                .foregroundStyle(ControllerTheme.muted)
                                         }
                                     }
                                     .padding(12)
-                                    .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                                 }
                             }
                         }
                     }
-                    .frame(width: 360)
+                    .frame(width: layout.railPanelWidth)
                 }
 
                 ApprovalQueueCard(store: store)
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 
     private var controlStatusRow: some View {
-        PanelCard("Operator Console", subtitle: "Supervised local runtime control") {
+        PanelCard("Operator Console", subtitle: "Supervised local runtime control", style: .hero) {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top) {
+                HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(store.snapshot?.observation.appName ?? "No app selected")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .foregroundStyle(ControllerTheme.ink)
                         Text(store.snapshot?.observation.windowTitle ?? "No active window")
                             .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(ControllerTheme.muted)
                         if let url = store.snapshot?.observation.url {
                             Text(url)
                                 .font(.system(size: 12, design: .monospaced))
@@ -131,22 +132,9 @@ struct ControlWorkspaceView: View {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 10) {
                         HStack(spacing: 8) {
-                            StatusBadge(
-                                label: store.hostConnection.label,
-                                tone: hostTone
-                            )
-                            StatusBadge(
-                                label: sidecarLabel,
-                                tone: sidecarTone
-                            )
-                            StatusBadge(
-                                label: store.health?.approvalBrokerActive == true ? "Approval Broker" : "Approvals Offline",
-                                tone: store.health?.approvalBrokerActive == true ? .neutral : .warning
-                            )
-                            StatusBadge(
-                                label: store.autoRefreshEnabled ? "Monitoring" : "Paused",
-                                tone: store.autoRefreshEnabled ? .neutral : .warning
-                            )
+                            StatusBadge(label: store.hostConnection.label, tone: hostTone)
+                            StatusBadge(label: sidecarLabel, tone: sidecarTone)
+                            StatusBadge(label: store.autoRefreshEnabled ? "Monitoring" : "Paused", tone: monitorTone)
                         }
                         if let permissions = store.health?.permissions {
                             HStack(spacing: 8) {
@@ -161,28 +149,68 @@ struct ControlWorkspaceView: View {
                     }
                 }
 
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 12) {
+                    MetricTile(
+                        label: "Host",
+                        value: store.hostConnection.label,
+                        detail: store.hostConnection.detailText,
+                        tone: hostTone
+                    )
+                    MetricTile(
+                        label: "Vision Sidecar",
+                        value: sidecarLabel,
+                        detail: sidecarDetail,
+                        tone: sidecarTone
+                    )
+                    MetricTile(
+                        label: "Approvals",
+                        value: store.health?.approvalBrokerActive == true ? "Broker Ready" : "Broker Offline",
+                        detail: approvalBrokerDetail,
+                        tone: approvalBrokerTone
+                    )
+                    MetricTile(
+                        label: "Monitor",
+                        value: store.autoRefreshEnabled ? "Active" : "Paused",
+                        detail: monitorDetail,
+                        tone: monitorTone
+                    )
+                }
+
                 HStack(spacing: 10) {
+                    Button("Refresh Snapshot") {
+                        Task { await store.refreshNow() }
+                    }
+                    .buttonStyle(ControllerPrimaryButtonStyle())
+
                     Button("Run Setup Wizard") {
                         store.reopenOnboarding()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(ControllerSecondaryButtonStyle())
+
+                    Button("Open Recipes") {
+                        store.selectedSection = .recipes
+                    }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
 
                     Button("Reveal Data Folder") {
                         store.revealDataFolder()
                     }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
 
                     Button("Export Diagnostics") {
                         store.exportDiagnostics()
                     }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
 
                     Button("Open Help") {
                         store.openHelp()
                     }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
                 }
 
                 Text("Manual Action sends runtime work through the host bridge. Setup, diagnostics, and help buttons here are controller-local support tools.")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ControllerTheme.muted)
 
                 if store.hostConnection.requiresAttention {
                     HStack(alignment: .top, spacing: 12) {
@@ -195,7 +223,7 @@ struct ControlWorkspaceView: View {
                                 .font(.system(size: 12, weight: .semibold))
                             Text(store.hostConnection.detailText)
                                 .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(ControllerTheme.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
@@ -204,7 +232,7 @@ struct ControlWorkspaceView: View {
                         Button("Retry Host") {
                             Task { await store.retryHostConnection() }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(ControllerPrimaryButtonStyle())
                     }
                     .padding(12)
                     .background(hostTone.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -213,7 +241,7 @@ struct ControlWorkspaceView: View {
                 if let inlineMessage = store.inlineMessage, !inlineMessage.isEmpty {
                     Text(inlineMessage)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ControllerTheme.muted)
                 }
             }
         }
@@ -250,6 +278,95 @@ struct ControlWorkspaceView: View {
             return .warning
         }
         return .neutral
+    }
+
+    private var sidecarDetail: String {
+        if store.health?.visionSidecarRunning == true {
+            return "Computer vision enrichments are available to the host."
+        }
+        if store.productStatus?.visionInstalled == true {
+            return "Installed locally but not connected right now."
+        }
+        return "Optional sidecar. Core control flows remain available without it."
+    }
+
+    private var approvalBrokerTone: StatusBadge.Tone {
+        store.health?.approvalBrokerActive == true ? .good : .warning
+    }
+
+    private var approvalBrokerDetail: String {
+        if store.health?.approvalBrokerActive == true {
+            return store.approvalQueue.isEmpty ? "No pending approvals at the moment." : "\(store.approvalQueue.count) request(s) are waiting for a decision."
+        }
+        return "Approval-protected actions cannot advance until the broker is available."
+    }
+
+    private var monitorTone: StatusBadge.Tone {
+        store.autoRefreshEnabled ? .good : .warning
+    }
+
+    private var monitorDetail: String {
+        if store.autoRefreshEnabled {
+            return store.snapshot?.observation.appName.map { "Tracking \($0)." } ?? "Watching the current focused application."
+        }
+        return "Manual refresh only. Snapshot evidence will stay static until refreshed."
+    }
+
+    private func elementRowFill(for element: ElementSnapshot) -> Color {
+        if element.id == store.selectedElementID {
+            return ControllerTheme.accent.opacity(0.12)
+        }
+        if element.focused {
+            return ControllerTheme.success.opacity(0.10)
+        }
+        return ControllerTheme.panelRaised.opacity(0.9)
+    }
+}
+
+private struct ElementListRow: View {
+    let element: ElementSnapshot
+    let isSelected: Bool
+    let fill: Color
+
+    private var title: String {
+        element.label ?? element.role ?? element.id
+    }
+
+    private var subtitle: String {
+        element.role ?? element.source
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(ControllerTheme.ink)
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ControllerTheme.muted)
+                if let value = element.value, !value.isEmpty {
+                    Text(value)
+                        .font(.system(size: 11))
+                        .foregroundStyle(ControllerTheme.muted)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 6) {
+                StatusBadge(
+                    label: element.focused ? "Focused" : element.source.uppercased(),
+                    tone: element.focused ? .good : .neutral
+                )
+                Text(String(format: "%.2f", element.confidence))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ControllerTheme.muted)
+            }
+        }
+        .padding(12)
+        .background(fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -291,23 +408,22 @@ struct ApprovalQueueCard: View {
                                 Button("Approve") {
                                     Task { await store.approveApprovalRequest(approval) }
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(ControllerTheme.accent)
+                                .buttonStyle(ControllerPrimaryButtonStyle())
 
                                 Button("Reject", role: .destructive) {
                                     Task { await store.rejectApprovalRequest(approval) }
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(ControllerSecondaryButtonStyle())
 
                                 Spacer()
 
                                 Text(approval.surface.uppercased())
                                     .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ControllerTheme.muted)
                             }
                         }
                         .padding(12)
-                        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -319,13 +435,18 @@ struct ActionComposerCard: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Manual Action", subtitle: "Runtime actions flow through the host bridge; Wait evaluates a condition locally") {
+        PanelCard("Manual Action", subtitle: "Runtime actions flow through the host bridge; Wait evaluates a condition locally", style: .hero) {
             Picker("Action", selection: $store.actionComposer.kind) {
                 ForEach(ActionKind.allCases) { kind in
                     Text(kind.rawValue.capitalized).tag(kind)
                 }
             }
             .pickerStyle(.segmented)
+
+            Text(actionHint)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(ControllerTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
 
             Group {
                 TextField("Target app", text: $store.actionComposer.appName)
@@ -363,6 +484,8 @@ struct ActionComposerCard: View {
                 TextEditor(text: $store.actionComposer.text)
                     .font(.system(size: 13, design: .monospaced))
                     .frame(minHeight: 120)
+                    .padding(8)
+                    .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(ControllerTheme.border, lineWidth: 1)
@@ -404,18 +527,35 @@ struct ActionComposerCard: View {
                 Label(store.actionComposer.kind == .wait ? "Evaluate Condition" : "Run Action", systemImage: "play.fill")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(ControllerTheme.accent)
+            .buttonStyle(ControllerPrimaryButtonStyle())
+        }
+    }
+
+    private var actionHint: String {
+        switch store.actionComposer.kind {
+        case .focus:
+            return "Bring a target app and optional window to the foreground before taking any more specific action."
+        case .click:
+            return "Prefer a label or computed query first, then fall back to DOM IDs or coordinates when needed."
+        case .type:
+            return "Typing targets a discovered field and can clear the current value before entering text."
+        case .press:
+            return "Keyboard shortcuts are sent through the host bridge with an optional modifier list."
+        case .scroll:
+            return "Use semantic direction and amount when possible; coordinates are optional precision overrides."
+        case .wait:
+            return "Wait is observational only. It evaluates a condition locally instead of executing a runtime mutation."
         }
     }
 }
 
 struct ControlInspectorView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: layout.stackSpacing) {
                 PanelCard("Selected Element", subtitle: "Inspection details for the highlighted control") {
                     if let element = store.selectedElement {
                         KVRow(key: "ID", value: element.id, monospaced: true)
@@ -496,7 +636,7 @@ struct ControlInspectorView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 }

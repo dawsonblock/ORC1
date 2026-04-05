@@ -5,10 +5,12 @@ import SwiftUI
 @main
 struct OracleControllerApp: App {
     @State private var store = ControllerStore()
+    @State private var layout = ControllerLayoutSettings()
 
     var body: some Scene {
         WindowGroup("Oracle Controller") {
             RootView(store: store)
+                .environment(layout)
         }
         .commands {
             ControllerCommands(store: store)
@@ -16,7 +18,8 @@ struct OracleControllerApp: App {
 
         Settings {
             SettingsWorkspaceView(store: store)
-                .frame(width: 560, height: 420)
+                .environment(layout)
+                .frame(width: 720, height: 560)
         }
     }
 }

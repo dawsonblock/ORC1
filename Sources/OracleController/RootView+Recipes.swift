@@ -7,51 +7,83 @@ import OracleControllerShared
 
 struct RecipesWorkspaceView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
-        HStack(alignment: .top, spacing: 18) {
-            PanelCard("Recipe Library", subtitle: "Existing replayable workflows") {
-                TextField("Search recipes", text: $store.recipeSearchText)
-                    .textFieldStyle(.roundedBorder)
-
-                List(store.filteredRecipes, selection: $store.selectedRecipeName) { recipe in
-                    Button {
-                        Task { await store.selectRecipe(named: recipe.name) }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(recipe.name)
-                                .font(.system(size: 13, weight: .semibold))
-                            Text(recipe.description)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .tag(recipe.name)
+        HStack(alignment: .top, spacing: layout.stackSpacing) {
+            PanelCard("Recipe Library", subtitle: "Replayable workflows with schema-backed editing", style: .hero) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    MetricTile(
+                        label: "Recipes",
+                        value: "\(store.filteredRecipes.count)",
+                        detail: "\(store.recipes.count) total saved workflows",
+                        tone: .neutral
+                    )
+                    MetricTile(
+                        label: "Editor",
+                        value: store.selectedRecipeName ?? "Draft",
+                        detail: store.recipeEditorMode == .raw ? "Raw JSON mode" : "Structured form mode",
+                        tone: store.selectedRecipeName == nil ? .warning : .good
+                    )
                 }
-                .frame(minHeight: 420)
 
-                HStack {
+                HStack(spacing: 10) {
+                    TextField("Search recipes", text: $store.recipeSearchText)
+                        .textFieldStyle(.roundedBorder)
+
                     Button("New") {
                         store.createRecipe()
                     }
+                    .buttonStyle(ControllerPrimaryButtonStyle())
+                }
+
+                if store.filteredRecipes.isEmpty {
+                    EmptyStateView(
+                        systemImage: "square.stack.3d.up.slash",
+                        title: "No Recipes Found",
+                        message: "Create a workflow or clear the search filter to browse the full library."
+                    )
+                    .frame(minHeight: 420)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(store.filteredRecipes, id: \.name) { recipe in
+                                Button {
+                                    Task { await store.selectRecipe(named: recipe.name) }
+                                } label: {
+                                    RecipeLibraryRow(
+                                        recipe: recipe,
+                                        isSelected: store.selectedRecipeName == recipe.name
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .frame(minHeight: 420)
+                }
+
+                HStack(spacing: 10) {
                     Button("Duplicate") {
                         store.duplicateSelectedRecipe()
                     }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
                     .disabled(store.selectedRecipeName == nil)
+
                     Button("Delete", role: .destructive) {
                         Task { await store.deleteSelectedRecipe() }
                     }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
                     .disabled(store.selectedRecipeName == nil)
                 }
             }
-            .frame(width: 320)
+            .frame(width: layout.railPanelWidth)
 
             RecipeEditorView(store: store)
                 .frame(maxWidth: .infinity)
         }
-        .padding(20)
+        .padding(layout.workspacePaddingValue)
     }
 }
 
@@ -59,7 +91,7 @@ struct RecipeEditorView: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Recipe Editor", subtitle: "Form editing over the current JSON schema") {
+        PanelCard("Recipe Editor", subtitle: "Form editing over the current JSON schema", style: .hero) {
             HStack {
                 Picker("Mode", selection: $store.recipeEditorMode) {
                     ForEach(RecipeEditorMode.allCases) { mode in
@@ -75,14 +107,20 @@ struct RecipeEditorView: View {
                 } label: {
                     Label("Save", systemImage: "square.and.arrow.down")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(ControllerTheme.accent)
+                .buttonStyle(ControllerPrimaryButtonStyle())
             }
+
+            Text(editorHint)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(ControllerTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
 
             if store.recipeEditorMode == .raw {
                 TextEditor(text: $store.rawRecipeText)
                     .font(.system(size: 12, design: .monospaced))
                     .frame(minHeight: 520)
+                    .padding(10)
+                    .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .stroke(ControllerTheme.border, lineWidth: 1)
@@ -109,6 +147,7 @@ struct RecipeEditorView: View {
                                 Button("Add Param") {
                                     store.addRecipeParam()
                                 }
+                                .buttonStyle(ControllerSecondaryButtonStyle())
                             }
 
                             if let paramKeys = store.draftRecipe.params?.keys.sorted(), !paramKeys.isEmpty {
@@ -117,9 +156,11 @@ struct RecipeEditorView: View {
                                 }
                             } else {
                                 Text("No parameters defined.")
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ControllerTheme.muted)
                             }
                         }
+                        .padding(14)
+                        .background(ControllerTheme.panelRaised.opacity(0.88), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
                         Divider()
 
@@ -131,18 +172,66 @@ struct RecipeEditorView: View {
                                 Button("Add Step") {
                                     store.addRecipeStep()
                                 }
+                                .buttonStyle(ControllerSecondaryButtonStyle())
                             }
 
                             ForEach(Array(store.draftRecipe.steps.enumerated()), id: \.element.id) { index, step in
                                 RecipeStepCard(store: store, stepIndex: index, step: step)
                             }
                         }
+                        .padding(14)
+                        .background(ControllerTheme.panelRaised.opacity(0.88), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                     .padding(.trailing, 4)
                 }
                 .frame(minHeight: 520)
             }
         }
+    }
+
+    private var editorHint: String {
+        if store.recipeEditorMode == .raw {
+            return "Raw mode exposes the full JSON document when you need advanced locators or direct schema edits."
+        }
+        return "Structured mode keeps the most common workflow fields readable while preserving the same saved schema."
+    }
+}
+
+private struct RecipeLibraryRow: View {
+    let recipe: RecipeDocument
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recipe.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(ControllerTheme.ink)
+                    Text(recipe.description)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ControllerTheme.muted)
+                        .lineLimit(2)
+                }
+                Spacer()
+                StatusBadge(label: "\(recipe.steps.count) steps", tone: .neutral)
+            }
+
+            HStack(spacing: 8) {
+                if let app = recipe.app, !app.isEmpty {
+                    StatusBadge(label: app, tone: .good)
+                }
+                if let onFailure = recipe.onFailure, !onFailure.isEmpty {
+                    StatusBadge(label: onFailure, tone: .warning)
+                }
+            }
+        }
+        .padding(12)
+        .background(isSelected ? ControllerTheme.accent.opacity(0.12) : ControllerTheme.panelRaised.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(isSelected ? ControllerTheme.accent.opacity(0.42) : ControllerTheme.border, lineWidth: 1)
+        )
     }
 }
 
@@ -168,6 +257,7 @@ struct RecipeParameterRow: View {
                 Button("Remove", role: .destructive) {
                     store.removeRecipeParam(id: paramKey)
                 }
+                .buttonStyle(ControllerSecondaryButtonStyle())
             }
             TextField("Type", text: paramBinding.type)
                 .textFieldStyle(.roundedBorder)
@@ -176,7 +266,7 @@ struct RecipeParameterRow: View {
             Toggle("Required", isOn: paramBinding.required)
         }
         .padding(12)
-        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(ControllerTheme.panel.opacity(0.86), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -194,6 +284,7 @@ struct RecipeStepCard: View {
                 Button("Remove", role: .destructive) {
                     store.removeRecipeStep(id: step.id)
                 }
+                .buttonStyle(ControllerSecondaryButtonStyle())
             }
 
             TextField("Action", text: binding(\.action))
@@ -240,7 +331,7 @@ struct RecipeStepCard: View {
             .textFieldStyle(.roundedBorder)
         }
         .padding(12)
-        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(ControllerTheme.panel.opacity(0.86), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<RecipeStepDocument, Value>) -> Binding<Value> {
@@ -253,10 +344,11 @@ struct RecipeStepCard: View {
 
 struct RecipeInspectorView: View {
     @Bindable var store: ControllerStore
+    @Environment(ControllerLayoutSettings.self) private var layout
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: layout.stackSpacing) {
                 PanelCard("Run Recipe", subtitle: "Execute the selected workflow with explicit parameters") {
                     if let params = store.draftRecipe.params, !params.isEmpty {
                         ForEach(params.keys.sorted(), id: \.self) { key in
@@ -280,8 +372,7 @@ struct RecipeInspectorView: View {
                         Label("Run Selected Recipe", systemImage: "play.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(ControllerTheme.accent)
+                    .buttonStyle(ControllerPrimaryButtonStyle())
                 }
 
                 PanelCard("Last Run", subtitle: "Structured replay results") {
@@ -296,7 +387,7 @@ struct RecipeInspectorView: View {
                         }
                         Text(latestRecipeRun.summaryText)
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(ControllerTheme.muted)
                         if let pendingApprovalRequestID = latestRecipeRun.pendingApprovalRequestID {
                             KVRow(key: "Pending Approval", value: pendingApprovalRequestID, monospaced: true)
                         }
@@ -315,7 +406,7 @@ struct RecipeInspectorView: View {
                                     if let note = step.note {
                                         Text(note)
                                             .font(.system(size: 11))
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(ControllerTheme.muted)
                                     }
                                 }
                                 Spacer()
@@ -333,7 +424,7 @@ struct RecipeInspectorView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(layout.workspacePaddingValue)
         }
     }
 }
