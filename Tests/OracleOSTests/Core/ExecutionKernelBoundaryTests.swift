@@ -120,4 +120,59 @@ struct ExecutionKernelBoundaryTests {
         #expect(result.recipeRunResult?.resumeToken == "resume-1")
         #expect(result.recipeRunResult?.stepResults.first?.durationMs == 32)
     }
+
+    @Test("Legacy screenshot payloads are exposed as typed ToolResult views")
+    func legacyScreenshotPayloadsExposeTypedView() {
+        let result = ToolResult(
+            success: true,
+            data: [
+                "image": "base64-image",
+                "width": 1280,
+                "height": 720,
+                "window_title": "Safari",
+                "mime_type": "image/png",
+                "window_frame": [
+                    "x": 12.5,
+                    "y": 18.0,
+                    "width": 800.0,
+                    "height": 600.0,
+                ],
+            ]
+        )
+
+        #expect(result.screenshotResult?.base64PNG == "base64-image")
+        #expect(result.screenshotResult?.width == 1280)
+        #expect(result.screenshotResult?.height == 720)
+        #expect(result.screenshotResult?.windowTitle == "Safari")
+        #expect(result.screenshotResult?.windowWidth == 800.0)
+        #expect(result.screenshotResult?.windowHeight == 600.0)
+    }
+
+    @Test("Typed screenshot payloads merge into legacy ToolResult data")
+    func typedScreenshotPayloadsMergeIntoLegacyData() {
+        let result = ToolResult(
+            success: true,
+            screenshotResult: ScreenshotResult(
+                base64PNG: "typed-image",
+                width: 640,
+                height: 480,
+                windowTitle: "Xcode",
+                mimeType: "image/png",
+                windowX: 3.0,
+                windowY: 4.0,
+                windowWidth: 500.0,
+                windowHeight: 400.0
+            )
+        )
+
+        let frame = result.data?["window_frame"] as? [String: Any]
+        #expect(result.data?["image"] as? String == "typed-image")
+        #expect(result.data?["width"] as? Int == 640)
+        #expect(result.data?["height"] as? Int == 480)
+        #expect(result.data?["window_title"] as? String == "Xcode")
+        #expect(result.data?["mime_type"] as? String == "image/png")
+        #expect(frame?["x"] as? Double == 3.0)
+        #expect(frame?["width"] as? Double == 500.0)
+        #expect(result.screenshotResult?.windowHeight == 400.0)
+    }
 }

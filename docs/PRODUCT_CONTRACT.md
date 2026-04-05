@@ -84,11 +84,13 @@ Explicit exceptions:
 
 The live controller/runtime result seam is typed internally. `ToolResult` exposes `actionResult`, `traceResult`, `codeExecutionResult`, and `recipeRunResult`, and the controller host mapping layer consumes those typed views directly. Legacy nested dictionaries remain only as compatibility export at the outer result seam.
 
-### 6. Evidence must come from current local verification
+### 6. Evidence must come from the canonical verifier path
 
-Current evidence comes from local `swift build`, `swift test`, and [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment.
+Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment. The script writes raw build, test, and summary artifacts to `local/verify/latest/`.
 
-Archived repair notes, milestone docs, and checked-in diagnostics are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified as such.
+Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the CI artifact.
+
+Direct `swift build` and `swift test` remain useful local commands, but archived repair notes, milestone docs, checked-in diagnostics, and ad hoc command output are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified through the supported verifier path.
 
 ## What OracleOS Does Not Guarantee
 

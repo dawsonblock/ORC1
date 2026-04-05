@@ -38,8 +38,6 @@ vision-sidecar/dist/
 *.spec
 
 # Artifacts
-build.log
-test.log
 build_output.txt
 test_output.txt
 ghost-os-*.tar.gz
@@ -57,8 +55,5 @@ web/dist/
 
 .fake
 # Verification evidence (local only)
-build-output.txt
-test-output.txt
-verify-result.txt
 local/verify/
 .oracle/*.sqlite3

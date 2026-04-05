@@ -1,5 +1,42 @@
 import Foundation
 
+private struct ExperimentCommandResultSummary: Encodable {
+    let succeeded: Bool
+    let exitCode: Int
+    let summary: String
+
+    enum CodingKeys: String, CodingKey {
+        case succeeded
+        case exitCode = "exit_code"
+        case summary
+    }
+}
+
+private struct ExperimentSearchResultSummary: Encodable {
+    let id: String
+    let selected: Bool
+    let candidateTitle: String
+    let candidatePath: String
+    let architectureRisk: Double
+    let diffSummary: String
+    let commandResults: [ExperimentCommandResultSummary]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case selected
+        case candidateTitle = "candidate_title"
+        case candidatePath = "candidate_path"
+        case architectureRisk = "architecture_risk"
+        case diffSummary = "diff_summary"
+        case commandResults = "command_results"
+    }
+}
+
+private struct ExperimentSearchPayload: Encodable {
+    let results: [ExperimentSearchResultSummary]
+    let count: Int
+}
+
 // MCPDispatch.swift — Routes all 30 MCP tool calls to their backing implementations.
 //
 // Tool coverage is enforced by two guards:
@@ -23,15 +60,10 @@ public enum MCPDispatch {
         case .success(let request):
             return await handle(request).toLegacyDict()
         case .failure(let reason):
-            let errorObj: [String: Any] = ["success": false, "error": reason.localizedDescription]
-            let msg: String
-            if let data = try? JSONSerialization.data(withJSONObject: errorObj),
-               let str = String(data: data, encoding: .utf8) {
-                msg = str
-            } else {
-                msg = "{\"success\":false}"
-            }
-            return ["content": [["type": "text", "text": msg]], "isError": true]
+            return formatTypedResult(
+                ToolResult(success: false, error: reason.localizedDescription),
+                toolName: "mcp_request_decode_failure"
+            ).toLegacyDict()
         }
     }
 
@@ -77,10 +109,10 @@ public enum MCPDispatch {
     @MainActor
     private static func handleScreenshot(_ request: MCPToolRequest) -> MCPToolResponse {
         let res = AXScanner.screenshot(appName: request.string("app"), fullResolution: request.bool("full_resolution") ?? false)
-        guard res.success, let data = res.data, let b64 = data["image"] as? String else {
+        guard res.success, let screenshot = res.screenshotResult else {
             return formatTypedResult(res, toolName: MCPToolName.screenshot)
         }
-        return .imageAndCaption(base64: b64, mimeType: data["mime_type"] as? String ?? "image/png", caption: "Screenshot")
+        return .imageAndCaption(base64: screenshot.base64PNG, mimeType: screenshot.mimeType, caption: "Screenshot")
     }
 
     @MainActor
@@ -122,22 +154,31 @@ public enum MCPDispatch {
         )
         do {
             let results = try await bootstrapped.container.experimentManager.run(spec: spec)
-            let summaries: [[String: Any]] = results.map { r in
-                var d: [String: Any] = [
-                    "id": r.id,
-                    "selected": r.selected,
-                    "candidate_title": r.candidate.title,
-                    "candidate_path": r.candidate.workspaceRelativePath,
-                    "architecture_risk": r.architectureRiskScore,
-                    "diff_summary": r.diffSummary,
-                ]
-                d["command_results"] = r.commandResults.map { cr -> [String: Any] in
-                    ["succeeded": cr.succeeded, "exit_code": Int(cr.exitCode), "summary": cr.summary]
-                }
-                return d
+            let payload = ExperimentSearchPayload(
+                results: results.map { result in
+                    ExperimentSearchResultSummary(
+                        id: result.id,
+                        selected: result.selected,
+                        candidateTitle: result.candidate.title,
+                        candidatePath: result.candidate.workspaceRelativePath,
+                        architectureRisk: result.architectureRiskScore,
+                        diffSummary: result.diffSummary,
+                        commandResults: result.commandResults.map { commandResult in
+                            ExperimentCommandResultSummary(
+                                succeeded: commandResult.succeeded,
+                                exitCode: Int(commandResult.exitCode),
+                                summary: commandResult.summary
+                            )
+                        }
+                    )
+                },
+                count: results.count
+            )
+            guard let data = legacyDict(for: payload) else {
+                return .error("Failed to serialize experiment search results")
             }
             return formatTypedResult(
-                ToolResult(success: true, data: ["results": summaries, "count": results.count]),
+                ToolResult(success: true, data: data),
                 toolName: MCPToolName.experimentSearch
             )
         } catch {
@@ -159,6 +200,16 @@ public enum MCPDispatch {
             mutatesWorkspace: false,
             touchesNetwork: false
         )
+    }
+
+    private static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
+        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
+        guard let data = try? encoder.encode(value),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: Any] else {
+            return nil
+        }
+        return dictionary
     }
 
     // MARK: - Result formatting

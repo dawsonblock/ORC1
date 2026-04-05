@@ -39,6 +39,7 @@ echo "" | tee -a "$RESULT_LOG"
 BUILD_PASS=true
 TEST_PASS=true
 GUARDS_PASS=true
+FACTS_PASS=true
 
 # --- Build ---
 if [[ "$MODE" == "all" || "$MODE" == "build" ]]; then
@@ -66,6 +67,15 @@ fi
 
 # --- Boundary guards ---
 if [[ "$MODE" == "all" ]]; then
+    echo "--- generate_repo_facts.py --check ---" | tee -a "$RESULT_LOG"
+    if python3 "$REPO_ROOT/scripts/generate_repo_facts.py" --check 2>&1 | tee -a "$RESULT_LOG"; then
+        echo "REPO_FACTS: PASS" | tee -a "$RESULT_LOG"
+    else
+        echo "REPO_FACTS: FAIL" | tee -a "$RESULT_LOG"
+        FACTS_PASS=false
+    fi
+    echo "" | tee -a "$RESULT_LOG"
+
     echo "--- mcp_boundary_guard.py ---" | tee -a "$RESULT_LOG"
     if python3 "$REPO_ROOT/scripts/mcp_boundary_guard.py" 2>&1 | tee -a "$RESULT_LOG"; then
         echo "MCP_BOUNDARY_GUARD: PASS" | tee -a "$RESULT_LOG"
@@ -99,7 +109,7 @@ echo "Finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$RESULT_LOG"
 echo "" | tee -a "$RESULT_LOG"
 
 VERDICT="PASS"
-if [[ "$BUILD_PASS" == "false" || "$TEST_PASS" == "false" || "$GUARDS_PASS" == "false" ]]; then
+if [[ "$BUILD_PASS" == "false" || "$TEST_PASS" == "false" || "$GUARDS_PASS" == "false" || "$FACTS_PASS" == "false" ]]; then
     VERDICT="FAIL"
 fi
 

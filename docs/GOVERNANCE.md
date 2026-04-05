@@ -9,7 +9,7 @@ This document establishes the development rules and architectural invariants for
 These documents describe the runtime as it actually works and MUST be kept current:
 
 | Document | Purpose |
-|----------|---------|
+| --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System overview, component relationships |
 | [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md) | Invariants, anti-patterns, enforcement |
 | [docs/runtime_invariants.md](docs/runtime_invariants.md) | Core runtime laws that cannot be broken |
@@ -20,7 +20,7 @@ These documents describe the runtime as it actually works and MUST be kept curre
 These documents were accurate at specific points in development but may not reflect current state:
 
 | Document | Purpose | Baseline Date |
-|----------|---------|---------------|
+| --- | --- | --- |
 | [docs/runtime_baseline_36.md](docs/runtime_baseline_36.md) | Historical baseline | Pre-consolidation |
 | [docs/runtime_baseline_38.md](docs/runtime_baseline_38.md) | Historical baseline | Pre-consolidation |
 
@@ -42,9 +42,10 @@ The following rules are enforced by `scripts/architecture_guard.py`:
 
 ### 3. Execution Boundary
 
-- `VerifiedExecutor` is the ONLY layer that may produce side effects
+- `VerifiedExecutor` is the only layer that may produce main-path gated desktop side effects
 - `VerifiedExecutor` MUST check preconditions before execution
 - `VerifiedExecutor` MUST NOT commit state — only emit events
+- Service persistence remains in its own bounded subsystems (`CommitCoordinator`, event storage, memory, workflow, diagnostics, and other write authorities enforced by `scripts/execution_boundary_guard.py`)
 
 ### 4. State Immutability
 
@@ -76,9 +77,9 @@ swift build --product oracle
 
 All PRs must pass:
 
-1. `swift build --product oracle` completes offline
-2. `swift test` — all tests pass
-3. `scripts/architecture_guard.py` — no violations
+1. `.github/workflows/ci.yml` runs `bash scripts/verify-build.sh` on macOS and publishes `local/verify/latest/` as the canonical shared proof artifact
+2. `.github/workflows/architecture.yml` passes as the focused supplemental guard job
+3. Historical logs, ad hoc terminal output, and archived milestone notes are never treated as current certification
 
 ## Evolution Process
 

@@ -16,9 +16,10 @@ re-generated in a supported Swift environment.
 ## Verification Path
 
 ```
-swift build -c release
-swift test
+bash scripts/verify-build.sh
 ```
+
+The verifier runs the boundary guards, `swift build -c release`, and `swift test`, then writes current evidence to `local/verify/latest/`. `.github/workflows/ci.yml` runs the same verifier and is the canonical shared proof surface.
 
 > **Note:** The archived Diagnostics logs (`runtime_baseline_36_build.log`,
 > `runtime_baseline_36_test.log`) contain only `bash: line 1: swift: command not found`

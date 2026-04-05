@@ -189,6 +189,10 @@ RULES = {
                 "RuntimeContext(",
                 "Controller bridge must not store RuntimeContext authority",
             ),
+            (
+                '"mcpServers"] as? [String: Any]',
+                "Controller bridge health checks must not probe Claude config through raw dictionaries",
+            ),
         ],
         "exact_count": [
             (
@@ -226,6 +230,26 @@ RULES = {
                 "actionData?[ActionResultKey.policyDecision]",
                 "Controller bridge mapping must not read policy state from nested dictionary payloads",
             ),
+            (
+                "func recipeDictionary(",
+                "Controller bridge mapping must not rebuild Recipe values through manual JSON dictionaries",
+            ),
+            (
+                "func waitDictionary(",
+                "Controller bridge mapping must not rebuild Recipe wait conditions through manual JSON dictionaries",
+            ),
+            (
+                "func locatorDictionary(",
+                "Controller bridge mapping must not rebuild Locator values through manual JSON dictionaries",
+            ),
+            (
+                "loadClaudeConfig() -> [String: Any]?",
+                "Controller bridge mapping must not expose Claude config as a raw dictionary",
+            ),
+            (
+                'data["image"] as? String',
+                "Controller bridge mapping must not manually probe screenshot payload dictionaries",
+            ),
         ],
         "required": [
             (
@@ -235,6 +259,10 @@ RULES = {
             (
                 "result.recipeRunResult",
                 "Controller bridge mapping must use typed recipe results on the live boundary",
+            ),
+            (
+                "result.screenshotResult",
+                "Controller bridge mapping must use typed screenshot payloads on the live boundary",
             ),
         ],
     },

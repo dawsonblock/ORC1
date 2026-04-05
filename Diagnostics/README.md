@@ -20,8 +20,10 @@ for historical traceability of the capture attempt but do not certify
 anything about the codebase.
 
 **Authoritative verification path:** re-run validation locally in a supported
-Swift environment. Use `scripts/verify-build.sh` for the repo-standard capture,
-or run the core commands directly:
+Swift environment. Use `bash scripts/verify-build.sh` for the repo-standard
+capture. It writes current evidence to `local/verify/latest/`, and
+`.github/workflows/ci.yml` publishes that same directory as the shared CI
+artifact. The underlying core commands remain:
 
 ```sh
 swift build -c release

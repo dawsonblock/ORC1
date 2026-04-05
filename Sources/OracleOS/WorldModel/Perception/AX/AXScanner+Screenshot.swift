@@ -97,22 +97,7 @@ extension AXScanner {
     }
 
     private static func screenshotResult(_ result: ScreenshotResult) -> ToolResult {
-        ToolResult(
-            success: true,
-            data: [
-                "image": result.base64PNG,
-                "width": result.width,
-                "height": result.height,
-                "window_title": result.windowTitle as Any,
-                "mime_type": result.mimeType,
-                "window_frame": [
-                    "x": result.windowX,
-                    "y": result.windowY,
-                    "width": result.windowWidth,
-                    "height": result.windowHeight,
-                ],
-            ]
-        )
+        ToolResult(success: true, screenshotResult: result)
     }
 
     // MARK: - Synchronous Screenshot Helper

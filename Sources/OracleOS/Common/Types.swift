@@ -21,6 +21,7 @@ public struct ToolResult: @unchecked Sendable {
     public let error: String?
     public let suggestion: String?
     public let context: ContextInfo?
+    public let screenshotResult: ScreenshotResult?
     public let actionResult: ActionResult?
     public let traceResult: TraceResult?
     public let codeExecutionResult: CodeExecutionResult?
@@ -32,11 +33,13 @@ public struct ToolResult: @unchecked Sendable {
         error: String? = nil,
         suggestion: String? = nil,
         context: ContextInfo? = nil,
+        screenshotResult: ScreenshotResult? = nil,
         actionResult: ActionResult? = nil,
         traceResult: TraceResult? = nil,
         codeExecutionResult: CodeExecutionResult? = nil,
         recipeRunResult: RecipeRunResultPayload? = nil
     ) {
+        let resolvedScreenshotResult = screenshotResult ?? Self.extractScreenshotResult(from: data)
         let resolvedActionResult = actionResult ?? Self.extractActionResult(from: data)
         let resolvedTraceResult = traceResult ?? Self.extractTraceResult(from: data)
         let resolvedCodeExecutionResult = codeExecutionResult ?? Self.extractCodeExecutionResult(from: data)
@@ -45,6 +48,7 @@ public struct ToolResult: @unchecked Sendable {
         self.success = success
         self.data = Self.mergeData(
             data: data,
+            screenshotResult: resolvedScreenshotResult,
             actionResult: resolvedActionResult,
             traceResult: resolvedTraceResult,
             codeExecutionResult: resolvedCodeExecutionResult,
@@ -53,6 +57,7 @@ public struct ToolResult: @unchecked Sendable {
         self.error = error
         self.suggestion = suggestion
         self.context = context
+        self.screenshotResult = resolvedScreenshotResult
         self.actionResult = resolvedActionResult
         self.traceResult = resolvedTraceResult
         self.codeExecutionResult = resolvedCodeExecutionResult
@@ -71,6 +76,28 @@ public struct ToolResult: @unchecked Sendable {
 }
 
 private extension ToolResult {
+    static func extractScreenshotResult(from data: [String: Any]?) -> ScreenshotResult? {
+        guard let data,
+              let image = data["image"] as? String,
+              let width = data["width"] as? Int,
+              let height = data["height"] as? Int else {
+            return nil
+        }
+
+        let windowFrame = data["window_frame"] as? [String: Any]
+        return ScreenshotResult(
+            base64PNG: image,
+            width: width,
+            height: height,
+            windowTitle: data["window_title"] as? String,
+            mimeType: data["mime_type"] as? String ?? "image/png",
+            windowX: number(from: windowFrame?["x"]) ?? 0,
+            windowY: number(from: windowFrame?["y"]) ?? 0,
+            windowWidth: number(from: windowFrame?["width"]) ?? 0,
+            windowHeight: number(from: windowFrame?["height"]) ?? 0
+        )
+    }
+
     static func extractActionResult(from data: [String: Any]?) -> ActionResult? {
         guard let dict = data?[ActionResultKey.actionResult] as? [String: Any] else {
             return nil
@@ -101,12 +128,39 @@ private extension ToolResult {
 
     static func mergeData(
         data: [String: Any]?,
+        screenshotResult: ScreenshotResult?,
         actionResult: ActionResult?,
         traceResult: TraceResult?,
         codeExecutionResult: CodeExecutionResult?,
         recipeRunResult: RecipeRunResultPayload?
     ) -> [String: Any]? {
         var merged = data ?? [:]
+
+        if let screenshotResult {
+            if merged["image"] == nil {
+                merged["image"] = screenshotResult.base64PNG
+            }
+            if merged["width"] == nil {
+                merged["width"] = screenshotResult.width
+            }
+            if merged["height"] == nil {
+                merged["height"] = screenshotResult.height
+            }
+            if merged["window_title"] == nil, let windowTitle = screenshotResult.windowTitle {
+                merged["window_title"] = windowTitle
+            }
+            if merged["mime_type"] == nil {
+                merged["mime_type"] = screenshotResult.mimeType
+            }
+            if merged["window_frame"] == nil {
+                merged["window_frame"] = [
+                    "x": screenshotResult.windowX,
+                    "y": screenshotResult.windowY,
+                    "width": screenshotResult.windowWidth,
+                    "height": screenshotResult.windowHeight,
+                ]
+            }
+        }
 
         if let actionResult {
             merged[ActionResultKey.actionResult] = actionResult.toDict()
@@ -137,6 +191,19 @@ private extension ToolResult {
         }
 
         return merged.isEmpty ? nil : merged
+    }
+
+    static func number(from value: Any?) -> Double? {
+        switch value {
+        case let value as Double:
+            return value
+        case let value as Int:
+            return Double(value)
+        case let value as NSNumber:
+            return value.doubleValue
+        default:
+            return nil
+        }
     }
 }
 

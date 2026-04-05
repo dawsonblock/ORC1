@@ -5,6 +5,12 @@ import Foundation
 import OracleControllerShared
 import OracleOS
 
+private struct ClaudeConfigDocument: Decodable {
+    let mcpServers: [String: ClaudeMCPServer]?
+}
+
+private struct ClaudeMCPServer: Decodable {}
+
 extension ControllerRuntimeBridge {
     func mapActionResult(request: ActionRequest, result: ToolResult) -> ActionRunResult {
         let actionResult = result.actionResult
@@ -68,33 +74,25 @@ extension ControllerRuntimeBridge {
     func screenshotFrame(appName: String?) -> ScreenshotFrame? {
         let result = AXScanner.screenshot(appName: appName, fullResolution: false)
         guard result.success,
-              let data = result.data,
-              let base64 = data["image"] as? String,
-              let width = data["width"] as? Int,
-              let height = data["height"] as? Int
+              let screenshot = result.screenshotResult
         else {
             return nil
         }
 
         return ScreenshotFrame(
-            base64PNG: base64,
-            width: width,
-            height: height,
-            windowTitle: data["window_title"] as? String
+            base64PNG: screenshot.base64PNG,
+            width: screenshot.width,
+            height: screenshot.height,
+            windowTitle: screenshot.windowTitle
         )
     }
 
-    func loadClaudeConfig() -> [String: Any]? {
+    func loadClaudeConfig() -> ClaudeConfigDocument? {
         let configPath = NSHomeDirectory() + "/.claude.json"
         guard let data = FileManager.default.contents(atPath: configPath) else {
             return nil
         }
-        guard let object = try? JSONSerialization.jsonObject(with: data),
-              let dictionary = object as? [String: Any]
-        else {
-            return nil
-        }
-        return dictionary
+        return try? ControllerJSONCoding.makeDecoder().decode(ClaudeConfigDocument.self, from: data)
     }
 
     func map(_ observation: Observation) -> ObservationSnapshot {
@@ -183,11 +181,16 @@ extension ControllerRuntimeBridge {
     }
 
     func map(_ document: RecipeDocument) throws -> Recipe {
-        let data = try JSONSerialization.data(
-            withJSONObject: recipeDictionary(from: document),
-            options: [.prettyPrinted, .sortedKeys]
+        Recipe(
+            schemaVersion: document.schemaVersion,
+            name: document.name,
+            description: document.description,
+            app: document.app,
+            params: document.params?.mapValues(map),
+            preconditions: document.preconditions.map(map),
+            steps: document.steps.map(map),
+            onFailure: document.onFailure
         )
-        return try ControllerJSONCoding.makeDecoder().decode(Recipe.self, from: data)
     }
 
     func map(_ locator: Locator) -> LocatorDocument {
@@ -216,6 +219,42 @@ extension ControllerRuntimeBridge {
         )
     }
 
+    func map(_ document: RecipeParamDocument) -> RecipeParam {
+        RecipeParam(
+            type: document.type,
+            description: document.description,
+            required: document.required
+        )
+    }
+
+    func map(_ document: RecipePreconditionsDocument) -> RecipePreconditions {
+        RecipePreconditions(
+            appRunning: document.appRunning,
+            urlContains: document.urlContains
+        )
+    }
+
+    func map(_ document: RecipeStepDocument) -> RecipeStep {
+        RecipeStep(
+            id: document.id,
+            action: document.action,
+            target: document.target.map(map),
+            params: document.params,
+            waitAfter: document.waitAfter.map(map),
+            note: document.note,
+            onFailure: document.onFailure
+        )
+    }
+
+    func map(_ document: RecipeWaitConditionDocument) -> RecipeWaitCondition {
+        RecipeWaitCondition(
+            condition: document.condition,
+            target: document.target.map(map),
+            value: document.value,
+            timeout: document.timeout
+        )
+    }
+
     func map(_ approval: ApprovalRequest) -> ApprovalRequestDocument {
         ApprovalRequestDocument(
             id: approval.id,
@@ -230,107 +269,5 @@ extension ControllerRuntimeBridge {
             status: approval.status.rawValue,
             appProtectionProfile: approval.appProtectionProfile.rawValue
         )
-    }
-
-    func recipeDictionary(from document: RecipeDocument) -> [String: Any] {
-        var result: [String: Any] = [
-            "schema_version": document.schemaVersion,
-            "name": document.name,
-            "description": document.description,
-            "steps": document.steps.map(recipeStepDictionary),
-        ]
-
-        if let app = document.app, !app.isEmpty {
-            result["app"] = app
-        }
-        if let params = document.params, !params.isEmpty {
-            result["params"] = Dictionary(uniqueKeysWithValues: params.map { key, value in
-                (
-                    key,
-                    [
-                        "type": value.type,
-                        "description": value.description,
-                        "required": value.required,
-                    ] as [String: Any]
-                )
-            })
-        }
-        if let preconditions = document.preconditions {
-            var preconditionsDict: [String: Any] = [:]
-            if let appRunning = preconditions.appRunning, !appRunning.isEmpty {
-                preconditionsDict["app_running"] = appRunning
-            }
-            if let urlContains = preconditions.urlContains, !urlContains.isEmpty {
-                preconditionsDict["url_contains"] = urlContains
-            }
-            if !preconditionsDict.isEmpty {
-                result["preconditions"] = preconditionsDict
-            }
-        }
-        if let onFailure = document.onFailure, !onFailure.isEmpty {
-            result["on_failure"] = onFailure
-        }
-
-        return result
-    }
-
-    func recipeStepDictionary(from step: RecipeStepDocument) -> [String: Any] {
-        var result: [String: Any] = [
-            "id": step.id,
-            "action": step.action,
-        ]
-
-        if let target = step.target {
-            result["target"] = locatorDictionary(from: target)
-        }
-        if let params = step.params, !params.isEmpty {
-            result["params"] = params
-        }
-        if let waitAfter = step.waitAfter {
-            result["wait_after"] = waitDictionary(from: waitAfter)
-        }
-        if let note = step.note, !note.isEmpty {
-            result["note"] = note
-        }
-        if let onFailure = step.onFailure, !onFailure.isEmpty {
-            result["on_failure"] = onFailure
-        }
-
-        return result
-    }
-
-    func waitDictionary(from wait: RecipeWaitConditionDocument) -> [String: Any] {
-        var result: [String: Any] = [
-            "condition": wait.condition,
-        ]
-        if let target = wait.target {
-            result["target"] = locatorDictionary(from: target)
-        }
-        if let value = wait.value, !value.isEmpty {
-            result["value"] = value
-        }
-        if let timeout = wait.timeout {
-            result["timeout"] = timeout
-        }
-        return result
-    }
-
-    func locatorDictionary(from locator: LocatorDocument) -> [String: Any] {
-        var result: [String: Any] = [
-            "criteria": locator.criteria.map { criterion in
-                var dictionary: [String: Any] = [
-                    "attribute": criterion.attribute,
-                    "value": criterion.value,
-                ]
-                if let matchType = criterion.matchType, !matchType.isEmpty {
-                    dictionary["matchType"] = matchType
-                }
-                return dictionary
-            },
-        ]
-        if let computedNameContains = locator.computedNameContains, !computedNameContains.isEmpty {
-            result["computedNameContains"] = computedNameContains
-        }
-        return result
     }
 }

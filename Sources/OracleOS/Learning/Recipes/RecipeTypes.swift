@@ -19,6 +19,30 @@ public struct Recipe: Codable, Sendable {
     public let constraints: RecipeConstraints?
     public let onFailure: String?
 
+    public init(
+        schemaVersion: Int = 2,
+        name: String,
+        description: String,
+        app: String? = nil,
+        params: [String: RecipeParam]? = nil,
+        preconditions: RecipePreconditions? = nil,
+        steps: [RecipeStep],
+        postconditions: [RecipePostcondition]? = nil,
+        constraints: RecipeConstraints? = nil,
+        onFailure: String? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.name = name
+        self.description = description
+        self.app = app
+        self.params = params
+        self.preconditions = preconditions
+        self.steps = steps
+        self.postconditions = postconditions
+        self.constraints = constraints
+        self.onFailure = onFailure
+    }
+
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
         case name, description, app, params, preconditions, steps
@@ -71,12 +95,23 @@ public struct RecipeParam: Codable, Sendable {
     public let type: String
     public let description: String
     public let required: Bool?
+
+    public init(type: String, description: String, required: Bool? = nil) {
+        self.type = type
+        self.description = description
+        self.required = required
+    }
 }
 
 /// Preconditions that must be true before a recipe runs.
 public struct RecipePreconditions: Codable, Sendable {
     public let appRunning: String?
     public let urlContains: String?
+
+    public init(appRunning: String? = nil, urlContains: String? = nil) {
+        self.appRunning = appRunning
+        self.urlContains = urlContains
+    }
 
     enum CodingKeys: String, CodingKey {
         case appRunning = "app_running"
@@ -94,6 +129,24 @@ public struct RecipeStep: Codable, Sendable {
     public let note: String?
     public let onFailure: String?
 
+    public init(
+        id: Int,
+        action: String,
+        target: Locator? = nil,
+        params: [String: String]? = nil,
+        waitAfter: RecipeWaitCondition? = nil,
+        note: String? = nil,
+        onFailure: String? = nil
+    ) {
+        self.id = id
+        self.action = action
+        self.target = target
+        self.params = params
+        self.waitAfter = waitAfter
+        self.note = note
+        self.onFailure = onFailure
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, action, target, params
         case waitAfter = "wait_after"
@@ -108,6 +161,13 @@ public struct RecipeWaitCondition: Codable, Sendable {
     public let target: Locator?
     public let value: String?
     public let timeout: Double?
+
+    public init(condition: String, target: Locator? = nil, value: String? = nil, timeout: Double? = nil) {
+        self.condition = condition
+        self.target = target
+        self.value = value
+        self.timeout = timeout
+    }
 }
 
 /// Result of running a recipe.

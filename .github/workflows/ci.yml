@@ -1,11 +1,11 @@
-name: CI
+name: Canonical Verification
 
 on:
   push:
   pull_request:
 
 jobs:
-  build-and-test:
+  verify:
     runs-on: macos-15
     permissions:
       contents: read
@@ -18,3 +18,11 @@ jobs:
 
       - name: Verify build, tests, and boundary guards
         run: bash scripts/verify-build.sh
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-evidence
+          path: local/verify/latest/
+          if-no-files-found: error

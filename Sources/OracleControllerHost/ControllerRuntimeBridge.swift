@@ -60,8 +60,7 @@ final class ControllerRuntimeBridge {
     }
 
     func healthStatus() -> HealthStatus {
-        let claudeConfig = loadClaudeConfig()
-        let claudeConfigured = (claudeConfig?["mcpServers"] as? [String: Any])?["oracle-os"] != nil
+        let claudeConfigured = loadClaudeConfig()?.mcpServers?[OracleOS.name] != nil
         let health = VisionBridge.healthCheck()
         let storageLocations = storageLocationStatuses()
         let permissions = [

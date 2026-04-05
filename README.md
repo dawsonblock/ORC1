@@ -17,7 +17,7 @@ Historical rebuild, handoff, phase, and deployment documents are archived under 
 
 ## What This README Does Not Claim
 
-- It is not a live build badge or release certificate. Run `swift build`, `swift test`, and `./scripts/verify-build.sh` for current evidence.
+- It is not a live build badge or release certificate. Canonical local proof comes from `bash scripts/verify-build.sh`, which writes evidence to `local/verify/latest/`. Canonical shared proof comes from the artifact published by `.github/workflows/ci.yml`.
 - It is not a zero-warning guarantee. See [STATUS.md](STATUS.md) and [BASELINE.md](BASELINE.md) for the current evidence posture.
 - It does not claim that every code path goes through the main executor. `oracle_experiment_search` is a deliberate exception path that evaluates candidate patches in isolated git worktrees.
 - It does not claim that every controller affordance enters `VerifiedExecutor`. The desktop Wait action is an observational host-side condition check.
@@ -31,7 +31,7 @@ git clone https://github.com/dawsonblock/ORC1.git
 cd ORC1
 swift build
 swift test
-./scripts/verify-build.sh
+bash scripts/verify-build.sh
 ```
 
 Controller app from source:
@@ -65,6 +65,7 @@ CLI entrypoints:
 ## Live Docs
 
 - [STATUS.md](STATUS.md) — current repo state and known limits
+- [docs/REPO_FACTS.md](docs/REPO_FACTS.md) — generated package, tree, and MCP inventory
 - [ARCHITECTURE.md](ARCHITECTURE.md) — runtime model and execution spine
 - [ORACLE-MCP.md](ORACLE-MCP.md) — public MCP tool catalog
 - [BASELINE.md](BASELINE.md) — point-in-time baseline and evidence notes
@@ -139,13 +140,13 @@ web/                      disconnected demo surface
 ```bash
 swift build
 swift test
-./scripts/verify-build.sh
+bash scripts/verify-build.sh
 python3 scripts/mcp_boundary_guard.py
 python3 scripts/architecture_guard.py
 python3 scripts/execution_boundary_guard.py
 ```
 
-`./scripts/verify-build.sh` is the unified local proof path: it runs the three guard scripts, a release build, and the full Swift test suite.
+`bash scripts/verify-build.sh` is the canonical local proof path: it runs the three guard scripts, a release build, the full Swift test suite, and writes evidence to `local/verify/latest/`. `.github/workflows/ci.yml` runs the same verifier path and publishes that directory as the shared CI proof artifact.
 
 ## Contributing
 
