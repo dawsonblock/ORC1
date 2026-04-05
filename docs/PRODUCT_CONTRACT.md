@@ -27,7 +27,7 @@ OracleOS currently exposes 30 tools across 9 categories. Tool names are declared
 The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift` enforce declared-tool coverage.
 
 | Category | Count |
-|---|---:|
+| --- | ---: |
 | Perception | 7 |
 | Actions | 7 |
 | Wait | 1 |
@@ -70,12 +70,12 @@ Explicit exceptions:
 - `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
 - `vision-sidecar/` is an optional service edge, not part of committed-state authority
 
-Behavioral proof for the main path is no longer only source-scan based. `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift` submits a live intent through `RuntimeOrchestrator.submitIntent(_:)` and asserts commit-visible state, while `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift` exercises the live approval gate in `VerifiedExecutor`.
+Behavioral proof for the main path is no longer only source-scan based. `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift` submits a live intent through `RuntimeOrchestrator.submitIntent(_:)` and asserts commit-visible state, while `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift` exercises the live approval gate in `VerifiedExecutor`. Supported `.code` repository actions also preserve typed policy classification during policy evaluation, so `readFile` and `searchRepository` stay on the typed code path instead of being treated as arbitrary shell execution.
 
 ### 4. Side effects follow a three-tier taxonomy
 
 | Tier | Scope | Examples |
-|---|---|---|
+| --- | --- | --- |
 | **Gated** | User-approved desktop actions | click, type, hotkey through `VerifiedExecutor` |
 | **Service** | Infrastructure persistence | traces, memory, graph, recipes, workflows, telemetry |
 | **Read-only** | Observation and perception | AX inspection, screenshots, controller Wait checks, sidecar-backed perception |

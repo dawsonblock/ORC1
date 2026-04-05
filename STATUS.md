@@ -1,6 +1,6 @@
 # Oracle OS — Current Status
 
-**Last updated:** 2026-04-05 (truth repair pass)  
+**Last updated:** 2026-04-05 (truth repair pass, runtime-proof closure)  
 **Basis:** Source code audit. Claims below reflect what the code actually does.
 
 ---
@@ -52,7 +52,7 @@ RuntimeOrchestrator.submitIntent(_:)
 
 **Desktop wait exception:** The controller's Wait action is observational and currently calls `WaitManager.waitFor(...)` in the host. It does not pass through `VerifiedExecutor` because it does not commit side effects.
 
-**Behavioral proof:** The main runtime spine is now exercised behaviorally in `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift`, which boots a live runtime, submits an intent through `RuntimeOrchestrator.submitIntent(_:)`, and asserts commit-visible state notes. Approval-gate behavior is also exercised through the live `VerifiedExecutor` path in `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift`.
+**Behavioral proof:** The main runtime spine is now exercised behaviorally in `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift`, which boots a live runtime, submits an intent through `RuntimeOrchestrator.submitIntent(_:)`, and asserts commit-visible state notes. Approval-gate behavior is also exercised through the live `VerifiedExecutor` path in `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift`. Typed `.code` reads and searches now preserve their typed policy classification during policy evaluation, so the proof path stays on the repository-action route instead of degrading into blocked arbitrary-shell handling.
 
 **Approval flow end-to-end:** The approval token is threaded from the MCP tool call (`approvalRequestID` param) → `executeThroughRuntime(approvalToken:)` → `RuntimeExecutionDriver` → intent metadata → `RuntimeOrchestrator` → `CommandMetadata.approvalToken` → `VerifiedExecutor`. Approval receipts are **action-fingerprint-bound**: `PolicyRules.commandFingerprint(_:)` computes a SHA256 of the serialised command payload; this fingerprint is stored in `ApprovalRequest` and checked by `ApprovalStore.consumeApprovedReceipt` — a different command submitted with the same token is rejected. Consumption is single-use (file deletion in `ApprovalStore`). Responses carry `approvalRequestID` and `approvalStatus` back to the caller.
 
