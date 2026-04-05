@@ -1,61 +1,66 @@
+<div align="center">
+
 # OracleOS
 
-OracleOS is a local macOS agent runtime written in Swift. The supported human operator surface in this checkout is the native `OracleController` macOS app. The same runtime is also exposed through the MCP server and the `oracle` CLI for programmatic and utility use.
+**A local macOS agent runtime written in Swift.**
 
-Historical rebuild, handoff, phase, and deployment documents are archived under [docs/archive](docs/archive). They are useful for archaeology, not as the current repo contract.
+Every effect on your machine flows through one auditable, policy-enforced execution spine before it is committed.
 
-## What Is Live
+[![CI](https://github.com/dawsonblock/ORC1/actions/workflows/ci.yml/badge.svg)](https://github.com/dawsonblock/ORC1/actions/workflows/ci.yml)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://swift.org)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](https://developer.apple.com/macos/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-- Main-path execution spine: `RuntimeBootstrap.makeBootstrappedRuntime()` -> `RuntimeOrchestrator.submitIntent(_:)` -> `MainPlanner.plan(intent:context:)` -> `VerifiedExecutor.execute(_:)` -> `CommandRouter` -> `UIRouter` or `CodeRouter` -> `CommitCoordinator.commit(_:)`
-- Desktop operator UI: `OracleController` is the supported local control surface; `OracleControllerHost` is the bundled helper bridge that boots one runtime per app launch and forwards typed requests into that runtime
-- MCP surface: 30 public `oracle_*` tools defined in `Sources/OracleOS/MCP/MCPTools.swift` and dispatched from `Sources/OracleOS/MCP/MCPDispatch.swift`
-- MCP runtime lifecycle: `MCPDispatch` remains the public tool entrypoint, while `MCPRuntimeHost` owns reusable runtime bootstrap, reuse, and reset semantics for the MCP host process
-- CLI: local setup, doctor, status, and related tooling commands
-- Internal result boundary: live controller/runtime action, trace, code-execution, and recipe payloads use typed `ToolResult` views; legacy nested dictionaries remain compatibility export only
-- Optional service edge: `vision-sidecar/` is an external sidecar boundary
-- Demo-only surface: `web/` is disconnected scaffolding and not part of the supported runtime contract
+</div>
 
-## What This README Does Not Claim
+---
 
-- It is not a live build badge or release certificate. Canonical local proof comes from `bash scripts/verify-build.sh`, which writes evidence to `local/verify/latest/`. Canonical shared proof comes from the artifact published by `.github/workflows/ci.yml`.
-- Repo-owned workflow roles are narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is a supplemental guard job, and `.github/workflows/controller-release.yml` is release automation. Security scanners are supplemental signal, not product certification.
-- It is not a zero-warning guarantee. See [STATUS.md](STATUS.md) and [BASELINE.md](BASELINE.md) for the current evidence posture.
-- It does not claim that every code path goes through the main executor. `oracle_experiment_search` is a deliberate exception path that evaluates candidate patches in isolated git worktrees, returns sandbox-only results, and marks them `committed_to_workspace = false`.
-- It does not claim that every controller affordance enters `VerifiedExecutor`. The desktop Wait action is an observational host-side condition check.
+## Overview
+
+OracleOS is a **local macOS agent runtime** whose three supported surfaces are:
+
+| Surface | Entry point | Role |
+| --- | --- | --- |
+| **OracleController** | native macOS app | human operator UI |
+| **MCP server** | `MCPDispatch` | 30 typed `oracle_*` tools for AI agents |
+| **CLI** | `oracle` binary | setup, doctor, status tooling |
+
+Historical rebuild, phase, and deployment documents live in [docs/archive](docs/archive) — archaeology only, not the current contract.
+
+---
 
 ## Quick Start
 
-**Requirements:** macOS 14+, Swift 6, Xcode command line tools, Accessibility and Screen Recording permissions for UI automation.
+**Requirements:** macOS 14+, Swift 6, Xcode command-line tools, Accessibility and Screen Recording permissions for UI automation.
 
 ```bash
 git clone https://github.com/dawsonblock/ORC1.git
 cd ORC1
 swift build
 swift test
-bash scripts/verify-build.sh
+bash scripts/verify-build.sh   # canonical local proof
 ```
 
-Controller app from source:
+<details>
+<summary>Controller app (native UI)</summary>
 
 ```bash
+# Run from source
 swift run OracleController
-```
 
-Xcode workspace entrypoint:
-
-```bash
+# Open in Xcode
 open OracleController.xcworkspace
-```
 
-Unsigned local controller build:
-
-```bash
+# Unsigned local build
 ./scripts/build-controller-app.sh --configuration debug --skip-sign
 ```
 
-The controller's core local-readiness contract is: permissions granted, host bridge reachable, and local Application Support storage writable. Vision sidecar setup and Claude-backed copilot support are optional extensions, not blockers for the manual operator surface.
+The controller's readiness contract: Accessibility and Screen Recording permissions granted, host bridge reachable, and local Application Support storage writable. Vision sidecar and Claude-backed copilot support are optional extensions, not blockers for the manual operator surface.
 
-CLI entrypoints:
+</details>
+
+<details>
+<summary>CLI commands</summary>
 
 ```bash
 ./.build/debug/oracle setup
@@ -63,95 +68,127 @@ CLI entrypoints:
 ./.build/debug/oracle status
 ```
 
-## Live Docs
+</details>
 
-- [STATUS.md](STATUS.md) — current repo state and known limits
-- [docs/REPO_FACTS.md](docs/REPO_FACTS.md) — generated package, tree, and MCP inventory
-- [ARCHITECTURE.md](ARCHITECTURE.md) — runtime model and execution spine
-- [ORACLE-MCP.md](ORACLE-MCP.md) — public MCP tool catalog
-- [BASELINE.md](BASELINE.md) — point-in-time baseline and evidence notes
-- [AUDIT.md](AUDIT.md) — truth audit and cleanup findings
-- [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_CONTRACT.md) — live product surface and guarantees
-- [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) — release gate checklist
-- [docs/archive](docs/archive) — archived rebuild, milestone, deployment, and handoff history
+---
 
-## MCP Surface Summary
+## Execution Spine
 
-OracleOS currently exposes 30 stable public MCP tools across 9 categories.
+Every main-path effect flows through a single auditable chain before being committed to state:
 
-| Category | Count |
+```
+RuntimeBootstrap
+  └─▶ RuntimeOrchestrator.submitIntent(_:)
+        └─▶ MainPlanner.plan(intent:context:)
+              └─▶ VerifiedExecutor.execute(_:)
+                    └─▶ CommandRouter
+                          ├─▶ UIRouter
+                          └─▶ CodeRouter
+                                └─▶ CommitCoordinator.commit(_:)
+```
+
+**Known deliberate exceptions — documented and bounded:**
+
+- **`oracle_experiment_search`** — bypasses `RuntimeOrchestrator` and `VerifiedExecutor` by design. Isolation is provided by git worktree sandboxing. All result payloads carry `execution_context = sandbox` and `committed_to_workspace = false`.
+- **`Doctor.swift` / `SetupWizard.swift`** — tooling-only shell entry points.
+- **`vision-sidecar/`** — optional service boundary; not a committed-state authority.
+
+On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the only component that owns runtime bootstrap and reuse.
+
+---
+
+## MCP Surface
+
+OracleOS exposes **30 stable public tools** across 9 categories via the Model Context Protocol.
+
+| Category | Tools |
 | --- | ---: |
 | Perception | 7 |
 | Actions | 7 |
-| Wait | 1 |
 | Recipes | 5 |
+| Workflows | 3 |
+| Architecture | 2 |
 | Vision | 2 |
 | Memory | 2 |
+| Wait | 1 |
 | Experiments | 1 |
-| Architecture | 2 |
-| Workflows | 3 |
+| **Total** | **30** |
 
-See [ORACLE-MCP.md](ORACLE-MCP.md) for the full tool list and signatures.
+Full tool list, signatures, and inputs: [ORACLE-MCP.md](ORACLE-MCP.md).
 
-## Runtime Boundaries
-
-Main-path effects flow through one auditable spine:
-
-```text
-RuntimeBootstrap
-  -> RuntimeOrchestrator
-  -> MainPlanner
-  -> VerifiedExecutor
-  -> CommandRouter
-  -> UIRouter / CodeRouter
-  -> events
-  -> CommitCoordinator
-```
-
-Explicit exceptions:
-
-- `oracle_experiment_search` bypasses `RuntimeOrchestrator` and `VerifiedExecutor` by design; isolation comes from worktree sandboxing, and its result payloads explicitly advertise `execution_context = sandbox` plus `committed_to_workspace = false`
-- `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
-- `vision-sidecar/` is an optional service boundary, not a committed-state authority
-
-For the MCP surface, `MCPDispatch` is the single public entrypoint and `MCPRuntimeHost` is the only reusable runtime owner behind it.
+---
 
 ## Repository Layout
 
-```text
+```
 Sources/
   OracleOS/               runtime, planning, MCP, memory, execution core
   OracleController/       native controller UI
-  OracleControllerHost/   controller host process
-  OracleControllerShared/ shared action/control, diagnostics, and trace contracts
-  oracle/                 CLI entrypoints
+  OracleControllerHost/   controller host process and runtime bridge
+  OracleControllerShared/ typed action/control, diagnostics, and trace contracts
+  oracle/                 CLI entry points
 Tests/                    unit, governance, and eval suites
-docs/                     live docs plus archived history
-ProjectMemory/            ADRs, risks, roadmap, known-good patterns
+docs/                     live documentation and archived history
+ProjectMemory/            ADRs, risk register, roadmap, known-good patterns
 recipes/                  replayable JSON workflows
 scripts/                  build, packaging, guard, and verification helpers
 vision-sidecar/           optional Python vision service
-web/                      disconnected demo surface
+web/                      disconnected demo scaffold (not part of the runtime contract)
 ```
 
-`OracleControllerShared` is intentionally split by stable contract boundaries: `ControllerModels.swift` for action/control/session models, `ControllerDiagnosticsModels.swift` for diagnostics and host state, and `ControllerTraceModels.swift` for trace, recipe, and dashboard payloads.
+`OracleControllerShared` is split by contract boundary: `ControllerModels.swift` (action/control/session), `ControllerDiagnosticsModels.swift` (diagnostics and host state), and `ControllerTraceModels.swift` (trace, recipe, and dashboard payloads).
+
+---
 
 ## Development
 
 ```bash
 swift build
 swift test
-bash scripts/verify-build.sh
+bash scripts/verify-build.sh          # canonical proof — runs all guards + full test suite
+```
+
+Individual guards:
+
+```bash
 python3 scripts/mcp_boundary_guard.py
 python3 scripts/architecture_guard.py
 python3 scripts/execution_boundary_guard.py
 ```
 
-`bash scripts/verify-build.sh` is the canonical local proof path: it runs the three guard scripts, a release build, the full Swift test suite, and writes evidence to `local/verify/latest/`. `.github/workflows/ci.yml` runs the same verifier path and publishes that directory as the shared CI proof artifact.
+`bash scripts/verify-build.sh` is the canonical local proof path. It runs the three guard scripts, a release build, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the shared proof artifact.
+
+---
+
+## Scope Boundaries
+
+This README does not claim:
+
+- **Build certification** — canonical proof is `bash scripts/verify-build.sh` (local) and the CI artifact (shared).
+- **Zero warnings** — see [STATUS.md](STATUS.md) and [BASELINE.md](BASELINE.md) for the current evidence posture.
+- **Universal executor coverage** — `oracle_experiment_search` is a deliberate exception; the desktop Wait action is a host-side observational check, not an executor path.
+
+---
+
+## Live Reference Docs
+
+| Document | Purpose |
+| --- | --- |
+| [STATUS.md](STATUS.md) | Current repo state and known limits |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Runtime model and execution spine |
+| [ORACLE-MCP.md](ORACLE-MCP.md) | Public MCP tool catalog |
+| [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_CONTRACT.md) | Live product surface and guarantees |
+| [AUDIT.md](AUDIT.md) | Truth audit and cleanup findings |
+| [BASELINE.md](BASELINE.md) | Point-in-time baseline and evidence notes |
+| [docs/REPO_FACTS.md](docs/REPO_FACTS.md) | Generated package, tree, and MCP inventory |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Release gate checklist |
+| [docs/archive](docs/archive) | Archived rebuild, milestone, and handoff history |
+
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor expectations and [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for the normative governance contract.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for contributor expectations and the normative governance contract.
 
 ## License
 
