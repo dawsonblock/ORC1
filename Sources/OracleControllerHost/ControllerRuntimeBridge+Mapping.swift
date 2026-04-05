@@ -5,11 +5,11 @@ import Foundation
 import OracleControllerShared
 import OracleOS
 
-private struct ClaudeConfigDocument: Decodable {
+struct ClaudeConfigDocument: Decodable {
     let mcpServers: [String: ClaudeMCPServer]?
 }
 
-private struct ClaudeMCPServer: Decodable {}
+struct ClaudeMCPServer: Decodable {}
 
 extension ControllerRuntimeBridge {
     func mapActionResult(request: ActionRequest, result: ToolResult) -> ActionRunResult {
