@@ -53,6 +53,15 @@ Requirements:
 
 The project vendors [AXorcist](https://github.com/steipete/AXorcist) in `Vendor/AXorcist`, so no extra local checkout is required.
 
+## Copilot Workflow
+
+This repo includes a shared GitHub Copilot audit-first hardening workflow for code-first runtime extraction, truth-checking, and boundary tightening work.
+
+- Agent picker: `ORC1 Repo Hardening`
+- Slash prompt: `/Run ORC1 Repo Hardening`
+
+Use it for runtime-spine audits, proof-surface reviews, experiment-isolation checks, and blocker-ranked hardening passes. It starts with extraction before invasive patching and is intentionally on-demand rather than always-on workspace instruction for unrelated tasks.
+
 ## Project Structure
 
 ```text
