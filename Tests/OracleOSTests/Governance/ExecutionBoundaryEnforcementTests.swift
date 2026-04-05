@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import OracleOS
 
@@ -5,6 +6,25 @@ import XCTest
 /// and static structural proofs. Runtime behavior proofs live in
 /// ExecutionBoundaryBehaviorTests.
 final class ExecutionBoundaryEnforcementTests: XCTestCase {
+
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fileManager = FileManager.default
+        while true {
+            if fileManager.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url
+            }
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path {
+                return url
+            }
+            url = parent
+        }
+    }
+
+    private func readRepositoryFile(_ relativePath: String) throws -> String {
+        try String(contentsOf: repositoryRoot().appendingPathComponent(relativePath), encoding: .utf8)
+    }
 
     // MARK: - Real Enforcement: Source Code Scans
 
@@ -148,6 +168,60 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
         let content = try String(contentsOfFile: governanceTestPath, encoding: .utf8)
         XCTAssertTrue(content.contains("Process()"),
                       "Governance tests must check for forbidden Process() usage")
+    }
+
+    /// ENFORCE: The execution boundary guard must bless exact write owners, not namespaces.
+    func testExecutionBoundaryGuardUsesExplicitWriteAuthorities() throws {
+        let content = try readRepositoryFile("scripts/execution_boundary_guard.py")
+
+        XCTAssertTrue(content.contains("ALLOWED_WRITE_AUTHORITIES = {"),
+                      "Write authority must be expressed as an explicit file map")
+        XCTAssertFalse(content.contains("ALLOWED_WRITE_DIRS = ["),
+                       "Broad write-directory allowlists must not be reintroduced")
+
+        let requiredAuthorities = [
+            "Sources/OracleOS/Code/Execution/WorkspaceRunner.swift",
+            "Sources/OracleOS/Execution/Experiments/ExperimentManager.swift",
+            "Sources/OracleOS/Execution/Experiments/WorktreeSandbox.swift",
+            "Sources/OracleOS/Events/FileEventStore.swift",
+            "Sources/OracleOS/Events/Commit/CommitWAL.swift",
+            "Sources/OracleOS/Intent/Policies/ApprovalStore.swift",
+            "Sources/OracleOS/WorldModel/Graph/GraphPersistence.swift",
+        ]
+
+        for authority in requiredAuthorities {
+            XCTAssertTrue(content.contains("\"\(authority)\""),
+                          "Guard must explicitly account for write authority: \(authority)")
+        }
+
+        XCTAssertTrue(content.contains("FileManager.createDirectory"),
+                      "Guard must scan for directory creation writes")
+        XCTAssertTrue(content.contains("FileHandle(forWritingTo:)"),
+                      "Guard must scan for file-handle based appends")
+        XCTAssertTrue(content.contains("sqlite3_open"),
+                      "Guard must scan for SQLite-backed persistence")
+    }
+
+    /// ENFORCE: The checked-in execution boundary guard must pass on the current repo.
+    func testExecutionBoundaryGuardPassesCurrentRepository() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", "scripts/execution_boundary_guard.py"]
+        process.currentDirectoryURL = repositoryRoot()
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+        let combined = String(decoding: stdoutData + stderrData, as: UTF8.self)
+
+        XCTAssertEqual(process.terminationStatus, 0, "execution_boundary_guard.py failed:\n\(combined)")
     }
 
     // MARK: - Meta-test: Governance test presence
