@@ -5,6 +5,45 @@ import XCTest
 /// executing real code paths instead of scanning source text.
 final class ExecutionBoundaryBehaviorTests: XCTestCase {
 
+    private func repositoryRoot() -> String {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fm = FileManager.default
+
+        while true {
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url.path
+            }
+
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path {
+                return url.path
+            }
+            url = parent
+        }
+    }
+
+    private func makeVerifiedExecutor(
+        approvalsRoot: URL,
+        stateProvider: (any WorldStateProviding)? = nil
+    ) -> (executor: VerifiedExecutor, approvalStore: ApprovalStore) {
+        let policyEngine = PolicyEngine(mode: .confirmRisky)
+        let processAdapter = DefaultProcessAdapter(policyEngine: policyEngine)
+        let commandRouter = CommandRouter(
+            workspaceRunner: WorkspaceRunner(processAdapter: processAdapter),
+            repositoryIndexer: RepositoryIndexer(processAdapter: processAdapter)
+        )
+        let approvalStore = ApprovalStore(rootDirectory: approvalsRoot)
+        let executor = VerifiedExecutor(
+            policyEngine: policyEngine,
+            commandRouter: commandRouter,
+            preconditionsValidator: PreconditionsValidator(),
+            postconditionsValidator: PostconditionsValidator(),
+            stateProvider: stateProvider,
+            approvalStore: approvalStore
+        )
+        return (executor, approvalStore)
+    }
+
     /// PROVES: Bootstrap returns independently wired runtimes for the same config.
     @MainActor
     func testRuntimeBootstrapProducesIndependentStructuredRuntimes() async throws {
@@ -65,6 +104,84 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
         XCTAssertFalse(result.events.isEmpty, "Execution must emit events")
     }
 
+    /// PROVES: VerifiedExecutor creates, consumes, and invalidates approval receipts
+    /// before a risky UI send action is allowed to execute.
+    @MainActor
+    func testVerifiedExecutorApprovalGateControlsRiskyUISendActions() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let approvalsRoot = tempRoot.appendingPathComponent("approvals", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let (executor, approvalStore) = makeVerifiedExecutor(approvalsRoot: approvalsRoot)
+        let baseCommand = Command(
+            type: .ui,
+            payload: .ui(UIAction(name: "click", app: "Google Chrome", query: "Send")),
+            metadata: CommandMetadata(intentID: UUID(), source: "controller.test")
+        )
+
+        let pending = try await executor.execute(baseCommand)
+        XCTAssertEqual(pending.status, .approvalPending)
+
+        guard let request = approvalStore.listPendingRequests().first else {
+            XCTFail("Expected a pending approval request to be created")
+            return
+        }
+        XCTAssertEqual(request.actionFingerprint, PolicyRules.commandFingerprint(baseCommand))
+
+        _ = try approvalStore.approve(requestID: request.id)
+
+        let approvedCommand = Command(
+            id: baseCommand.id,
+            type: baseCommand.type,
+            payload: baseCommand.payload,
+            metadata: CommandMetadata(
+                intentID: baseCommand.metadata.intentID,
+                source: baseCommand.metadata.source,
+                approvalToken: request.id
+            )
+        )
+
+        let approved = try await executor.execute(approvedCommand)
+        XCTAssertEqual(approved.verifierReport.policyDecision, "approved")
+        XCTAssertNotEqual(approved.status, .approvalPending)
+        XCTAssertNotEqual(approved.status, .policyBlocked)
+
+        let consumed = try await executor.execute(approvedCommand)
+        XCTAssertEqual(consumed.status, .policyBlocked)
+    }
+
+    /// PROVES: Typed code commands can supply repository context directly even
+    /// when the committed world snapshot has not yet observed a repository.
+    @MainActor
+    func testVerifiedExecutorAcceptsTypedWorkspaceRootForCodeReads() async throws {
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let approvalsRoot = tempRoot.appendingPathComponent("approvals", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let provider = StaticWorldStateProvider(snapshot: WorldModelSnapshot())
+        let (executor, _) = makeVerifiedExecutor(
+            approvalsRoot: approvalsRoot,
+            stateProvider: provider
+        )
+
+        let command = Command(
+            type: .code,
+            payload: .code(
+                CodeAction(
+                    name: "readFile",
+                    filePath: "Package.swift",
+                    workspacePath: repositoryRoot()
+                )
+            ),
+            metadata: CommandMetadata(intentID: UUID(), source: "runtime-proof")
+        )
+
+        let result = try await executor.execute(command)
+        XCTAssertEqual(result.status, .success)
+        XCTAssertNotEqual(result.status, .preconditionFailed)
+        XCTAssertNotEqual(result.status, .policyBlocked)
+    }
+
     /// PROVES: Planner interface is typed (`Intent` -> `Command`) even outside runtime wiring.
     @MainActor
     func testPlannerAcceptsTypedIntentAndReturnsTypedCommand() async throws {
@@ -95,6 +212,14 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
 
         XCTAssertTrue(mirror.children.isEmpty,
                       "RuntimeContext must remain empty at runtime; authority lives in RuntimeContainer")
+    }
+}
+
+private struct StaticWorldStateProvider: WorldStateProviding {
+    let snapshot: WorldModelSnapshot
+
+    func snapshot() async -> WorldModelSnapshot {
+        snapshot
     }
 }
 

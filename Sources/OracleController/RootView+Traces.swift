@@ -124,6 +124,8 @@ struct TraceInspectorView: View {
                         if let knowledgeTier = step.knowledgeTier { KVRow(key: "Knowledge Tier", value: knowledgeTier) }
                         if let experimentID = step.experimentID { KVRow(key: "Experiment", value: experimentID, monospaced: true) }
                         if let candidateID = step.candidateID { KVRow(key: "Candidate", value: candidateID, monospaced: true) }
+                        if let experimentExecutionContext = step.experimentExecutionContext { KVRow(key: "Experiment Context", value: experimentExecutionContext) }
+                        if let experimentCommittedToWorkspace = step.experimentCommittedToWorkspace { KVRow(key: "Committed", value: experimentCommittedToWorkspace ? "Yes" : "No") }
                         if let selectedCandidate = step.selectedCandidate { KVRow(key: "Selected", value: selectedCandidate ? "Yes" : "No") }
                         if let experimentOutcome = step.experimentOutcome { KVRow(key: "Experiment Outcome", value: experimentOutcome) }
                         if let sandboxPath = step.sandboxPath { KVRow(key: "Sandbox", value: sandboxPath, monospaced: true) }

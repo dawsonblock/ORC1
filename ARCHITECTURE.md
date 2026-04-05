@@ -620,6 +620,6 @@ Only reusable knowledge is eligible for canonical long-term storage.
 
 ## Known Boundaries
 
-- experiments may gather evidence in isolated worktrees; `replaySelected()` returns the winning `CandidatePatch?` but there is no code path that automatically submits it through `RuntimeOrchestrator` — promotion to the main runtime does not exist yet and must be done manually by the caller if at all
+- experiments may gather evidence in isolated worktrees; `replaySelected()` returns the top-ranked `CandidatePatch?`, but experiment results are explicitly marked `executionContext = .sandbox` and `committedToWorkspace = false`, and there is no code path that automatically submits them through `RuntimeOrchestrator` — promotion to the main runtime does not exist yet and must be done manually by the caller if at all
 - recovery remains a first-class tracked mode, but not yet a promotable nominal control path
 - architecture review is advisory-first; its hard-fail behavior is enforced through tests and governance checks rather than autonomous blocking

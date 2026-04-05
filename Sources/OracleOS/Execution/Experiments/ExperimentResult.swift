@@ -1,9 +1,15 @@
 import Foundation
 
+public enum ExperimentExecutionContext: String, Codable, Sendable, Equatable {
+    case sandbox
+}
+
 public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let experimentID: String
     public let candidate: CandidatePatch
+    public let executionContext: ExperimentExecutionContext
+    public let committedToWorkspace: Bool
     public let sandboxPath: String
     public let commandResults: [CommandResult]
     public let diffSummary: String
@@ -17,6 +23,8 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
         id: String = UUID().uuidString,
         experimentID: String,
         candidate: CandidatePatch,
+        executionContext: ExperimentExecutionContext = .sandbox,
+        committedToWorkspace: Bool = false,
         sandboxPath: String,
         commandResults: [CommandResult],
         diffSummary: String,
@@ -29,6 +37,8 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
         self.id = id
         self.experimentID = experimentID
         self.candidate = candidate
+        self.executionContext = executionContext
+        self.committedToWorkspace = committedToWorkspace
         self.sandboxPath = sandboxPath
         self.commandResults = commandResults
         self.diffSummary = diffSummary
@@ -52,6 +62,8 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
             id: id,
             experimentID: experimentID,
             candidate: candidate,
+            executionContext: executionContext,
+            committedToWorkspace: committedToWorkspace,
             sandboxPath: sandboxPath,
             commandResults: commandResults,
             diffSummary: diffSummary,

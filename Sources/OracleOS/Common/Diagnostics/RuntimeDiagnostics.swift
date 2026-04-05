@@ -112,6 +112,8 @@ public struct DiagnosticsExperimentCandidate: Codable, Sendable, Equatable, Iden
     public let workspaceRelativePath: String
     public let hypothesis: String?
     public let selected: Bool
+    public let executionContext: String
+    public let committedToWorkspace: Bool
     public let succeeded: Bool
     public let architectureRiskScore: Double
     public let sandboxPath: String
@@ -127,6 +129,8 @@ public struct DiagnosticsExperimentCandidate: Codable, Sendable, Equatable, Iden
         workspaceRelativePath = result.candidate.workspaceRelativePath
         hypothesis = result.candidate.hypothesis
         selected = result.selected
+        executionContext = result.executionContext.rawValue
+        committedToWorkspace = result.committedToWorkspace
         succeeded = result.succeeded
         architectureRiskScore = result.architectureRiskScore
         sandboxPath = result.sandboxPath
@@ -142,6 +146,8 @@ public struct DiagnosticsExperimentSummary: Codable, Sendable, Equatable, Identi
     public let candidateCount: Int
     public let selectedCandidateID: String?
     public let winningSandboxPath: String?
+    public let executionContext: String
+    public let committedToWorkspace: Bool
     public let succeededCandidateCount: Int
     public let candidates: [DiagnosticsExperimentCandidate]
 
@@ -150,6 +156,8 @@ public struct DiagnosticsExperimentSummary: Codable, Sendable, Equatable, Identi
         candidateCount: Int,
         selectedCandidateID: String?,
         winningSandboxPath: String?,
+        executionContext: String,
+        committedToWorkspace: Bool,
         succeededCandidateCount: Int,
         candidates: [DiagnosticsExperimentCandidate]
     ) {
@@ -157,6 +165,8 @@ public struct DiagnosticsExperimentSummary: Codable, Sendable, Equatable, Identi
         self.candidateCount = candidateCount
         self.selectedCandidateID = selectedCandidateID
         self.winningSandboxPath = winningSandboxPath
+        self.executionContext = executionContext
+        self.committedToWorkspace = committedToWorkspace
         self.succeededCandidateCount = succeededCandidateCount
         self.candidates = candidates
     }
@@ -527,6 +537,8 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
                     candidateCount: candidates.count,
                     selectedCandidateID: candidates.first(where: \.selected)?.id,
                     winningSandboxPath: candidates.first(where: \.selected)?.sandboxPath,
+                    executionContext: candidates.first?.executionContext ?? ExperimentExecutionContext.sandbox.rawValue,
+                    committedToWorkspace: candidates.contains(where: \.committedToWorkspace),
                     succeededCandidateCount: candidates.filter(\.succeeded).count,
                     candidates: candidates
                 )
@@ -572,6 +584,8 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
                 candidateCount: candidates.count,
                 selectedCandidateID: candidates.first(where: \.selected)?.id,
                 winningSandboxPath: candidates.first(where: \.selected)?.sandboxPath,
+                executionContext: candidates.first?.executionContext ?? ExperimentExecutionContext.sandbox.rawValue,
+                committedToWorkspace: candidates.contains(where: \.committedToWorkspace),
                 succeededCandidateCount: candidates.filter(\.succeeded).count,
                 candidates: candidates
             )

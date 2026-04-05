@@ -127,6 +127,24 @@ final class MCPDispatchBehaviorTests: XCTestCase {
             "oracle_experiment_search must not silently join the synchronous dispatch(request:) switch"
         )
     }
+
+    func testExperimentSearchSerializationAdvertisesSandboxOnlyContext() throws {
+        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let content = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            content.contains("executionContext = \"execution_context\""),
+            "Experiment MCP responses must publish an explicit execution_context field"
+        )
+        XCTAssertTrue(
+            content.contains("committedToWorkspace = \"committed_to_workspace\""),
+            "Experiment MCP responses must publish a committed_to_workspace flag"
+        )
+        XCTAssertTrue(
+            content.contains("sandboxPath = \"sandbox_path\""),
+            "Experiment MCP responses must continue to expose sandbox_path for sandbox-only results"
+        )
+    }
 }
 
 private extension MCPToolResponse {

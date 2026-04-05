@@ -80,6 +80,8 @@ extension ControllerRuntimeBridge {
             candidateCount: experiment.candidateCount,
             selectedCandidateID: experiment.selectedCandidateID,
             winningSandboxPath: experiment.winningSandboxPath,
+            executionContext: experiment.executionContext,
+            committedToWorkspace: experiment.committedToWorkspace,
             succeededCandidateCount: experiment.succeededCandidateCount,
             candidates: experiment.candidates.map(map)
         )
@@ -93,6 +95,8 @@ extension ControllerRuntimeBridge {
             workspaceRelativePath: candidate.workspaceRelativePath,
             hypothesis: candidate.hypothesis,
             selected: candidate.selected,
+            executionContext: candidate.executionContext,
+            committedToWorkspace: candidate.committedToWorkspace,
             succeeded: candidate.succeeded,
             architectureRiskScore: candidate.architectureRiskScore,
             sandboxPath: candidate.sandboxPath,

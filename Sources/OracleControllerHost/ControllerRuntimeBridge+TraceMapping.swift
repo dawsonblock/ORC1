@@ -57,6 +57,8 @@ extension ControllerRuntimeBridge {
             experimentID: event.experimentID,
             candidateID: event.candidateID,
             sandboxPath: event.sandboxPath,
+            experimentExecutionContext: event.experimentID == nil ? nil : ExperimentExecutionContext.sandbox.rawValue,
+            experimentCommittedToWorkspace: event.experimentID == nil ? nil : false,
             selectedCandidate: event.selectedCandidate,
             experimentOutcome: event.experimentOutcome,
             architectureFindings: event.architectureFindings ?? [],

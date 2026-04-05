@@ -576,7 +576,9 @@ struct DiagnosticsInspectorView: View {
                         KVRow(key: "Experiment", value: experiment.id, monospaced: true)
                         KVRow(key: "Candidates", value: "\(experiment.candidateCount)")
                         KVRow(key: "Succeeded", value: "\(experiment.succeededCandidateCount)")
-                        KVRow(key: "Winner", value: experiment.selectedCandidateID ?? "None", monospaced: true)
+                        KVRow(key: "Context", value: experiment.executionContext)
+                        KVRow(key: "Committed", value: experiment.committedToWorkspace ? "Yes" : "No")
+                        KVRow(key: "Sandbox Winner", value: experiment.selectedCandidateID ?? "None", monospaced: true)
                         if let path = experiment.winningSandboxPath {
                             KVRow(key: "Sandbox", value: path, monospaced: true)
                         }
@@ -587,11 +589,13 @@ struct DiagnosticsInspectorView: View {
                                     Text(candidate.title)
                                         .font(.system(size: 12, weight: .semibold))
                                     Spacer()
-                                    StatusBadge(label: candidate.selected ? "selected" : (candidate.succeeded ? "passed" : "failed"), tone: candidate.selected ? .good : (candidate.succeeded ? .neutral : .danger))
+                                    StatusBadge(label: candidate.selected ? "sandbox winner" : (candidate.succeeded ? "passed" : "failed"), tone: candidate.selected ? .good : (candidate.succeeded ? .neutral : .danger))
                                 }
                                 Text(candidate.summary)
                                     .font(.system(size: 11))
                                     .foregroundStyle(.secondary)
+                                KVRow(key: "Context", value: candidate.executionContext)
+                                KVRow(key: "Committed", value: candidate.committedToWorkspace ? "Yes" : "No")
                                 if let buildSummary = candidate.buildSummary {
                                     KVRow(key: "Build", value: buildSummary)
                                 }

@@ -88,6 +88,46 @@ public final class PolicyEngine: @unchecked Sendable {
         return evaluate(intent: intent, context: context)
     }
 
+    private func commandSpec(for action: CodeAction) -> CommandSpec? {
+        guard let workspaceRoot = action.workspacePath, !workspaceRoot.isEmpty else {
+            return nil
+        }
+
+        switch action.name {
+        case "readFile", CodeCommandCategory.openFile.rawValue:
+            let path = action.filePath
+            let summary = path.map { "open \($0)" } ?? "open file"
+            return CommandSpec(
+                category: .openFile,
+                executable: "/usr/bin/env",
+                arguments: path.map { [$0] } ?? [],
+                workspaceRoot: workspaceRoot,
+                workspaceRelativePath: path,
+                summary: summary
+            )
+        case "searchRepository", CodeCommandCategory.searchCode.rawValue:
+            let query = action.query ?? ""
+            let summary = query.isEmpty ? "search code" : "search code for \(query)"
+            return CommandSpec(
+                category: .searchCode,
+                executable: "/usr/bin/env",
+                arguments: query.isEmpty ? [] : [query],
+                workspaceRoot: workspaceRoot,
+                summary: summary
+            )
+        case CodeCommandCategory.indexRepository.rawValue:
+            return CommandSpec(
+                category: .indexRepository,
+                executable: "/usr/bin/env",
+                arguments: [],
+                workspaceRoot: workspaceRoot,
+                summary: "index repository"
+            )
+        default:
+            return nil
+        }
+    }
+
     private func actionIntent(from command: Command) -> ActionIntent {
         switch command.payload {
         case .build(let spec):
@@ -153,6 +193,7 @@ public final class PolicyEngine: @unchecked Sendable {
         
 
 case .code(let action):
+            let codeCommand = commandSpec(for: action)
             return ActionIntent(
                 agentKind: .code,
                 app: action.app ?? "Workspace",
@@ -162,7 +203,7 @@ case .code(let action):
                 text: action.patch,
                 workspaceRoot: action.workspacePath,
                 workspaceRelativePath: action.filePath,
-                codeCommand: nil,
+                codeCommand: codeCommand,
                 postconditions: []
             )
         }

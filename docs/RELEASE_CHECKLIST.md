@@ -30,7 +30,7 @@ Use this checklist before tagging any release. Complete every item in order.
 ### Security
 - [ ] No secrets, tokens, or credentials committed
 - [ ] All localhost-only services bound to `127.0.0.1` (not `0.0.0.0`)
-- [ ] `frogbot-scan.yml` / `apisec-scan.yml` passed on latest commit
+- [ ] Canonical verification passed via `bash scripts/verify-build.sh` or the artifact from `.github/workflows/ci.yml`
 - [ ] `codeql.yml` scan passed
 
 ---

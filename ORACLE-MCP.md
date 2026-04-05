@@ -238,3 +238,7 @@ Common wait conditions:
 | oracle_workflow_mine | Synthesize reusable workflows from telemetry | No |
 | oracle_workflow_list | List synthesized workflows | No |
 | oracle_workflow_execute | Execute a synthesized workflow | No |
+
+## Experiment Result Contract
+
+`oracle_experiment_search` returns sandbox-only results. The response now includes `execution_context: "sandbox"`, `committed_to_workspace: false`, and `sandbox_path` for each candidate. The existing `selected` field means the highest-ranked candidate inside that sandbox batch only; it does not mean the patch was approved, committed, or replayed through the main runtime spine.

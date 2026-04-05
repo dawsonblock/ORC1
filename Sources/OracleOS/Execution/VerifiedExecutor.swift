@@ -91,6 +91,7 @@ public actor VerifiedExecutor {
         }
 
         let policyDecision = try policyEngine.validate(command)
+        var approvalSatisfied = false
 
         // GUARD: Approval gate
         // When the policy engine marks the action as requiring approval:
@@ -119,6 +120,7 @@ public actor VerifiedExecutor {
                         reason: "Approval token '\(token)' is invalid, already consumed, or was issued for a different action"
                     )
                 }
+                approvalSatisfied = true
                 // Receipt consumed — fall through to the allowed guard and then execution.
             } else {
                 // No token — create a new approval request and halt.
@@ -144,7 +146,7 @@ public actor VerifiedExecutor {
             }
         }
 
-        guard policyDecision.allowed else {
+        guard policyDecision.allowed || approvalSatisfied else {
             return failOutcome(
                 command: command,
                 status: .policyBlocked,

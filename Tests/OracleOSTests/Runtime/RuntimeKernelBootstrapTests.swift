@@ -6,6 +6,25 @@ import Testing
 @MainActor
 struct RuntimeKernelBootstrapTests {
 
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fm = FileManager.default
+        while true {
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url
+            }
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path {
+                return url
+            }
+            url = parent
+        }
+    }
+
+    private func encodedActionIntent(_ actionIntent: ActionIntent) throws -> String {
+        try JSONEncoder().encode(actionIntent).base64EncodedString()
+    }
+
     // MARK: - Bootstrap Truth Tests
 
     @Test func kernelBootstrapReturnsCompleteKernel() async throws {
@@ -44,6 +63,40 @@ struct RuntimeKernelBootstrapTests {
         let cycleCountAfter = snapshotAfter.cycleCount
 
         #expect(cycleCountAfter > cycleCountBefore, "Reducers must increment cycle count")
+    }
+
+    @Test func submitIntentCommitsMainRuntimeSpineForCodeSearch() async throws {
+        let config = RuntimeConfig.test()
+        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: config)
+        let workspaceRoot = repositoryRoot().path
+        let actionIntent = ActionIntent.code(
+            name: "read package manifest",
+            command: CommandSpec(
+                category: .openFile,
+                executable: "cat",
+                arguments: ["Package.swift"],
+                workspaceRoot: workspaceRoot,
+                workspaceRelativePath: "Package.swift",
+                summary: "read Package.swift"
+            )
+        )
+        let intent = Intent(
+            domain: .code,
+            objective: "read Package.swift",
+            metadata: ["action_intent_base64": try encodedActionIntent(actionIntent)]
+        )
+
+        let response = try await bootstrapped.orchestrator.submitIntent(intent)
+        let runtimeSnapshot = try await bootstrapped.orchestrator.queryState()
+        let committedSnapshot = await bootstrapped.container.commitCoordinator.snapshot()
+
+        #expect(response.outcome == .success)
+        #expect(response.snapshotID != nil)
+        #expect(runtimeSnapshot.lastIntentID == intent.id)
+        #expect(runtimeSnapshot.lastCommandKind == "readFile")
+        #expect(committedSnapshot.notes.contains("lastCommandKind=readFile"))
+        #expect(committedSnapshot.notes.contains("lastExecutionStatus=success"))
+        #expect(committedSnapshot.notes.contains("criticOutcome=success"))
     }
 
     // MARK: - Snapshot Immutability Tests

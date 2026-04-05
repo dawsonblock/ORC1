@@ -66,9 +66,11 @@ Surface code is a consumer of this spine, not a mutator of it.
 
 Explicit exceptions:
 
-- `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`
+- `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`; its result payloads now explicitly advertise `execution_context = sandbox` and `committed_to_workspace = false`
 - `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
 - `vision-sidecar/` is an optional service edge, not part of committed-state authority
+
+Behavioral proof for the main path is no longer only source-scan based. `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift` submits a live intent through `RuntimeOrchestrator.submitIntent(_:)` and asserts commit-visible state, while `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift` exercises the live approval gate in `VerifiedExecutor`.
 
 ### 4. Side effects follow a three-tier taxonomy
 
@@ -89,6 +91,8 @@ The live controller/runtime result seam is typed internally. `ToolResult` expose
 Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment. The script writes raw build, test, and summary artifacts to `local/verify/latest/`.
 
 Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the CI artifact.
+
+Repo-owned workflow roles are intentionally narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is supplemental enforcement, and `.github/workflows/controller-release.yml` is release automation. Security scanners such as CodeQL, Codacy, and Frogbot are supplemental signals and are not part of the product-certification contract.
 
 Direct `swift build` and `swift test` remain useful local commands, but archived repair notes, milestone docs, checked-in diagnostics, and ad hoc command output are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified through the supported verifier path.
 

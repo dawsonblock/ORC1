@@ -4,6 +4,30 @@ import Foundation
 /// Returns false if required conditions are not met.
 public struct PreconditionsValidator: Sendable {
     public init() {}
+
+    private func hasRepositoryContext(for command: Command, state: WorldModelSnapshot) -> Bool {
+        if state.repositoryRoot != nil {
+            return true
+        }
+
+        switch command.payload {
+        case .build(let spec):
+            return !spec.workspaceRoot.isEmpty
+        case .test(let spec):
+            return !spec.workspaceRoot.isEmpty
+        case .git(let spec):
+            return !spec.workspaceRoot.isEmpty
+        case .file(let spec):
+            return !spec.workspaceRoot.isEmpty
+        case .code(let action):
+            guard let workspacePath = action.workspacePath else {
+                return false
+            }
+            return !workspacePath.isEmpty
+        case .ui:
+            return false
+        }
+    }
     
     public func validate(_ command: Command, state: WorldModelSnapshot) throws -> Bool {
         // Validate based on command domain
@@ -23,7 +47,7 @@ public struct PreconditionsValidator: Sendable {
         case "search", "searchRepository", "search_code", "read_repository",
              "modify", "file", "open_file",
              "build", "runBuild", "test", "runTests", "readFile":
-            guard state.repositoryRoot != nil else {
+            guard hasRepositoryContext(for: command, state: state) else {
                 throw PreconditionError.noRepositoryContext
             }
             // Block dangerous operations on dirty git state

@@ -15,8 +15,11 @@ private struct ExperimentCommandResultSummary: Encodable {
 private struct ExperimentSearchResultSummary: Encodable {
     let id: String
     let selected: Bool
+    let executionContext: String
+    let committedToWorkspace: Bool
     let candidateTitle: String
     let candidatePath: String
+    let sandboxPath: String
     let architectureRisk: Double
     let diffSummary: String
     let commandResults: [ExperimentCommandResultSummary]
@@ -24,8 +27,11 @@ private struct ExperimentSearchResultSummary: Encodable {
     enum CodingKeys: String, CodingKey {
         case id
         case selected
+        case executionContext = "execution_context"
+        case committedToWorkspace = "committed_to_workspace"
         case candidateTitle = "candidate_title"
         case candidatePath = "candidate_path"
+        case sandboxPath = "sandbox_path"
         case architectureRisk = "architecture_risk"
         case diffSummary = "diff_summary"
         case commandResults = "command_results"
@@ -159,8 +165,11 @@ public enum MCPDispatch {
                     ExperimentSearchResultSummary(
                         id: result.id,
                         selected: result.selected,
+                        executionContext: result.executionContext.rawValue,
+                        committedToWorkspace: result.committedToWorkspace,
                         candidateTitle: result.candidate.title,
                         candidatePath: result.candidate.workspaceRelativePath,
+                        sandboxPath: result.sandboxPath,
                         architectureRisk: result.architectureRiskScore,
                         diffSummary: result.diffSummary,
                         commandResults: result.commandResults.map { commandResult in

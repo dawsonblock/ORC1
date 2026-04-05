@@ -6,7 +6,7 @@ Historical rebuild, handoff, phase, and deployment documents are archived under 
 
 ## What Is Live
 
-- Main-path execution spine: `RuntimeBootstrap.makeBootstrappedRuntime()` -> `RuntimeOrchestrator.submitIntent(_:)` -> `MainPlanner.plan(intent:state:)` -> `VerifiedExecutor.execute(_:)` -> `CommandRouter` -> `UIRouter` or `CodeRouter` -> `CommitCoordinator.commit(_:)`
+- Main-path execution spine: `RuntimeBootstrap.makeBootstrappedRuntime()` -> `RuntimeOrchestrator.submitIntent(_:)` -> `MainPlanner.plan(intent:context:)` -> `VerifiedExecutor.execute(_:)` -> `CommandRouter` -> `UIRouter` or `CodeRouter` -> `CommitCoordinator.commit(_:)`
 - Desktop operator UI: `OracleController` is the supported local control surface; `OracleControllerHost` is the bundled helper bridge that boots one runtime per app launch and forwards typed requests into that runtime
 - MCP surface: 30 public `oracle_*` tools defined in `Sources/OracleOS/MCP/MCPTools.swift` and dispatched from `Sources/OracleOS/MCP/MCPDispatch.swift`
 - MCP runtime lifecycle: `MCPDispatch` remains the public tool entrypoint, while `MCPRuntimeHost` owns reusable runtime bootstrap, reuse, and reset semantics for the MCP host process
@@ -18,8 +18,9 @@ Historical rebuild, handoff, phase, and deployment documents are archived under 
 ## What This README Does Not Claim
 
 - It is not a live build badge or release certificate. Canonical local proof comes from `bash scripts/verify-build.sh`, which writes evidence to `local/verify/latest/`. Canonical shared proof comes from the artifact published by `.github/workflows/ci.yml`.
+- Repo-owned workflow roles are narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is a supplemental guard job, and `.github/workflows/controller-release.yml` is release automation. Security scanners are supplemental signal, not product certification.
 - It is not a zero-warning guarantee. See [STATUS.md](STATUS.md) and [BASELINE.md](BASELINE.md) for the current evidence posture.
-- It does not claim that every code path goes through the main executor. `oracle_experiment_search` is a deliberate exception path that evaluates candidate patches in isolated git worktrees.
+- It does not claim that every code path goes through the main executor. `oracle_experiment_search` is a deliberate exception path that evaluates candidate patches in isolated git worktrees, returns sandbox-only results, and marks them `committed_to_workspace = false`.
 - It does not claim that every controller affordance enters `VerifiedExecutor`. The desktop Wait action is an observational host-side condition check.
 
 ## Quick Start
@@ -109,7 +110,7 @@ RuntimeBootstrap
 
 Explicit exceptions:
 
-- `oracle_experiment_search` bypasses `RuntimeOrchestrator` and `VerifiedExecutor` by design; isolation comes from worktree sandboxing
+- `oracle_experiment_search` bypasses `RuntimeOrchestrator` and `VerifiedExecutor` by design; isolation comes from worktree sandboxing, and its result payloads explicitly advertise `execution_context = sandbox` plus `committed_to_workspace = false`
 - `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
 - `vision-sidecar/` is an optional service boundary, not a committed-state authority
 

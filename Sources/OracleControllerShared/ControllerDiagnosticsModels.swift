@@ -277,6 +277,8 @@ public struct ControllerExperimentCandidateDiagnostics: Codable, Sendable, Equat
     public let workspaceRelativePath: String
     public let hypothesis: String?
     public let selected: Bool
+    public let executionContext: String
+    public let committedToWorkspace: Bool
     public let succeeded: Bool
     public let architectureRiskScore: Double
     public let sandboxPath: String
@@ -292,6 +294,8 @@ public struct ControllerExperimentCandidateDiagnostics: Codable, Sendable, Equat
         workspaceRelativePath: String,
         hypothesis: String? = nil,
         selected: Bool,
+        executionContext: String,
+        committedToWorkspace: Bool,
         succeeded: Bool,
         architectureRiskScore: Double,
         sandboxPath: String,
@@ -306,6 +310,8 @@ public struct ControllerExperimentCandidateDiagnostics: Codable, Sendable, Equat
         self.workspaceRelativePath = workspaceRelativePath
         self.hypothesis = hypothesis
         self.selected = selected
+        self.executionContext = executionContext
+        self.committedToWorkspace = committedToWorkspace
         self.succeeded = succeeded
         self.architectureRiskScore = architectureRiskScore
         self.sandboxPath = sandboxPath
@@ -321,6 +327,8 @@ public struct ControllerExperimentDiagnostics: Codable, Sendable, Equatable, Ide
     public let candidateCount: Int
     public let selectedCandidateID: String?
     public let winningSandboxPath: String?
+    public let executionContext: String
+    public let committedToWorkspace: Bool
     public let succeededCandidateCount: Int
     public let candidates: [ControllerExperimentCandidateDiagnostics]
 
@@ -329,6 +337,8 @@ public struct ControllerExperimentDiagnostics: Codable, Sendable, Equatable, Ide
         candidateCount: Int,
         selectedCandidateID: String? = nil,
         winningSandboxPath: String? = nil,
+        executionContext: String,
+        committedToWorkspace: Bool,
         succeededCandidateCount: Int,
         candidates: [ControllerExperimentCandidateDiagnostics]
     ) {
@@ -336,6 +346,8 @@ public struct ControllerExperimentDiagnostics: Codable, Sendable, Equatable, Ide
         self.candidateCount = candidateCount
         self.selectedCandidateID = selectedCandidateID
         self.winningSandboxPath = winningSandboxPath
+        self.executionContext = executionContext
+        self.committedToWorkspace = committedToWorkspace
         self.succeededCandidateCount = succeededCandidateCount
         self.candidates = candidates
     }

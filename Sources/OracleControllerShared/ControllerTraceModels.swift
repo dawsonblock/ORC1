@@ -51,6 +51,8 @@ public struct TraceStepViewModel: Codable, Sendable, Equatable, Identifiable {
     public let experimentID: String?
     public let candidateID: String?
     public let sandboxPath: String?
+    public let experimentExecutionContext: String?
+    public let experimentCommittedToWorkspace: Bool?
     public let selectedCandidate: Bool?
     public let experimentOutcome: String?
     public let architectureFindings: [String]
@@ -102,6 +104,8 @@ public struct TraceStepViewModel: Codable, Sendable, Equatable, Identifiable {
         experimentID: String? = nil,
         candidateID: String? = nil,
         sandboxPath: String? = nil,
+        experimentExecutionContext: String? = nil,
+        experimentCommittedToWorkspace: Bool? = nil,
         selectedCandidate: Bool? = nil,
         experimentOutcome: String? = nil,
         architectureFindings: [String] = [],
@@ -150,6 +154,8 @@ public struct TraceStepViewModel: Codable, Sendable, Equatable, Identifiable {
         self.experimentID = experimentID
         self.candidateID = candidateID
         self.sandboxPath = sandboxPath
+        self.experimentExecutionContext = experimentExecutionContext
+        self.experimentCommittedToWorkspace = experimentCommittedToWorkspace
         self.selectedCandidate = selectedCandidate
         self.experimentOutcome = experimentOutcome
         self.architectureFindings = architectureFindings
