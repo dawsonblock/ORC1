@@ -37,6 +37,12 @@ swift test
 Controller app from source:
 
 ```bash
+swift run OracleController
+```
+
+Xcode workspace entrypoint:
+
+```bash
 open OracleController.xcworkspace
 ```
 
@@ -45,6 +51,8 @@ Unsigned local controller build:
 ```bash
 ./scripts/build-controller-app.sh --configuration debug --skip-sign
 ```
+
+The controller's core local-readiness contract is: permissions granted, host bridge reachable, and local Application Support storage writable. Vision sidecar setup and Claude-backed copilot support are optional extensions, not blockers for the manual operator surface.
 
 CLI entrypoints:
 
@@ -70,7 +78,7 @@ CLI entrypoints:
 OracleOS currently exposes 30 stable public MCP tools across 9 categories.
 
 | Category | Count |
-|---|---:|
+| --- | ---: |
 | Perception | 7 |
 | Actions | 7 |
 | Wait | 1 |

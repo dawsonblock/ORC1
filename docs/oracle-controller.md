@@ -21,11 +21,13 @@ It now supports both developer and packaged-app flows:
 - manual action control for focus, click, type, press, and scroll through the runtime, plus observational wait-condition checks
 - recipe library with create, duplicate, edit, save, delete, and run
 - trace session browser with per-step verification, hashes, and artifact links
-- health panel for permissions, sidecar state, trace directory, and recipe directory
+- health panel for permissions, host bridge state, writable local storage, sidecar state, and controller data directories
+- mission control summary with readiness KPIs, alerts, approvals, recent traces, and optional copilot status
 - approvals and risky-action visibility
 - guided onboarding for permissions and first-run setup
 - diagnostics export and app-data reveal/reset actions
 - optional vision bootstrap install and repair from the UI
+- optional local copilot guidance when Claude CLI is installed and configured
 
 ## Runtime Model
 
@@ -38,6 +40,17 @@ It now supports both developer and packaged-app flows:
 - packaged builds write to `~/Library/Application Support/Oracle OS/`
 - legacy `~/.oracle-os` data is migrated when present
 
+## Local Readiness Model
+
+The controller now treats local operator readiness as four separate facts instead of one generic status:
+
+- permissions: Accessibility and Screen Recording are required for full control/monitoring
+- host bridge: the app must be able to launch and talk to `OracleControllerHost`
+- writable storage: Application Support, traces, recipes, approvals, project memory, experiments, and graph storage must be writable
+- optional integrations: Vision bootstrap and local copilot setup are useful extensions, but not blockers for core operator readiness unless you have explicitly configured them and they become unavailable
+
+Health, Mission Control, Control, and onboarding all surface these facts explicitly.
+
 ## Packaged App Layout
 
 The packaged product is:
@@ -49,11 +62,14 @@ The packaged product is:
 
 Primary user-owned storage:
 
+- `~/Library/Application Support/Oracle OS/`
 - `~/Library/Application Support/Oracle OS/Traces/`
 - `~/Library/Application Support/Oracle OS/Recipes/`
 - `~/Library/Application Support/Oracle OS/Approvals/`
 - `~/Library/Application Support/Oracle OS/ProjectMemory/`
 - `~/Library/Application Support/Oracle OS/Experiments/`
+- `~/Library/Application Support/Oracle OS/Graph/`
+- `~/Library/Application Support/Oracle OS/Vision/`
 - `~/Library/Logs/Oracle OS/`
 
 ## First Launch
@@ -63,7 +79,7 @@ The first-launch wizard walks through:
 1. product overview
 2. Accessibility permission setup
 3. Screen Recording permission setup
-4. bundled host/runtime health
+4. runtime readiness: bundled host availability, host bridge state, writable Application Support storage, and app-bundle mode
 5. optional vision bootstrap setup
 6. sample recipes and quick-start actions
 7. ready-to-launch confirmation
@@ -81,8 +97,7 @@ Run the `Oracle Controller` or `Oracle Controller DMG` scheme from the workspace
 ### From SwiftPM
 
 ```bash
-swift build
-./.build/debug/OracleController
+swift run OracleController
 ```
 
 If the controller cannot locate the host binary automatically, set:
@@ -124,7 +139,7 @@ CI automation lives in:
 
 The controller source is organized into focused extension files; no single file exceeds ~350 lines:
 
-```
+```text
 Sources/OracleController/
   ControllerStore.swift              — @Observable class body: all state vars + init + start()
   ControllerStore+System.swift       — onboarding flow + system/data management
@@ -157,3 +172,5 @@ Sources/OracleControllerHost/
 - Monitoring is low-frequency snapshot refresh, not streaming video.
 - The app uses the existing recipe JSON schema and does not change MCP tool names.
 - Vision is optional and experimental in the packaged product.
+- Local copilot support is optional; the controller stays operator-ready without Claude CLI or Claude MCP setup.
+- A configured optional integration should warn when unavailable; an unconfigured optional integration should read as optional, not broken.
