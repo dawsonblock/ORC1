@@ -11,7 +11,7 @@ These modules form the execution and reasoning spine. They may be strengthened
 but not bypassed, duplicated, or replaced without updating this document:
 
 | Module | Role |
-|--------|------|
+| -------- | ------ |
 | `VerifiedExecutor` | Only path for environment-changing actions (`execute(_:)` trust boundary) |
 | `CommitCoordinator` | Only path for committed state writes (returns `CommitReceipt`) |
 | `RuntimeBootstrap` | Canonical kernel factory (`makeBootstrappedRuntime()` wires all dependencies) |
@@ -67,7 +67,7 @@ consumed by `MainPlanner`, never called directly from the runtime.
 Runtime memory is organized into exactly three categories:
 
 | Category | Purpose |
-|----------|---------|
+| ---------- | --------- |
 | **Trace** | What happened (execution evidence) |
 | **Workflow** | Reusable successful patterns |
 | **Knowledge Graph** | Structured facts and symbol relations |
@@ -116,7 +116,7 @@ The planner reads **only** from committed world state
 (`WorldStateModel.snapshot`). Three state layers exist:
 
 | Layer | Description |
-|-------|-------------|
+| ------- | ------------- |
 | **Observed** | Raw perception data from `ObservationBuilder` |
 | **Predicted** | Simulated by `PlanSimulator` before commitment |
 | **Committed** | `WorldStateModel.snapshot` — the only layer planners read |
@@ -179,7 +179,7 @@ These are the live modules that own each functional domain. The five named coord
 StateCoordinator) do not exist in source and are not part of the live contract.
 
 | Module | Owns | Does NOT own |
-|--------|------|--------------|
+| -------- | ------ | -------------- |
 | `RuntimeOrchestrator` | Intent intake, planner dispatch, lifecycle | Execution, state writes |
 | `VerifiedExecutor` | All side-effecting execution | Planning, state building |
 | `CommitCoordinator` | Committed state writes (returns `CommitReceipt`) | Planning, execution |

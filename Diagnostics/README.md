@@ -10,7 +10,7 @@ This directory holds build and test log snapshots collected during development.
 
 Both files contain only:
 
-```
+```text
 bash: line 1: swift: command not found
 ```
 

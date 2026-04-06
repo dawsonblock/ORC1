@@ -1,10 +1,10 @@
+# Single-Hard-Path Runtime: Phase 1 Completion Status
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
 
 ---
-
-# Single-Hard-Path Runtime: Phase 1 Completion Status
 
 ## ✅ Phase 1 Completed (90% - Build System Boundary Closed)
 
@@ -33,7 +33,7 @@
    - Both routers call `workspaceRunner.runBuild()`, `runTest()`, `runGit()`, `applyFile()`
    - No more shell execution string building
 
-5. **Extended WorkspaceRunner** 
+5. **Extended WorkspaceRunner**
    - Added `runBuild(_ spec: BuildSpec) async throws -> ProcessResult`
    - Added `runTest(_ spec: TestSpec) async throws -> ProcessResult`
    - Added `runGit(_ spec: GitSpec) async throws -> ProcessResult`
@@ -45,6 +45,7 @@
 **No `.shell()` anywhere in the command payload.**
 
 All build, test, git, and file operations are now:
+
 1. **Typed** - Spec objects define valid operations
 2. **Validated** - Policy checks payload type, not strings
 3. **Routed** - CommandRouter → Router → WorkspaceRunner methods
@@ -57,6 +58,7 @@ All build, test, git, and file operations are now:
 ### Issue: CLI Tools Still Direct Process()
 
 Files that need fixing:
+
 - `Sources/oracle/SetupWizard.swift` - Has direct `Process()` calls
 - `Sources/oracle/Doctor.swift` - Has direct `Process()` calls
 - `Sources/OracleController/HostProcessClient.swift` - Has direct `Process()` calls
@@ -86,7 +88,8 @@ let outcome = try await executor.execute(command)
 **Minimal fix:** Route CLI process calls through VerifiedExecutor → CommandRouter.
 
 **Impact:** After this fix, ALL process execution flows through one path:
-```
+
+```text
 RuntimeOrchestrator.submitIntent()
   ↓
 VerifiedExecutor.execute(command)
@@ -107,31 +110,37 @@ Process() (ONLY place)
 ## 📋 Phases 2-7 Overview
 
 ### Phase 2: Collapse Planner (Single Entry Point)
+
 - **Status:** Not started
 - **Scope:** Remove PlannerFacade, make MainPlanner internal, ensure RuntimeOrchestrator is only caller
 - **Impact:** One planner.plan() surface, no multi-headed reasoning
 
 ### Phase 3: Remove Hidden State Construction
+
 - **Status:** Not started
 - **Scope:** Audit for `ServiceName()` defaults, all state from RuntimeBootstrap
 - **Impact:** No stateful service injection leaks
 
 ### Phase 4: Route File Mutations Through Executor
+
 - **Status:** Partial (FileMutationSpec in place, but some direct writes remain)
 - **Scope:** All file write calls → `.file(FileMutationSpec)` commands
 - **Impact:** All file ops in event log, auditable mutations
 
 ### Phase 5: Compile-Time Guards + Assertions
+
 - **Status:** Not started
 - **Scope:** Shadow Process in critical modules, add runtime preconditions
 - **Impact:** Impossible to bypass executor (compiler catches it)
 
 ### Phase 6: Strengthen Commit Durability
+
 - **Status:** Not started
 - **Scope:** Add fsync/flush, determinism test
 - **Impact:** Crash safety, provably identical replays
 
 ### Phase 7: Remove Transitional Artifacts
+
 - **Status:** Not started
 - **Scope:** Delete unused planner variants, legacy memory paths
 - **Impact:** No alternate code paths exist
@@ -155,15 +164,18 @@ After all 7 phases:
 ## 🔧 What Needs Immediate Attention
 
 ### High Priority
+
 1. **Fix CLI tools (Phase 1 remainder)** - Route ProcessID creation through RuntimeOrchestrator
 2. **Phase 2: Collapse planner** - Remove multi-headed reasoning surface
 3. **Add Phase 1 tests** - Verify no `.shell`, no direct Process()
 
 ### Medium Priority
+
 1. Phase 3-4: State construction and file mutations
 2. Phase 5: Compile-time guards
 
 ### Integration
+
 - After Phase 1 + 2 are solid, phases 3-7 can proceed in parallel
 
 ---

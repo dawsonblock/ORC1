@@ -66,8 +66,8 @@ jobs:
 
       - name: Import Developer ID certificate
         env:
-          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets['APPLE_CERTIFICATE_P12_BASE64'] }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets['APPLE_CERTIFICATE_PASSWORD'] }}
         run: |
           if [[ -z "${APPLE_CERTIFICATE_P12_BASE64}" || -z "${APPLE_CERTIFICATE_PASSWORD}" ]]; then
             echo "Developer ID certificate secrets are required for tagged releases." >&2
@@ -85,7 +85,7 @@ jobs:
 
       - name: Prepare notary API key
         env:
-          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets['APPLE_NOTARY_KEY_P8_BASE64'] }}
         run: |
           if [[ -z "${APPLE_NOTARY_KEY_P8_BASE64}" ]]; then
             echo "Notary API key secret is required for tagged releases." >&2
@@ -95,28 +95,28 @@ jobs:
 
       - name: Build signed app bundle
         env:
-          APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+          APPLE_DEVELOPER_IDENTITY: ${{ secrets['APPLE_DEVELOPER_IDENTITY'] }}
           ORACLE_BUILD_NUMBER: ${{ github.run_number }}
         run: ./scripts/build-controller-app.sh --configuration release --build-number "$ORACLE_BUILD_NUMBER"
 
       - name: Build signed DMG
         env:
-          APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+          APPLE_DEVELOPER_IDENTITY: ${{ secrets['APPLE_DEVELOPER_IDENTITY'] }}
           ORACLE_BUILD_NUMBER: ${{ github.run_number }}
         run: ./scripts/create-controller-dmg.sh --configuration release --build-number "$ORACLE_BUILD_NUMBER"
 
       - name: Notarize app bundle
         env:
           APPLE_NOTARY_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets['APPLE_NOTARY_KEY_ID'] }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets['APPLE_NOTARY_ISSUER_ID'] }}
         run: ./scripts/notarize-controller-release.sh "dist/Oracle Controller.app"
 
       - name: Notarize DMG
         env:
           APPLE_NOTARY_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets['APPLE_NOTARY_KEY_ID'] }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets['APPLE_NOTARY_ISSUER_ID'] }}
         run: ./scripts/notarize-controller-release.sh dist/Oracle-Controller-*.dmg
 
       - name: Upload release artifacts

@@ -44,7 +44,7 @@ typed `Intent` values and forwards them to `IntentAPI.submitIntent(_:)`.
 `DomainEvent` defines the typed event contract:
 
 | Event | Payload | Reducer |
-|-------|---------|--------|
+| ------- | --------- | -------- |
 | `intentReceived` | intentID | RuntimeStateReducer |
 | `planGenerated` | commandKind | RuntimeStateReducer |
 | `commandExecuted` | status, notes | RuntimeStateReducer |
@@ -59,7 +59,7 @@ Legacy event types (`CommandSucceeded`, `CommandFailed`) are mapped automaticall
 ## Key modules
 
 | Module | File | Responsibility |
-|--------|------|---------------|
+| -------- | ------ | --------------- |
 | API | `Sources/OracleOS/API/IntentAPI.swift` | Runtime intake boundary |
 | Bootstrap | `Sources/OracleOS/Runtime/RuntimeBootstrap.swift` | Canonical kernel factory with async recovery |
 | MCP lifecycle | `Sources/OracleOS/MCP/MCPRuntimeHost.swift` | Explicit reusable runtime owner for the MCP host process |

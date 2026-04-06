@@ -14,14 +14,14 @@ from __future__ import annotations
 DEFAULT_PORT: int = 9876
 BASE_URL: str = f"http://127.0.0.1:{DEFAULT_PORT}"
 
-# ── Endpoint paths ────────────────────────────────────────────────────────────
+# ── Endpoint paths ─────────────────────────────────────────────────────────
 
 ENDPOINT_HEALTH: str = "/health"
 ENDPOINT_GROUND: str = "/ground"
 ENDPOINT_DETECT: str = "/detect"
 ENDPOINT_PARSE: str = "/parse"
 
-# ── GET /health ───────────────────────────────────────────────────────────────
+# ── GET /health ────────────────────────────────────────────────────────────
 
 HEALTH_RESPONSE_SCHEMA: dict = {
     "status": str,          # "ready" | "idle"
@@ -34,7 +34,7 @@ HEALTH_RESPONSE_SCHEMA: dict = {
     "pid": int,
 }
 
-# ── POST /ground ──────────────────────────────────────────────────────────────
+# ── POST /ground ───────────────────────────────────────────────────────────
 
 GROUND_REQUEST_SCHEMA: dict = {
     # Required
@@ -43,7 +43,8 @@ GROUND_REQUEST_SCHEMA: dict = {
     # Optional (with defaults)
     "screen_w": float,      # logical screen width; default 1728
     "screen_h": float,      # logical screen height; default 1117
-    "crop_box": list,       # [x1, y1, x2, y2] in logical points; omit for full-screen
+    # [x1, y1, x2, y2] in logical points; omit for full-screen
+    "crop_box": list,
 }
 
 GROUND_REQUIRED_FIELDS: tuple[str, ...] = ("image", "description")
@@ -60,7 +61,7 @@ GROUND_RESPONSE_SCHEMA: dict = {
     "error": (str, type(None)),
 }
 
-# ── POST /detect ──────────────────────────────────────────────────────────────
+# ── POST /detect ───────────────────────────────────────────────────────────
 
 DETECT_REQUEST_SCHEMA: dict = {
     # Required
@@ -90,7 +91,7 @@ DETECT_RESPONSE_SCHEMA: dict = {
     "error": (str, type(None)),
 }
 
-# ── POST /parse ───────────────────────────────────────────────────────────────
+# ── POST /parse ────────────────────────────────────────────────────────────
 
 PARSE_REQUEST_SCHEMA: dict = {
     # Required
@@ -111,7 +112,7 @@ PARSE_RESPONSE_SCHEMA: dict = {
     "error": (str, type(None)),
 }
 
-# ── Registry ──────────────────────────────────────────────────────────────────
+# ── Registry ───────────────────────────────────────────────────────────────
 
 ALL_ENDPOINTS: list[dict] = [
     {
@@ -124,7 +125,9 @@ ALL_ENDPOINTS: list[dict] = [
     {
         "path": ENDPOINT_GROUND,
         "method": "POST",
-        "description": "Find precise screen coordinates for a described UI element.",
+        "description": (
+            "Find precise screen coordinates for a described UI element."
+        ),
         "request_schema": GROUND_REQUEST_SCHEMA,
         "required_fields": GROUND_REQUIRED_FIELDS,
         "response_schema": GROUND_RESPONSE_SCHEMA,
@@ -140,7 +143,9 @@ ALL_ENDPOINTS: list[dict] = [
     {
         "path": ENDPOINT_PARSE,
         "method": "POST",
-        "description": "Parse screen into a structured element map (YOLO + VLM).",
+        "description": (
+            "Parse screen into a structured element map (YOLO + VLM)."
+        ),
         "request_schema": PARSE_REQUEST_SCHEMA,
         "required_fields": PARSE_REQUIRED_FIELDS,
         "response_schema": PARSE_RESPONSE_SCHEMA,

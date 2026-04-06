@@ -1,19 +1,19 @@
+# Single-Hard-Path Runtime: Handoff
+
 > **[ARCHIVED]** This is a historical milestone record. The current authoritative product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md), and the current repo state is summarized in [../../STATUS.md](../../STATUS.md).
 
 ---
 
-# Single-Hard-Path Runtime: Handoff
-
 ## What Was Accomplished
 
-**Phase 1: 90% Complete — Execution Boundary Closed**
+### Phase 1: 90% Complete — Execution Boundary Closed
 
 The shell model has been **completely eliminated** from the runtime's domain model. All build, test, git, and file operations are now typed, deterministic, and routed through a single execution path.
 
 ### Files Changed
 
 | File | Change | Impact |
-|------|--------|--------|
+| ------ | -------- | -------- |
 | `Core/Command/Command.swift` | Removed `.shell`, added 4 typed payloads | ✅ No shell enum exists |
 | `Core/Command/BuildSpec.swift` | NEW | Typed build operations |
 | `Core/Command/TestSpec.swift` | NEW | Typed test operations |
@@ -47,6 +47,7 @@ The shell model has been **completely eliminated** from the runtime's domain mod
 > **[CORRECTION — 2026-04-03]** The items below are **intentionally NOT being routed through RuntimeOrchestrator**. `Doctor.swift` and `SetupWizard.swift` are standalone CLI diagnostic/setup utilities that run outside the bootstrapped runtime by design. `HostProcessClient.swift` and `CopilotSupport.swift` are OracleController host-bridge files that have their own appropriate patterns. Routing CLI tools through the full runtime would be incorrect over-engineering. This section is stale. See STATUS.md for current state.
 
 Four files still make direct `Process()` calls:
+
 1. `Sources/oracle/SetupWizard.swift`
 2. `Sources/oracle/Doctor.swift`
 3. `Sources/OracleController/HostProcessClient.swift`
@@ -55,6 +56,7 @@ Four files still make direct `Process()` calls:
 **Fix:** Route these through `RuntimeOrchestrator.submitIntent()` instead of direct `Process()`.
 
 Example:
+
 ```swift
 // Instead of:
 let process = Process()
@@ -75,7 +77,7 @@ let outcome = try await executor.execute(command)
 
 ## Unified Execution Path (Achieved)
 
-```
+```text
 Intent
   ↓
 RuntimeOrchestrator.submitIntent()
@@ -111,7 +113,7 @@ After Phase 1 is finalized, Phase 2 collapses the planner surface:
 ### What Needs Fixing
 
 | Item | Status | Action |
-|------|--------|--------|
+| ------ | -------- | -------- |
 | `PlannerFacade.swift` | Exists | DELETE - duplicate abstraction |
 | `MainPlanner.swift` | Public class with multiple entry points | Convert to internal `PlannerEngine` with single `buildPlan()` method |
 | Planner calls | Scattered (PlannerFacade, MainPlanner, direct) | Ensure only `RuntimeOrchestrator` calls planner |
@@ -134,25 +136,30 @@ No other component calls planner directly.
 ## Beyond Phase 2
 
 ### Phase 3: Remove Hidden State Construction
+
 - Audit all stateful objects
 - Rule: No `ServiceName()` defaults
 - All state from `RuntimeBootstrap` → `RuntimeContainer`
 
 ### Phase 4: Route File Mutations Through Executor
+
 - All file write/delete calls → `.file(FileMutationSpec)` commands
 - Every mutation emits `FileModified` event
 - Audit and trace every `write()`, `delete()` call
 
 ### Phase 5: Compile-Time Guards
+
 - Shadow `Process` in critical modules
 - Add `precondition()` in VerifiedExecutor
 - Add governance tests for boundary enforcement
 
 ### Phase 6: Strengthen Commit Durability
+
 - Add fsync/flush in EventStore.append()
 - Add determinism test (same input → identical sequence)
 
 ### Phase 7: Remove Transitional Artifacts
+
 - Delete unused planner variants
 - Remove "experimental" memory paths
 - No alternate code paths exist
@@ -202,7 +209,7 @@ After Phase 1 completion:
 ## Files for Reference
 
 | Document | Purpose |
-|----------|---------|
+| ---------- | --------- |
 | `REBUILD_PLAN.md` | Full 7-phase strategy |
 | `PHASE_1_STATUS.md` | Phase 1 detailed status (90% done) |
 | `PHASE_1_DONE.md` | Phase 1 final summary |

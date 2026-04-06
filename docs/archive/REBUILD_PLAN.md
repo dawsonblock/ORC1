@@ -1,26 +1,30 @@
-> **[ARCHIVED]** Historical rebuild plan. Rebuild is complete. Current state: see [../../STATUS.md](../../STATUS.md) and [../../AUDIT.md](../../AUDIT.md).
-
 # Single-Hard-Path Runtime: Rebuild Plan
+
+> **[ARCHIVED]** Historical rebuild plan. Rebuild is complete. Current state: see [../../STATUS.md](../../STATUS.md) and [../../AUDIT.md](../../AUDIT.md).
 
 ## Completed (Phase 1 & 2 - 100% Done)
 
 ✅ Created 4 new Spec types:
-  - BuildSpec.swift
-  - TestSpec.swift  
-  - GitSpec.swift
-  - FileMutationSpec.swift
+
+- BuildSpec.swift
+- TestSpec.swift
+- GitSpec.swift
+- FileMutationSpec.swift
 
 ✅ Updated CommandPayload enum:
-  - Removed `.shell(CommandSpec)`
-  - Added `.build(BuildSpec)`, `.test(TestSpec)`, `.git(GitSpec)`, `.file(FileMutationSpec)`
+
+- Removed `.shell(CommandSpec)`
+- Added `.build(BuildSpec)`, `.test(TestSpec)`, `.git(GitSpec)`, `.file(FileMutationSpec)`
 
 ✅ Updated Command.kind property:
-  - Removed shell-specific routing
+
+- Removed shell-specific routing
 
 ✅ Updated PolicyEngine:
-  - Removed `/usr/bin/env` hardcoded allowlist
-  - Removed shell-specific policy logic
-  - Added typed command routing in `actionIntent(from:)`
+
+- Removed `/usr/bin/env` hardcoded allowlist
+- Removed shell-specific policy logic
+- Added typed command routing in `actionIntent(from:)`
 
 ---
 
@@ -29,11 +33,13 @@
 ### 1. Update Routers to Handle Typed Commands
 
 **Files to modify:**
+
 - CodeRouter.swift
 - SystemRouter.swift
 - CommandRouter.swift
 
 **Strategy:**
+
 - Remove `case .shell(let spec)` from all routers
 - Add handlers for `.build(BuildSpec)`, `.test(TestSpec)`, `.git(GitSpec)`, `.file(FileMutationSpec)`
 - Each handler calls WorkspaceRunner typed methods (see below)
@@ -67,11 +73,13 @@ case .file(let spec):
 **File:** WorkspaceRunner.swift
 
 **Current:**
+
 ```swift
 func execute(spec: CommandSpec) async throws -> CommandResult
 ```
 
 **Target:**
+
 ```swift
 func runBuild(_ spec: BuildSpec) async throws -> ProcessResult
 func runTest(_ spec: TestSpec) async throws -> ProcessResult
@@ -134,13 +142,15 @@ private func testArgs(_ spec: TestSpec) -> [String] { [...] }
 ### 3. Eliminate Direct Process() Usage
 
 **Files to fix:**
+
 - Sources/oracle/SetupWizard.swift
 - Sources/oracle/Doctor.swift
 - Sources/OracleController/HostProcessClient.swift
 - Sources/OracleControllerHost/CopilotSupport.swift
 
 **Rule:** All Process() instantiation must go through:
-```
+
+```text
 VerifiedExecutor → CommandRouter → Router → WorkspaceRunner → DefaultProcessAdapter
 ```
 
@@ -164,29 +174,35 @@ let outcome = try await executor.execute(command)
 
 ## Phases 2-7 Overview (Remaining Work)
 
-**Phase 2: Collapse Planner (Single Entry Point)**
+### Phase 2: Collapse Planner (Single Entry Point)
+
 - Remove PlannerFacade.swift (duplicate abstraction)
 - Convert MainPlanner → internal PlannerEngine
 - Ensure only RuntimeOrchestrator calls planner.plan()
 
-**Phase 3: Remove Hidden State Construction**
+### Phase 3: Remove Hidden State Construction
+
 - Audit all stateful objects: no `ServiceName()` defaults
 - All state must come from RuntimeBootstrap → RuntimeContainer
 
-**Phase 4: Route File Mutations Through Executor**
+### Phase 4: Route File Mutations Through Executor
+
 - All `write()`, `delete()` calls → .file(FileMutationSpec) commands
 - Emit FileModified events for reducers
 
-**Phase 5: Compile-Time Guards + Runtime Assertions**
+### Phase 5: Compile-Time Guards + Runtime Assertions
+
 - Shadow Process in critical modules
 - Add preconditions in VerifiedExecutor
 - Add test assertions for execution boundary
 
-**Phase 6: Strengthen Commit Durability**
+### Phase 6: Strengthen Commit Durability
+
 - Add fsync/flush in EventStore.append()
 - Add determinism test (same input → identical sequence)
 
-**Phase 7: Remove Transitional Artifacts**
+### Phase 7: Remove Transitional Artifacts
+
 - Delete legacy planner variants
 - Remove "experimental" memory paths
 - No alternate code paths exist
@@ -218,20 +234,24 @@ func testTypedCommandsOnly() {
 
 ## Merge Strategy
 
-**Milestone 1 (Phase 1):** Close execution boundary
+### Milestone 1 (Phase 1): Close execution boundary
+
 - No .shell anywhere
 - All typed commands
 - All Process() routed
 
-**Milestone 2 (Phase 2):** Single planner entry
+### Milestone 2 (Phase 2): Single planner entry
+
 - One Planner.plan() surface
 - RuntimeOrchestrator only caller
 
-**Milestone 3 (Phase 3-4):** No hidden state, file mutations typed
+### Milestone 3 (Phase 3-4): No hidden state, file mutations typed
+
 - No default service construction
 - All file ops go through executor
 
-**Milestone 4 (Phase 5-7):** Enforcement + cleanup
+### Milestone 4 (Phase 5-7): Enforcement + cleanup
+
 - Compile-time guards
 - Remove alternate paths
 - Tests prove boundary enforcement
@@ -241,6 +261,7 @@ func testTypedCommandsOnly() {
 ## Why This Matters
 
 After Phase 1-2, you have:
+
 - **Deterministic:** Typed commands only, no string escapes
 - **Enforced:** No execution path exists outside VerifiedExecutor
 - **Auditable:** All side effects in event log

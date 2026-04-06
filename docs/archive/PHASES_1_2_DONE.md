@@ -1,3 +1,5 @@
+# Single-Hard-Path Runtime: Phases 1-2 Complete
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
@@ -18,30 +20,35 @@ PHASE 1: EXECUTION BOUNDARY — 100% DONE
 CHANGES:
 
 ✅ CommandPayload Restructured (no .shell)
-   - Removed: case .shell(CommandSpec)
-   - Added: .build(BuildSpec), .test(TestSpec), .git(GitSpec), .file(FileMutationSpec)
-   - Result: No generic shell execution possible
+
+- Removed: case .shell(CommandSpec)
+- Added: .build(BuildSpec), .test(TestSpec), .git(GitSpec), .file(FileMutationSpec)
+- Result: No generic shell execution possible
 
 ✅ 4 New Typed Spec Types Created
-   - BuildSpec.swift
-   - TestSpec.swift
-   - GitSpec.swift
-   - FileMutationSpec.swift
+
+- BuildSpec.swift
+- TestSpec.swift
+- GitSpec.swift
+- FileMutationSpec.swift
 
 ✅ PolicyEngine Rewritten
-   - Removed: Hardcoded /usr/bin/env and /usr/bin/git allowlist
-   - Added: Type-based validation (no executable path checking)
+
+- Removed: Hardcoded /usr/bin/env and /usr/bin/git allowlist
+- Added: Type-based validation (no executable path checking)
 
 ✅ Routers Updated
-   - CodeRouter.swift: handles .build(), .test(), .git(), .file()
-   - SystemRouter.swift: handles .build(), .test(), .git(), .file()
-   - Both call WorkspaceRunner typed methods
+
+- CodeRouter.swift: handles .build(), .test(), .git(), .file()
+- SystemRouter.swift: handles .build(), .test(), .git(), .file()
+- Both call WorkspaceRunner typed methods
 
 ✅ WorkspaceRunner Extended
-   - runBuild(_ spec: BuildSpec) async throws -> ProcessResult
-   - runTest(_ spec: TestSpec) async throws -> ProcessResult
-   - runGit(_ spec: GitSpec) async throws -> ProcessResult
-   - applyFile(_ spec: FileMutationSpec) async throws
+
+- runBuild(_ spec: BuildSpec) async throws -> ProcessResult
+- runTest(_ spec: TestSpec) async throws -> ProcessResult
+- runGit(_ spec: GitSpec) async throws -> ProcessResult
+- applyFile(_ spec: FileMutationSpec) async throws
 
 VERIFICATION:
 
@@ -61,19 +68,22 @@ PHASE 2: SINGLE PLANNER ENTRY — 100% DONE
 CHANGES:
 
 ✅ PlannerFacade Deleted
-   - Removed: PlannerFacade.swift (duplicate protocol)
-   - Status: Was unused, safely deleted
+
+- Removed: PlannerFacade.swift (duplicate protocol)
+- Status: Was unused, safely deleted
 
 ✅ MainPlanner Updated
-   - Fixed planCodeIntent() to emit typed specs, not .shell()
-   - Build intent → Command with .build(BuildSpec)
-   - Test intent → Command with .test(TestSpec)
-   - Result: Planner emits only typed commands
+
+- Fixed planCodeIntent() to emit typed specs, not .shell()
+- Build intent → Command with .build(BuildSpec)
+- Test intent → Command with .test(TestSpec)
+- Result: Planner emits only typed commands
 
 ✅ Verified Single Entry Point
-   - grep -r "planner.plan(" Sources/OracleOS
-   - → Only RuntimeOrchestrator calls planner.plan()
-   - Result: One decision-making entry point
+
+- grep -r "planner.plan(" Sources/OracleOS
+- → Only RuntimeOrchestrator calls planner.plan()
+- Result: One decision-making entry point
 
 INVARIANT ENFORCED:
 
@@ -141,13 +151,15 @@ FILES CHANGED (Phases 1-2)
 ════════════════════════════════════════════════════════════════════════════════
 
 CREATED:
-  + Sources/OracleOS/Core/Command/BuildSpec.swift
-  + Sources/OracleOS/Core/Command/TestSpec.swift
-  + Sources/OracleOS/Core/Command/GitSpec.swift
-  + Sources/OracleOS/Core/Command/FileMutationSpec.swift
+
+- Sources/OracleOS/Core/Command/BuildSpec.swift
+- Sources/OracleOS/Core/Command/TestSpec.swift
+- Sources/OracleOS/Core/Command/GitSpec.swift
+- Sources/OracleOS/Core/Command/FileMutationSpec.swift
 
 DELETED:
-  - Sources/OracleOS/Planning/PlannerFacade.swift
+
+- Sources/OracleOS/Planning/PlannerFacade.swift
 
 MODIFIED:
   ~ Sources/OracleOS/Core/Command/Command.swift
@@ -162,31 +174,36 @@ NEXT: PHASES 3-7
 ════════════════════════════════════════════════════════════════════════════════
 
 Phase 3: Remove Hidden State Construction
-  - Audit all stateful objects: no ServiceName() defaults
-  - All state from RuntimeBootstrap → RuntimeContainer
-  - Impact: No injection leaks
+
+- Audit all stateful objects: no ServiceName() defaults
+- All state from RuntimeBootstrap → RuntimeContainer
+- Impact: No injection leaks
 
 Phase 4: Route File Mutations Through Executor
-  - All file write/delete calls → .file(FileMutationSpec)
-  - Every mutation emits FileModified event
-  - Impact: All file ops in event log
+
+- All file write/delete calls → .file(FileMutationSpec)
+- Every mutation emits FileModified event
+- Impact: All file ops in event log
 
 Phase 5: Compile-Time Guards + Runtime Assertions
-  - Shadow Process in critical modules
-  - Add precondition() in VerifiedExecutor
-  - Add governance tests for boundary
-  - Impact: Compiler catches execution bypass attempts
+
+- Shadow Process in critical modules
+- Add precondition() in VerifiedExecutor
+- Add governance tests for boundary
+- Impact: Compiler catches execution bypass attempts
 
 Phase 6: Strengthen Commit Durability
-  - Add fsync/flush in EventStore.append()
-  - Add determinism test (same input → identical sequence)
-  - Impact: Crash safety, provably identical replays
+
+- Add fsync/flush in EventStore.append()
+- Add determinism test (same input → identical sequence)
+- Impact: Crash safety, provably identical replays
 
 Phase 7: Remove Transitional Artifacts
-  - Delete unused planner variants
-  - Remove "experimental" memory paths
-  - No alternate code paths exist
-  - Impact: No legacy execution paths remain
+
+- Delete unused planner variants
+- Remove "experimental" memory paths
+- No alternate code paths exist
+- Impact: No legacy execution paths remain
 
 ════════════════════════════════════════════════════════════════════════════════
 CORE INVARIANTS ACHIEVED

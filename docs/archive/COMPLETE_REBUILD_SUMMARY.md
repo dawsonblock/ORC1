@@ -1,3 +1,5 @@
+# Single-Hard-Path Runtime: All Phases Complete (1-7)
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
@@ -10,8 +12,8 @@
 
 STATUS: ✅ 100% COMPLETE — Minimal Clean Rebuild
 
-The shell model is ELIMINATED. The planner is COLLAPSED. The execution 
-boundary is HARDENED. State construction is CENTRALIZED. Durability is 
+The shell model is ELIMINATED. The planner is COLLAPSED. The execution
+boundary is HARDENED. State construction is CENTRALIZED. Durability is
 ENFORCED. All transition artifacts are ISOLATED.
 
 This is a REAL KERNEL, not a sandbox.
@@ -21,91 +23,107 @@ PHASES 1-2: EXECUTION BOUNDARY + SINGLE PLANNER (100% DONE)
 ════════════════════════════════════════════════════════════════════════════════
 
 ✅ CommandPayload has NO .shell
-   - Only typed: .build(BuildSpec), .test(TestSpec), .git(GitSpec), .file(FileMutationSpec)
-   - Verification: grep -r "case \.shell" → 0 results
+
+- Only typed: .build(BuildSpec), .test(TestSpec), .git(GitSpec), .file(FileMutationSpec)
+- Verification: grep -r "case \.shell" → 0 results
 
 ✅ 4 New Typed Spec Types Created
-   - BuildSpec.swift
-   - TestSpec.swift
-   - GitSpec.swift
-   - FileMutationSpec.swift
+
+- BuildSpec.swift
+- TestSpec.swift
+- GitSpec.swift
+- FileMutationSpec.swift
 
 ✅ PolicyEngine Rewritten (Type-Based, Not String-Based)
-   - No hardcoded /usr/bin/env or /usr/bin/git
-   - Validates by CommandPayload type
+
+- No hardcoded /usr/bin/env or /usr/bin/git
+- Validates by CommandPayload type
 
 ✅ Routers Updated (CodeRouter, SystemRouter)
-   - Handle .build(), .test(), .git(), .file()
-   - Call WorkspaceRunner typed methods
+
+- Handle .build(), .test(), .git(), .file()
+- Call WorkspaceRunner typed methods
 
 ✅ WorkspaceRunner Extended
-   - runBuild(), runTest(), runGit(), applyFile()
+
+- runBuild(), runTest(), runGit(), applyFile()
 
 ✅ PlannerFacade Deleted (Duplicate Protocol)
 
 ✅ MainPlanner Updated
-   - Emits typed specs, not .shell()
-   - Only RuntimeOrchestrator calls planner.plan()
+
+- Emits typed specs, not .shell()
+- Only RuntimeOrchestrator calls planner.plan()
 
 ════════════════════════════════════════════════════════════════════════════════
 PHASES 3-4: STATE + FILE MUTATIONS (100% DONE)
 ════════════════════════════════════════════════════════════════════════════════
 
 ✅ RuntimeBootstrap Is Only State Constructor
-   - Creates RuntimeContainer with all injected services
-   - No default .init() anywhere
+
+- Creates RuntimeContainer with all injected services
+- No default .init() anywhere
 
 ✅ CommitCoordinator Is Only State Mutation Authority
-   - No direct state writes outside this actor
-   - All mutations through commit(events)
+
+- No direct state writes outside this actor
+- All mutations through commit(events)
 
 ✅ File Mutations Route Through Executor
-   - .file(FileMutationSpec) → WorkspaceRunner.applyFile()
-   - All file ops emit events
+
+- .file(FileMutationSpec) → WorkspaceRunner.applyFile()
+- All file ops emit events
 
 ════════════════════════════════════════════════════════════════════════════════
 PHASES 5-6: ENFORCEMENT + DURABILITY (100% DONE)
 ════════════════════════════════════════════════════════════════════════════════
 
 ✅ VerifiedExecutor Hardened With Runtime Assertions
-   - Guard: Verify command is typed
-   - Guard: Ensure events are present
-   - Documentation: "Bypassing is an architectural violation"
-   - Tests: ExecutionBoundaryEnforcementTests
+
+- Guard: Verify command is typed
+- Guard: Ensure events are present
+- Documentation: "Bypassing is an architectural violation"
+- Tests: ExecutionBoundaryEnforcementTests
 
 ✅ CommitWAL Enhanced With fsync
-   - writePending() uses atomic write + fsync
-   - Explicit durability guarantee
-   - Crash-safe WAL recovery
+
+- writePending() uses atomic write + fsync
+- Explicit durability guarantee
+- Crash-safe WAL recovery
 
 ✅ Determinism Tests Added
-   - Same input → identical event sequence
-   - CommitReceipt provides proof
-   - Recovery is idempotent
+
+- Same input → identical event sequence
+- CommitReceipt provides proof
+- Recovery is idempotent
 
 ════════════════════════════════════════════════════════════════════════════════
 PHASE 7: CLEANUP + ARTIFACT REMOVAL (100% DONE)
 ════════════════════════════════════════════════════════════════════════════════
 
 ✅ RuntimeExecutionDriver Verified
-   - Correctly translates ActionIntent → Intent
-   - Routes through IntentAPI spine
-   - Not an alternate path
+
+- Correctly translates ActionIntent → Intent
+- Routes through IntentAPI spine
+- Not an alternate path
 
 ✅ Legacy Planners Isolated
-   - MixedTaskPlanner not in active execution path
-   - PlannerDecision used only in legacy reasoning layer
-   - New spine uses only Planner.plan()
+
+- MixedTaskPlanner not in active execution path
+- PlannerDecision used only in legacy reasoning layer
+- New spine uses only Planner.plan()
 
 ✅ Single Boot Path Enforced
-   - RuntimeBootstrap.makeBootstrappedRuntime() is sole authority
-   - RuntimeContainer created only there
-   - All services injected via RuntimeContainer
+
+- RuntimeBootstrap.makeBootstrappedRuntime() is sole authority
+- RuntimeContainer created only there
+- All services injected via RuntimeContainer
 
 ✅ Tests Added For All Phases
-   - ExecutionBoundaryEnforcementTests (Phase 5)
-   - CommitDurabilityTests (Phase 6)
-   - TransitionalArtifactRemovalTests (Phase 7)
+
+- ExecutionBoundaryEnforcementTests (Phase 5)
+- CommitDurabilityTests (Phase 6)
+- TransitionalArtifactRemovalTests (Phase 7)
 
 ════════════════════════════════════════════════════════════════════════════════
 UNIFIED EXECUTION SPINE (GUARANTEED)
@@ -151,16 +169,18 @@ KEY CHANGES (All 7 Phases)
 ════════════════════════════════════════════════════════════════════════════════
 
 CREATED (9 files):
-  + BuildSpec.swift
-  + TestSpec.swift
-  + GitSpec.swift
-  + FileMutationSpec.swift
-  + ExecutionBoundaryEnforcementTests.swift
-  + CommitDurabilityTests.swift
-  + TransitionalArtifactRemovalTests.swift
+
+- BuildSpec.swift
+- TestSpec.swift
+- GitSpec.swift
+- FileMutationSpec.swift
+- ExecutionBoundaryEnforcementTests.swift
+- CommitDurabilityTests.swift
+- TransitionalArtifactRemovalTests.swift
 
 DELETED (1 file):
-  - PlannerFacade.swift
+
+- PlannerFacade.swift
 
 MODIFIED (7 files):
   ~ Command.swift (removed .shell)
@@ -250,29 +270,32 @@ GOVERNANCE TESTS ADDED
 ════════════════════════════════════════════════════════════════════════════════
 
 Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift
-  - testNoShellPayloadInCommandEnum()
-  - testExecutorIsOnlyExecutionPath()
-  - testCommandMustBeTyped()
-  - testOnlyRuntimeOrchestratorCallsPlanner()
-  - testCommitCoordinatorIsOnlyStateMutator()
-  - testPolicyIsPayloadTypeBasedNotExecutablePath()
+
+- testNoShellPayloadInCommandEnum()
+- testExecutorIsOnlyExecutionPath()
+- testCommandMustBeTyped()
+- testOnlyRuntimeOrchestratorCallsPlanner()
+- testCommitCoordinatorIsOnlyStateMutator()
+- testPolicyIsPayloadTypeBasedNotExecutablePath()
 
 Tests/OracleOSTests/Governance/CommitDurabilityTests.swift
-  - testDeterministicEventOrdering()
-  - testWALEnforcesFsyncOnWrite()
-  - testCommitReceiptProvesDurability()
-  - testEventEnvelopeIsImmutable()
-  - testCommitCoordinatorRecoveryIsIdempotent()
-  - testCommitCoordinatorIsOnlyStateMutator()
+
+- testDeterministicEventOrdering()
+- testWALEnforcesFsyncOnWrite()
+- testCommitReceiptProvesDurability()
+- testEventEnvelopeIsImmutable()
+- testCommitCoordinatorRecoveryIsIdempotent()
+- testCommitCoordinatorIsOnlyStateMutator()
 
 Tests/OracleOSTests/Governance/TransitionalArtifactRemovalTests.swift
-  - testOnlyRuntimeOrchestratorIsExecutionEntry()
-  - testNoDirectExecutorCallsOutsideRuntimeOrchestrator()
-  - testLegacyPlannersNotInActiveExecutionPath()
-  - testUnifiedIntentSpineIsOnlyPath()
-  - testNoDirectStateWritesOutsideCommitCoordinator()
-  - testRuntimeBootstrapIsOnlyContainer()
-  - testNoAlternateRuntimeConfigurationPaths()
+
+- testOnlyRuntimeOrchestratorIsExecutionEntry()
+- testNoDirectExecutorCallsOutsideRuntimeOrchestrator()
+- testLegacyPlannersNotInActiveExecutionPath()
+- testUnifiedIntentSpineIsOnlyPath()
+- testNoDirectStateWritesOutsideCommitCoordinator()
+- testRuntimeBootstrapIsOnlyContainer()
+- testNoAlternateRuntimeConfigurationPaths()
 
 ════════════════════════════════════════════════════════════════════════════════
 AFTER THIS REBUILD
@@ -281,29 +304,34 @@ AFTER THIS REBUILD
 The Oracle OS runtime is:
 
 ✅ DETERMINISTIC
-   - Typed commands, not stringified
-   - Typed specs, not escape hatches
-   - Idempotent reducers, idempotent recovery
+
+- Typed commands, not stringified
+- Typed specs, not escape hatches
+- Idempotent reducers, idempotent recovery
 
 ✅ AUDITABLE
-   - All side effects in event log
-   - Immutable event envelopes
-   - CommitReceipt proof
+
+- All side effects in event log
+- Immutable event envelopes
+- CommitReceipt proof
 
 ✅ DEFENSIBLE
-   - Type system enforces boundaries
-   - Runtime assertions guard invariants
-   - Governance tests verify rules
+
+- Type system enforces boundaries
+- Runtime assertions guard invariants
+- Governance tests verify rules
 
 ✅ ENFORCED
-   - No bypass exists in code
-   - No alternate path exists
-   - Compiler catches violations
+
+- No bypass exists in code
+- No alternate path exists
+- Compiler catches violations
 
 ✅ MINIMAL
-   - Single spine: Intent → Planner → Execute → Commit
-   - No optional layers
-   - No alternate code paths
+
+- Single spine: Intent → Planner → Execute → Commit
+- No optional layers
+- No alternate code paths
 
 This is the minimal clean rebuild your system needed.
 

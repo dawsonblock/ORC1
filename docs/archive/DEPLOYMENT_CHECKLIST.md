@@ -1,3 +1,5 @@
+# Deployment Checklist: Single-Hard-Path Kernel
+
 > **[ARCHIVED]** Historical deployment checklist for the single-hard-path rebuild. The live release runbook is [../RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md). Do not use this file as the current release procedure.
 
 ════════════════════════════════════════════════════════════════════════════════
@@ -51,7 +53,7 @@ DEPLOYMENT STEPS
 2. Stage Changes
    git add Sources/OracleOS/
    git add Tests/OracleOSTests/Governance/
-   git add *.md *.txt
+   `git add *.md *.txt`
    git status  # Review what's staged
 
 3. Commit (See COMMIT_MESSAGE.txt for full message)
@@ -125,9 +127,9 @@ ROLLBACK PLAN (If Issues)
 If critical issues discovered:
 
 1. Revert Commit
-   git revert <commit-hash>  # Creates new commit that undoes changes
+   `git revert [commit-hash]`  # Creates new commit that undoes changes
    OR
-   git reset --hard <parent-commit-hash>  # Hard reset to before deployment
+   `git reset --hard [parent-commit-hash]`  # Hard reset to before deployment
 
 2. Push Revert
    git push origin main
@@ -177,8 +179,8 @@ After Deployment:
 
 3. Document Code Changes
    - Mark any new execution paths with:
-     // ⚠️ INVARIANT: This path must route through VerifiedExecutor
-   
+     `// ⚠️ INVARIANT: This path must route through VerifiedExecutor`
+
 4. Future Phases (Optional)
    - Phase 5-7 governance can be enhanced
    - Add compile-time guards (shadow Process in critical modules)

@@ -1,14 +1,16 @@
+# Phase 3 Completed: Remove Hidden State Construction
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
 
 ---
 
-# Phase 3 Completed: Remove Hidden State Construction
+## Summary
 
 ## What was Accomplished
 
-1. **Dependency Injection Centralized**: 
+1. **Dependency Injection Centralized**:
    - Modified `RuntimeContainer.swift`, `RuntimeBootstrap.swift`, and `RuntimeContext.swift`.
    - Now, all peripheral services and external adapters are instantiated exactly once in the bootstrapper and passed down cleanly.
    - Removed all hidden default arguments (e.g. `let service = Service()`).

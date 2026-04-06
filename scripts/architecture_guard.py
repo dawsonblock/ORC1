@@ -27,7 +27,8 @@ RULES = {
             ("DOMIndexer", "AgentLoop must not absorb DOM indexing internals"),
             (
                 "BrowserTargetResolver",
-                "AgentLoop must not absorb browser target resolution internals",
+                "AgentLoop must not absorb browser target resolution "
+                "internals",
             ),
             (
                 "MemoryPromotionPolicy",
@@ -93,7 +94,10 @@ RULES = {
                 "commitCoordinator.commit(",
                 "MainPlanner must not commit events directly",
             ),
-            ("eventStore.append(", "MainPlanner must not append events directly"),
+            (
+                "eventStore.append(",
+                "MainPlanner must not append events directly",
+            ),
             ("Actions.", "MainPlanner must not execute UI actions directly"),
         ],
         "required": [
@@ -104,7 +108,8 @@ RULES = {
         "forbidden": [
             (
                 "RuntimeContext(",
-                "RuntimeBootstrap must not reintroduce RuntimeContext as a live runtime dependency",
+                "RuntimeBootstrap must not reintroduce RuntimeContext as a "
+                "live runtime dependency",
             ),
             (
                 "WaitManager.waitFor(",
@@ -120,22 +125,26 @@ RULES = {
             (
                 "CommitCoordinator(",
                 1,
-                "RuntimeBootstrap must assemble exactly one CommitCoordinator for supported-path mutation authority",
+                "RuntimeBootstrap must assemble exactly one "
+                "CommitCoordinator for supported-path mutation authority",
             ),
             (
                 "CommandRouter(",
                 1,
-                "RuntimeBootstrap must assemble exactly one CommandRouter for the supported spine",
+                "RuntimeBootstrap must assemble exactly one CommandRouter "
+                "for the supported spine",
             ),
             (
                 "MainPlanner(",
                 1,
-                "RuntimeBootstrap must assemble exactly one MainPlanner for the supported spine",
+                "RuntimeBootstrap must assemble exactly one MainPlanner "
+                "for the supported spine",
             ),
             (
                 "RuntimeOrchestrator(container: container)",
                 1,
-                "RuntimeBootstrap must assemble exactly one RuntimeOrchestrator from the canonical container",
+                "RuntimeBootstrap must assemble exactly one "
+                "RuntimeOrchestrator from the canonical container",
             ),
             (
                 "RuntimeContainer(",
@@ -154,15 +163,18 @@ RULES = {
         "required": [
             (
                 "container.planner.plan(",
-                "RuntimeOrchestrator must keep planning inside the supported spine",
+                "RuntimeOrchestrator must keep planning inside the "
+                "supported spine",
             ),
             (
                 "container.executor.execute(",
-                "RuntimeOrchestrator must keep verified execution inside the supported spine",
+                "RuntimeOrchestrator must keep verified execution inside "
+                "the supported spine",
             ),
             (
                 "container.commitCoordinator.commit(",
-                "RuntimeOrchestrator must keep durable mutation centralized in CommitCoordinator",
+                "RuntimeOrchestrator must keep durable mutation "
+                "centralized in CommitCoordinator",
             ),
         ],
     },
@@ -170,7 +182,8 @@ RULES = {
         "forbidden": [
             (
                 "VerifiedExecutor(",
-                "RuntimeExecutionDriver must submit through IntentAPI, not call the executor directly",
+                "RuntimeExecutionDriver must submit through IntentAPI, "
+                "not call the executor directly",
             ),
             (
                 "CommandRouter(",
@@ -196,7 +209,8 @@ RULES = {
         "required": [
             (
                 "submitIntent(",
-                "RuntimeExecutionDriver must route execution through submitIntent",
+                "RuntimeExecutionDriver must route execution through "
+                "submitIntent",
             ),
         ],
     },
@@ -206,14 +220,18 @@ RULES = {
                 "planner.nextStep(",
                 "Controller bridge must not call planners directly",
             ),
-            ("planner.plan(", "Controller bridge must not call planners directly"),
+            (
+                "planner.plan(",
+                "Controller bridge must not call planners directly",
+            ),
             (
                 "VerifiedExecutor(",
                 "Controller bridge must not construct the executor",
             ),
             (
                 "verifiedExecutor.execute(",
-                "Controller bridge must not execute through the executor directly",
+                "Controller bridge must not execute through the executor "
+                "directly",
             ),
             (
                 "commandRouter.execute(",
@@ -233,24 +251,28 @@ RULES = {
             ),
             (
                 '"mcpServers"] as? [String: Any]',
-                "Controller bridge health checks must not probe Claude config through raw dictionaries",
+                "Controller bridge health checks must not probe Claude "
+                "config through raw dictionaries",
             ),
         ],
         "exact_count": [
             (
                 "makeBootstrappedRuntime(",
                 1,
-                "Controller bridge must bootstrap exactly one runtime entrypoint",
+                "Controller bridge must bootstrap exactly one runtime "
+                "entrypoint",
             ),
             (
                 "WaitManager.waitFor(",
                 1,
-                "Controller bridge must keep a single explicit WaitManager bypass",
+                "Controller bridge must keep a single explicit "
+                "WaitManager bypass",
             ),
             (
                 "container.automationHost.snapshots.captureSnapshot(",
                 1,
-                "AutomationHost usage in the controller bridge must remain observational-only",
+                "AutomationHost usage in the controller bridge must "
+                "remain observational-only",
             ),
         ],
     },
@@ -258,53 +280,65 @@ RULES = {
         "forbidden": [
             (
                 "result.data?[ActionResultKey.actionResult]",
-                "Controller bridge mapping must not reintroduce nested action_result dictionary probing",
+                "Controller bridge mapping must not reintroduce nested "
+                "action_result dictionary probing",
             ),
             (
                 "result.data?[ActionResultKey.codeExecution]",
-                "Controller bridge mapping must not reintroduce nested code_execution dictionary probing",
+                "Controller bridge mapping must not reintroduce nested "
+                "code_execution dictionary probing",
             ),
             (
                 "data[RecipeResultKey.stepResults] as? [[String: Any]]",
-                "Controller bridge mapping must not rebuild recipe results from nested step-result dictionaries",
+                "Controller bridge mapping must not rebuild recipe "
+                "results from nested step-result dictionaries",
             ),
             (
                 "actionData?[ActionResultKey.policyDecision]",
-                "Controller bridge mapping must not read policy state from nested dictionary payloads",
+                "Controller bridge mapping must not read policy state "
+                "from nested dictionary payloads",
             ),
             (
                 "func recipeDictionary(",
-                "Controller bridge mapping must not rebuild Recipe values through manual JSON dictionaries",
+                "Controller bridge mapping must not rebuild Recipe "
+                "values through manual JSON dictionaries",
             ),
             (
                 "func waitDictionary(",
-                "Controller bridge mapping must not rebuild Recipe wait conditions through manual JSON dictionaries",
+                "Controller bridge mapping must not rebuild Recipe wait "
+                "conditions through manual JSON dictionaries",
             ),
             (
                 "func locatorDictionary(",
-                "Controller bridge mapping must not rebuild Locator values through manual JSON dictionaries",
+                "Controller bridge mapping must not rebuild Locator "
+                "values through manual JSON dictionaries",
             ),
             (
                 "loadClaudeConfig() -> [String: Any]?",
-                "Controller bridge mapping must not expose Claude config as a raw dictionary",
+                "Controller bridge mapping must not expose Claude config "
+                "as a raw dictionary",
             ),
             (
                 'data["image"] as? String',
-                "Controller bridge mapping must not manually probe screenshot payload dictionaries",
+                "Controller bridge mapping must not manually probe "
+                "screenshot payload dictionaries",
             ),
         ],
         "required": [
             (
                 "result.actionResult",
-                "Controller bridge mapping must use typed action results on the live boundary",
+                "Controller bridge mapping must use typed action results "
+                "on the live boundary",
             ),
             (
                 "result.recipeRunResult",
-                "Controller bridge mapping must use typed recipe results on the live boundary",
+                "Controller bridge mapping must use typed recipe results "
+                "on the live boundary",
             ),
             (
                 "result.screenshotResult",
-                "Controller bridge mapping must use typed screenshot payloads on the live boundary",
+                "Controller bridge mapping must use typed screenshot "
+                "payloads on the live boundary",
             ),
         ],
     },

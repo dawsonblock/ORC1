@@ -18,7 +18,7 @@ the remaining 22 returned `"Unknown tool"` at runtime.
 ### Tools grouped by category
 
 | # | Tool | Category | Was Handled? |
-|---|------|----------|--------------|
+| --- | ------ | ---------- | -------------- |
 | 1 | `oracle_screenshot` | Perception | ✅ |
 | 2 | `oracle_context` | Perception | ✅ |
 | 3 | `oracle_state` | Perception | ✅ |
@@ -69,7 +69,7 @@ the remaining 22 returned `"Unknown tool"` at runtime.
 This is false. Verified side-effect producers that exist outside VerifiedExecutor:
 
 | Component | Write type |
-|-----------|-----------|
+| ----------- | ----------- |
 | `ApprovalStore` | SQLite db |
 | `ExperienceStore` | JSON trace files |
 | `TraceRecorder` | Trace JSON |
@@ -80,6 +80,7 @@ This is false. Verified side-effect producers that exist outside VerifiedExecuto
 | `WorkflowIndex` | JSON workflow files |
 
 **Fix:** Rewrite the header to accurately describe the three-tier taxonomy:  
+
 1. **Gated writes** — user actions through `VerifiedExecutor` (approval-checked)  
 2. **Service writes** — infrastructure persistence (telemetry, memory, graph)  
 3. **Read-only** — perception (AX, vision)
@@ -95,7 +96,7 @@ This is false. Verified side-effect producers that exist outside VerifiedExecuto
 ## 4. File Size Monoliths (Pre-pass measurements → Post-pass results)
 
 | File | Before | After | Files |
-|------|--------|-------|-------|
+| ------ | -------- | ------- | ------- |
 | `Sources/OracleController/RootView.swift` | 2228L | 166L | 8 (split to `+Onboarding`, `+Control`, `+Recipes`, `+Traces`, `+Diagnostics`, `+Health`, `+Settings`) |
 | `Sources/OracleOS/Intent/Actions/Actions.swift` | 1226L | split | 7 action files |
 | `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` | 929L | 338L | 4 (`+Mapping`, `+DiagnosticsMapping`, `+TraceMapping`) |
@@ -118,6 +119,7 @@ This is false. Verified side-effect producers that exist outside VerifiedExecuto
 ## 6. Persistence Namespace (Missing)
 
 No `Sources/OracleOS/Persistence/` directory. Files that do file I/O live scattered across:
+
 - `Sources/OracleOS/Learning/Recipes/RecipeStore.swift`
 - `Sources/OracleOS/Learning/Project/ProjectMemoryStore.swift`
 - `Sources/OracleOS/Learning/ExperienceStore.swift`
@@ -142,6 +144,7 @@ update `execution_boundary_guard.py` to scan for file I/O in non-persistence pat
 ## 8. CI Guard Coverage
 
 **Fix:** ✅ Guards strengthened and wired into CI:
+
 - `scripts/mcp_boundary_guard.py` — now validates all 30 declared tools have dispatch entries; exits 1 on any gap
 - `scripts/execution_boundary_guard.py` — retained and enforced
 - `scripts/architecture_guard.py` — retained and enforced

@@ -5,6 +5,7 @@
 The `Persistence/` directory is the **designated home for all Tier-3 (destructive / persistent) write operations** inside OracleOS.
 
 Tier-3 writes include:
+
 - File system mutations (`FileManager.write*`, `Data.write(to:)`, file creation/deletion)
 - Shell escapes that produce file output
 - Database or structured-store upserts
@@ -15,7 +16,7 @@ Tier-3 writes include:
 Currently OracleOS scatters persistence across several stores.  This README marks the canonical landing zone:
 
 | Store | Current location | Tier |
-|---|---|---|
+| --- | --- | --- |
 | `UnifiedMemoryStore` | `Sources/OracleOS/Memory/` | Tier 3 — writes memory + project records |
 | `ProjectMemoryStore` | `Sources/OracleOS/Memory/` | Tier 3 — writes markdown to disk |
 | `RecipeStore` | `Sources/OracleOS/MCP/` | Tier 3 — saves recipe JSON to disk |
@@ -37,6 +38,7 @@ Currently OracleOS scatters persistence across several stores.  This README mark
 ## enforcement_boundary_guard.py integration
 
 `scripts/execution_boundary_guard.py` is configured to allow `FileManager` and `Data.write` patterns only inside:
+
 - `Sources/OracleOS/Memory/`
 - `Sources/OracleOS/Persistence/`
 - `Sources/OracleOS/MCP/` (RecipeStore only)

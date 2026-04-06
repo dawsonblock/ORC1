@@ -1,19 +1,21 @@
+# Phase 1 Finale: CLI Tool Routing (Minimal)
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
 
 ---
 
-# Phase 1 Finale: CLI Tool Routing (Minimal)
-
 Complete Phase 1 by routing CLI tools through RuntimeOrchestrator instead of direct Process() calls.
 
 ## Files to Update
 
 ### 1. SetupWizard.swift
+
 **Location:** `Sources/oracle/SetupWizard.swift`
 
 **Pattern to replace:**
+
 ```swift
 // OLD:
 let process = Process()
@@ -32,14 +34,17 @@ let outcome = try await executor.execute(command)
 guard outcome.status == .success else { throw SetupError.buildFailed }
 ```
 
-**Minimal change:** 
+**Minimal change:**
+
 - Inject `VerifiedExecutor` into SetupWizard init
 - Replace direct Process() with Command construction and executor.execute()
 
 ### 2. Doctor.swift
+
 **Location:** `Sources/oracle/Doctor.swift`
 
 **Same pattern:**
+
 ```swift
 // OLD:
 let process = Process()
@@ -52,13 +57,16 @@ let outcome = try await executor.execute(command)
 ```
 
 **Minimal change:**
+
 - Inject VerifiedExecutor
 - Replace Process() with Command + executor.execute()
 
 ### 3. HostProcessClient.swift
+
 **Location:** `Sources/OracleController/HostProcessClient.swift`
 
 **Pattern:**
+
 ```swift
 // OLD:
 let process = Process()
@@ -74,6 +82,7 @@ let output = outcome.observations.first?.content ?? ""
 **Note:** If this is for background process management, may need ProcessResult handling.
 
 ### 4. CopilotSupport.swift
+
 **Location:** `Sources/OracleControllerHost/CopilotSupport.swift`
 
 **Same routing pattern.**
@@ -138,7 +147,7 @@ grep -r "case \.shell" Sources --include="*.swift" | wc -l
 
 ## Commit Message
 
-```
+```text
 feat: close execution boundary in Phase 1
 
 - Remove .shell from CommandPayload enum
@@ -174,7 +183,7 @@ Closes Phase 1: Execution Boundary
 
 After Phase 1 is 100% complete:
 
-```
+```text
 ✅ Single entry: RuntimeOrchestrator.submitIntent()
 ✅ Single planner surface: Planner.plan()
 ✅ Single execution: VerifiedExecutor.execute()

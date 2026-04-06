@@ -1,6 +1,6 @@
-> **[ARCHIVED]** Historical rebuild documentation index. Rebuild is complete. Current state: see [../../STATUS.md](../../STATUS.md) and [../../AUDIT.md](../../AUDIT.md).
-
 # Single-Hard-Path Runtime: Rebuild Documentation Index
+
+> **[ARCHIVED]** Historical rebuild documentation index. Rebuild is complete. Current state: see [../../STATUS.md](../../STATUS.md) and [../../AUDIT.md](../../AUDIT.md).
 
 ## Quick Links
 
@@ -13,14 +13,17 @@
 ## Phase Guides
 
 ### Phase 1: Execution Boundary Closed
+
 - **[PHASE_1_DONE.md](PHASE_1_DONE.md)** — What was accomplished
 - **[PHASE_1_STATUS.md](PHASE_1_STATUS.md)** — Detailed status before Phase 2
 - **[PHASE_1_FINALE.md](PHASE_1_FINALE.md)** — How to complete final 10% (if needed)
 
 ### Phases 1-2: Together
+
 - **[PHASES_1_2_DONE.md](PHASES_1_2_DONE.md)** — Both phases with unified execution spine
 
 ### Phase 2: Planner Collapsed
+
 - (See PHASES_1_2_DONE.md)
 
 ---
@@ -35,6 +38,7 @@
 ## Files Modified by Phase
 
 ### Phase 1
+
 - `Sources/OracleOS/Core/Command/Command.swift` — Removed .shell
 - `Sources/OracleOS/Core/Command/BuildSpec.swift` (NEW)
 - `Sources/OracleOS/Core/Command/TestSpec.swift` (NEW)
@@ -46,18 +50,22 @@
 - `Sources/OracleOS/Code/Execution/WorkspaceRunner.swift` — Typed methods
 
 ### Phase 2
+
 - `Sources/OracleOS/Planning/PlannerFacade.swift` (DELETED)
 - `Sources/OracleOS/Planning/MainPlanner+Planner.swift` — Emit typed specs
 
 ### Phase 5
+
 - `Sources/OracleOS/Execution/VerifiedExecutor.swift` — Runtime assertions
 - `Tests/OracleOSTests/Governance/ExecutionBoundaryEnforcementTests.swift` (NEW)
 
 ### Phase 6
+
 - `Sources/OracleOS/Events/Commit/CommitWAL.swift` — fsync durability
 - `Tests/OracleOSTests/Governance/CommitDurabilityTests.swift` (NEW)
 
 ### Phase 7
+
 - `Tests/OracleOSTests/Governance/TransitionalArtifactRemovalTests.swift` (NEW)
 
 ---
@@ -91,7 +99,7 @@ swift test --filter Governance
 
 ### Unified Execution Spine
 
-```
+```text
 Intent
   ↓
 RuntimeOrchestrator.submitIntent() [ONLY ENTRY]
@@ -159,22 +167,26 @@ All 19 tests verify phases 1-7 invariants.
 ## How to Verify the Rebuild
 
 1. **Type Correctness**
+
    ```bash
    swift build
    ```
 
 2. **Governance Tests**
+
    ```bash
    swift test --filter Governance
    ```
 
 3. **Invariant Grep**
+
    ```bash
    grep -r "case \.shell" Sources/OracleOS --include="*.swift"  # Should be 0
    grep -r "= Process()" Sources/OracleOS | grep -v DefaultProcessAdapter  # Should be 0
    ```
 
 4. **Single Entry Point**
+
    ```bash
    grep -r "planner.plan(" Sources/OracleOS --include="*.swift"  # Should be 1 (RuntimeOrchestrator)
    ```
@@ -187,6 +199,4 @@ All 7 phases complete.
 All invariants enforced.
 All tests passing.
 Ready for deployment.
-
 This is a real kernel, not a sandbox.
-

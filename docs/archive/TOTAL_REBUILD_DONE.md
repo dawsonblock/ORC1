@@ -1,10 +1,12 @@
+# Runtime Architecture Rebuild: Complete
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
 
 ---
 
-# Runtime Architecture Rebuild: COMPLETE
+## Runtime Architecture Rebuild: COMPLETE
 
 ## Highlights of Phases 4-7
 
@@ -21,6 +23,7 @@ All file modifications now bypass arbitrary shell outputs and unstructured write
 Legacy reasoning layers (`MixedTaskPlanner.swift`) were securely unmounted and removed from the active planner loop, closing off fallback abstraction pathways. Re-aligned all goal states and planning workflows directly to `.os` or `.code` pathways. `enum AgentKind` no longer recognizes the ambiguous `.mixed` classification.
 
 ### The Result
+
 The system is successfully running on the definitive `Single-Hard-Path` execution spine. Every action originates from a singular Intent, runs strictly typed constraints, guarantees verifiable compilation gates, commits to immutable logging via the event store, and relies solely on the primary `RuntimeOrchestrator` stack.
 
 Execution boundary is completely locked. Legacy paths are removed. Architecture goals for REBUILD_PLAN.md are achieved.

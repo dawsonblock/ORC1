@@ -8,14 +8,14 @@ re-generated in a supported Swift environment.
 ## Toolchain
 
 | Property | Value |
-|---|---|
+| --- | --- |
 | Swift | 6.3 (swiftlang-6.3.0.123.5) |
 | Xcode | 26.4 (Build 17E192) |
 | macOS Target | 26.2 (arm64-apple-macosx26.0) |
 
 ## Verification Path
 
-```
+```bash
 bash scripts/verify-build.sh
 ```
 
@@ -30,7 +30,7 @@ The verifier runs the boundary guards, `swift build -c release`, and `swift test
 ## Canonical Entry Points
 
 | Surface | Entry |
-|---|---|
+| --- | --- |
 | MCP server | `Sources/OracleOS/MCP/MCPServer.swift` → `MCPDispatch.handle(_:)` |
 | Controller app | Supported operator UI in `Sources/OracleController/` via `OracleController.xcodeproj` |
 | Controller host | Bundled helper adapter in `Sources/OracleControllerHost/ControllerRuntimeBridge.swift` |
@@ -38,7 +38,7 @@ The verifier runs the boundary guards, `swift build -c release`, and `swift test
 
 ## Canonical Runtime Path
 
-```
+```text
 RuntimeBootstrap.makeBootstrappedRuntime()
   → RuntimeOrchestrator.submitIntent(_:)
   → MainPlanner.plan(intent:state:)

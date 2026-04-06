@@ -1,10 +1,10 @@
+# Single-Hard-Path Runtime: Phase 1 Summary
+
 > **[ARCHIVED — historical milestone record]**
 > This file documents past implementation phases. It does not reflect current code truth.
 > The authoritative current state is [../../STATUS.md](../../STATUS.md), and the live product contract is [../PRODUCT_CONTRACT.md](../PRODUCT_CONTRACT.md).
 
 ---
-
-# Single-Hard-Path Runtime: Phase 1 Summary
 
 ## Status: ✅ EXECUTION BOUNDARY CLOSED
 
@@ -13,7 +13,9 @@ The shell model is **completely eliminated** from the command domain.
 ### Changes Made
 
 #### 1. Command Payload Restructured
+
 **Before:**
+
 ```swift
 enum CommandPayload {
     case shell(CommandSpec)  // ❌ Generic escape hatch
@@ -23,6 +25,7 @@ enum CommandPayload {
 ```
 
 **After:**
+
 ```swift
 enum CommandPayload {
     case build(BuildSpec)    // ✅ Typed: scheme, config, args
@@ -35,13 +38,16 @@ enum CommandPayload {
 ```
 
 #### 2. New Spec Types (4 files)
+
 - `BuildSpec.swift` - workspaceRoot, scheme, configuration, extraArgs
 - `TestSpec.swift` - workspaceRoot, scheme, filter, failureOnly
 - `GitSpec.swift` - operation enum, args, workspaceRoot
 - `FileMutationSpec.swift` - path, operation enum, content
 
 #### 3. Policy Validation Rewritten
+
 **Before:**
+
 ```swift
 if case .shell(let spec) = command.payload, 
    spec.executable != "/usr/bin/env" && 
@@ -51,6 +57,7 @@ if case .shell(let spec) = command.payload,
 ```
 
 **After:**
+
 ```swift
 switch command.payload {
 case .build, .test, .git, .file, .ui, .code:
@@ -59,7 +66,9 @@ case .build, .test, .git, .file, .ui, .code:
 ```
 
 #### 4. Routers Updated
+
 Both `CodeRouter` and `SystemRouter` now handle:
+
 ```swift
 case .build(let spec):
     let result = try await workspaceRunner.runBuild(spec)
@@ -75,6 +84,7 @@ case .file(let spec):
 ```
 
 #### 5. WorkspaceRunner Typed Methods
+
 ```swift
 public func runBuild(_ spec: BuildSpec) async throws -> ProcessResult
 public func runTest(_ spec: TestSpec) async throws -> ProcessResult
@@ -103,6 +113,7 @@ grep "runBuild\|runTest\|runGit\|applyFile" Sources/OracleOS/Execution/Routing/*
 ## Remaining: CLI Tool Routing (10%)
 
 Four files still have direct `Process()` calls (for now):
+
 - `Sources/oracle/SetupWizard.swift`
 - `Sources/oracle/Doctor.swift`
 - `Sources/OracleController/HostProcessClient.swift`
@@ -116,7 +127,7 @@ These should be refactored to use RuntimeOrchestrator instead of direct Process(
 
 After Phase 1 completion:
 
-```
+```text
 Intent (user goal)
   ↓
 RuntimeOrchestrator.submitIntent()
@@ -151,6 +162,7 @@ EventStore (immutable log)
 ## Next: Phase 2
 
 Once Phase 1 is finalized, Phase 2 collapses the planner:
+
 - Remove `PlannerFacade` (duplicate abstraction)
 - Convert `MainPlanner` to internal `PlannerEngine`
 - Guarantee only `RuntimeOrchestrator` calls planner
