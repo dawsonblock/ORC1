@@ -51,7 +51,8 @@ private struct ExperimentSearchPayload: Encodable {
 //
 // Architecture note: the public async handle entrypoint is not main-actor bound
 // so timeout enforcement can race actual work. The synchronous dispatch(request:)
-// path still runs on @MainActor. oracle_experiment_search remains the sole async
+// path still runs on @MainActor. oracle_screenshot remains an explicit read-only
+// special handler, and oracle_experiment_search remains the sole async sandbox
 // exception because ExperimentManager.run() is async throws.
 
 public enum MCPDispatch {
@@ -372,7 +373,7 @@ public enum MCPDispatch {
                 runtime: runtime
             )
 
-        // MARK: Wait
+        // MARK: Wait (read-only host-local polling)
 
         case MCPToolName.wait:
             return WaitManager.waitFor(
@@ -383,7 +384,7 @@ public enum MCPDispatch {
                 interval: request.double("interval") ?? 0.5
             )
 
-        // MARK: Vision
+        // MARK: Vision (optional experimental perception)
 
         case MCPToolName.parseScreen:
             return VisionScanner.parseScreen(

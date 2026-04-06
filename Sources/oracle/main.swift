@@ -12,6 +12,15 @@ import ApplicationServices
 import Foundation
 import OracleOS
 
+private func guardSupportedPlatform() {
+    guard RuntimeBootstrap.isSupportedRuntimePlatform else {
+        fputs("\(RuntimeBootstrap.supportedPlatformRequirementMessage)\n", stderr)
+        exit(1)
+    }
+}
+
+guardSupportedPlatform()
+
 // Force CoreGraphics server connection initialization.
 // ScreenCaptureKit requires a CG connection to the window server.
 _ = CGMainDisplayID()

@@ -40,9 +40,19 @@ Surface code is a consumer of this spine, not a mutator of it.
 
 The following are documented exceptions and are **not** part of the guaranteed main-path execution contract:
 
+### Main-path execution exceptions
+
 - `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`; its result payloads explicitly advertise `execution_context = sandbox` and `committed_to_workspace = false`
 - `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
-- `vision-sidecar/` is an optional service edge, not part of committed-state authority
+
+### Read-only observational special cases
+
+- `oracle_screenshot` is served directly by `AXScanner.screenshot(...)`; it captures observation payloads only, does not route through `RuntimeOrchestrator` or `VerifiedExecutor`, and does not commit runtime state
+- `oracle_wait` is a host-local polling check handled by `WaitManager.waitFor(...)`; it does not route through `VerifiedExecutor` and does not commit runtime state
+
+### Optional experimental perception edges
+
+- `oracle_parse_screen` and `oracle_ground` route through `VisionScanner` and the optional `vision-sidecar/`; they are read-only experimental perception tools and are outside committed-state authority
 
 ## Unsupported Assumptions
 
@@ -101,6 +111,8 @@ Behavioral proof for the main path is no longer only source-scan based. `Tests/O
 | **Read-only** | Observation and perception | AX inspection, screenshots, controller Wait checks, sidecar-backed perception |
 
 `VerifiedExecutor` governs gated desktop actions. Service persistence remains in its own subsystems.
+
+This means `oracle_screenshot`, `oracle_wait`, `oracle_parse_screen`, and `oracle_ground` are observation and perception tools, not commit-authority paths.
 
 ### 5. The live controller/runtime result seam is typed internally
 

@@ -221,6 +221,47 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
         XCTAssertTrue(afterCommit.notes.contains("lastExecutionStatus=success"))
     }
 
+    /// PROVES: Host-local wait evaluation is a read-only observation path and
+    /// does not mutate committed runtime state.
+    @MainActor
+    func testWaitManagerLeavesCommittedStateUnchanged() async throws {
+        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        let before = await bootstrapped.container.commitCoordinator.snapshot()
+
+        let result = WaitManager.waitFor(
+            condition: "not_a_real_condition",
+            value: nil,
+            appName: nil,
+            timeout: 0.01,
+            interval: 0.01
+        )
+
+        let after = await bootstrapped.container.commitCoordinator.snapshot()
+
+        XCTAssertFalse(result.success)
+        XCTAssertEqual(before.cycleCount, after.cycleCount)
+        XCTAssertEqual(before.notes, after.notes)
+    }
+
+    /// PROVES: The stricter product contract and runtime comments keep the
+    /// observational and experimental exception paths explicit.
+    func testProductContractDocumentsReadOnlyBoundarySpecialCases() throws {
+        let contractSource = try readSource("docs/PRODUCT_CONTRACT.md")
+        let executorSource = try readSource("Sources/OracleOS/Execution/VerifiedExecutor.swift")
+        let waitSource = try readSource("Sources/OracleOS/MCP/WaitManager.swift")
+        let screenshotSource = try readSource("Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Screenshot.swift")
+
+        XCTAssertTrue(contractSource.contains("oracle_screenshot"))
+        XCTAssertTrue(contractSource.contains("oracle_wait"))
+        XCTAssertTrue(contractSource.contains("oracle_parse_screen"))
+        XCTAssertTrue(contractSource.contains("oracle_ground"))
+        XCTAssertTrue(executorSource.contains("oracle_screenshot"))
+        XCTAssertTrue(executorSource.contains("oracle_wait"))
+        XCTAssertTrue(executorSource.contains("oracle_parse_screen"))
+        XCTAssertTrue(waitSource.contains("does not route through VerifiedExecutor"))
+        XCTAssertTrue(screenshotSource.contains("read-only observational tool"))
+    }
+
     /// PROVES: Tooling-only CLI entry points stay documented as bounded
     /// exceptions instead of silently joining the guaranteed main runtime path.
     func testToolingCommandsRemainDocumentedExecutionExceptions() throws {

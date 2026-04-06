@@ -4,7 +4,8 @@ import Foundation
 ///
 /// CommitCoordinator is the place to answer "who owns final state mutation?"
 /// for the main path: it appends events, runs reducers, and emits the next
-/// committed snapshot. No committed runtime-state write may bypass this actor.
+/// committed snapshot. This actor is the final persistent write authority for
+/// supported runtime mutation. No committed runtime-state write may bypass it.
 public actor CommitCoordinator {
     private let eventStore: any EventStore
     private let reducers: [any EventReducer]
@@ -81,7 +82,7 @@ public actor CommitCoordinator {
         }
 
         // This is the only supported path that turns execution events into a
-        // committed runtime snapshot.
+        // committed runtime snapshot and final persistent runtime mutation.
 
         // Assign sequence numbers to envelopes before appending
         var numberedEnvelopes = envelopes

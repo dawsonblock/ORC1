@@ -64,6 +64,21 @@ BOUNDARY_CONTRACT_RULES = {
                 "VerifiedExecutor must route verified commands "
                 "through CommandRouter",
             ),
+            (
+                "oracle_screenshot",
+                "VerifiedExecutor docs must keep screenshot classified as a "
+                "read-only special case",
+            ),
+            (
+                "oracle_wait",
+                "VerifiedExecutor docs must keep wait classified as a "
+                "read-only special case",
+            ),
+            (
+                "oracle_parse_screen",
+                "VerifiedExecutor docs must keep experimental vision tools "
+                "classified as read-only perception edges",
+            ),
         ],
         "forbidden": [
             (
@@ -123,6 +138,11 @@ BOUNDARY_CONTRACT_RULES = {
     "Sources/OracleOS/MCP/MCPDispatch.swift": {
         "required": [
             (
+                "toolName == MCPToolName.screenshot",
+                "MCPDispatch must keep screenshot on its explicit read-only "
+                "special handler path",
+            ),
+            (
                 "toolName == MCPToolName.experimentSearch",
                 "MCPDispatch must keep experiment search as an explicit "
                 "exception branch",
@@ -136,6 +156,58 @@ BOUNDARY_CONTRACT_RULES = {
                 "bootstrapped.container.experimentManager.run(spec: spec)",
                 "Experiment search must remain sandboxed through "
                 "ExperimentManager",
+            ),
+            (
+                "WaitManager.waitFor(",
+                "MCPDispatch must keep oracle_wait as an explicit host-local "
+                "wait path",
+            ),
+            (
+                "VisionScanner.parseScreen(",
+                "MCPDispatch must keep oracle_parse_screen on the optional "
+                "vision path",
+            ),
+            (
+                "VisionScanner.groundElement(",
+                "MCPDispatch must keep oracle_ground on the optional vision "
+                "path",
+            ),
+        ],
+    },
+    "Sources/oracle/main.swift": {
+        "required": [
+            (
+                "RuntimeBootstrap.isSupportedRuntimePlatform",
+                "CLI startup must check the shared macOS 14+ requirement before "
+                "continuing",
+            ),
+            (
+                "RuntimeBootstrap.supportedPlatformRequirementMessage",
+                "CLI startup must use the shared supported-platform message",
+            ),
+        ],
+    },
+    "docs/PRODUCT_CONTRACT.md": {
+        "required": [
+            (
+                "oracle_screenshot",
+                "Product contract must document screenshot as a read-only "
+                "special case",
+            ),
+            (
+                "oracle_wait",
+                "Product contract must document wait as a read-only special "
+                "case",
+            ),
+            (
+                "oracle_parse_screen",
+                "Product contract must document experimental vision-tool "
+                "boundaries",
+            ),
+            (
+                "oracle_ground",
+                "Product contract must document experimental vision-tool "
+                "boundaries",
             ),
         ],
     },
@@ -469,9 +541,10 @@ if __name__ == "__main__":
     if boundary_violations:
         print("\nMAIN-PATH EXECUTION CONTRACT VIOLATIONS FOUND\n")
         print(
-            "main-path execution boundary drifted; update code and "
-            "contract together or route new behavior through the "
-            "verified spine.\n"
+            "main-path execution boundary drifted; route new behavior back "
+            "through RuntimeBootstrap -> RuntimeOrchestrator -> "
+            "VerifiedExecutor -> CommandRouter -> CommitCoordinator, or "
+            "update PRODUCT_CONTRACT and tests together.\n"
         )
         for path, items in boundary_violations:
             print(f"{path}")

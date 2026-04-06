@@ -1,7 +1,27 @@
 import Foundation
 
+public enum RuntimeBootstrapError: LocalizedError, Sendable {
+    case unsupportedPlatform(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .unsupportedPlatform(let message):
+            return message
+        }
+    }
+}
+
 @MainActor
 public enum RuntimeBootstrap {
+    nonisolated public static let supportedPlatformRequirementMessage = "OracleOS runtime build and test are supported on macOS 14+ only because the runtime depends on Apple accessibility frameworks and the vendored AX layer."
+
+    nonisolated public static var isSupportedRuntimePlatform: Bool {
+        #if os(macOS)
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 14
+        #else
+        false
+        #endif
+    }
 
     // MARK: - Primary Entry Point
 
@@ -24,9 +44,11 @@ public enum RuntimeBootstrap {
     public static func makeBootstrappedRuntime(
         configuration: RuntimeConfig = .live()
     ) async throws -> BootstrappedRuntime {
-        #if !os(macOS)
-        preconditionFailure("OracleOS runtime build and test are supported on macOS 14+ only because the runtime depends on Apple accessibility frameworks and the vendored AX layer.")
-        #endif
+        guard Self.isSupportedRuntimePlatform else {
+            throw RuntimeBootstrapError.unsupportedPlatform(
+                Self.supportedPlatformRequirementMessage
+            )
+        }
 
         let container = try makeContainer(configuration: configuration)
 

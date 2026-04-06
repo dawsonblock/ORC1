@@ -10,6 +10,8 @@ extension AXScanner {
     // MARK: - oracle_screenshot
 
     /// Take a screenshot of an app window.
+    /// This is a read-only observational tool and does not mutate committed
+    /// runtime state.
     public static func screenshot(appName: String?, fullResolution: Bool) -> ToolResult {
         let targetApp: NSRunningApplication
         if let appName {

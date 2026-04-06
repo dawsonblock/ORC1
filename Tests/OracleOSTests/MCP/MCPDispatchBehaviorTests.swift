@@ -145,6 +145,32 @@ final class MCPDispatchBehaviorTests: XCTestCase {
             "Experiment MCP responses must continue to expose sandbox_path for sandbox-only results"
         )
     }
+
+    func testObservationalAndExperimentalToolsRemainExplicitDispatchPaths() throws {
+        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let content = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            content.contains("if toolName == MCPToolName.screenshot")
+                && content.contains("result = await handleScreenshot(request)"),
+            "oracle_screenshot must remain an explicit read-only special handler"
+        )
+        XCTAssertTrue(
+            content.contains("case MCPToolName.wait:")
+                && content.contains("return WaitManager.waitFor("),
+            "oracle_wait must remain an explicit host-local wait path"
+        )
+        XCTAssertTrue(
+            content.contains("case MCPToolName.parseScreen:")
+                && content.contains("return VisionScanner.parseScreen("),
+            "oracle_parse_screen must remain on the optional experimental vision path"
+        )
+        XCTAssertTrue(
+            content.contains("case MCPToolName.ground:")
+                && content.contains("return VisionScanner.groundElement("),
+            "oracle_ground must remain on the optional experimental vision path"
+        )
+    }
 }
 
 private extension MCPToolResponse {

@@ -5,7 +5,9 @@
 
 import Foundation
 
-/// Polling-based wait for conditions.
+/// Polling-based wait for observational conditions.
+/// This host-local helper does not route through VerifiedExecutor and does not
+/// mutate committed runtime state.
 @MainActor
 public final class WaitManager {
 

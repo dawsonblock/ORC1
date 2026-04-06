@@ -8,7 +8,8 @@ import Foundation
 /// centralized in CommitCoordinator.
 ///
 /// Side-effect taxonomy (three tiers):
-///   Tier 1 — Read-only: AXScanner, VisionScanner, memory queries.
+///   Tier 1 — Read-only: AXScanner, oracle_screenshot, oracle_wait,
+///             oracle_parse_screen / oracle_ground, memory queries.
 ///             No VerifiedExecutor involvement required.
 ///   Tier 2 — Reversible: UI automation (click, type, hotkey, scroll, focus, window).
 ///             MUST route through VerifiedExecutor.execute().
@@ -16,8 +17,8 @@ import Foundation
 ///             architecture mutations. MUST route through VerifiedExecutor.execute().
 ///
 /// Note: Persistence writes (Tier 3) originate from Persistence-namespaced stores.
-/// The vision sidecar (Tier 1) is called directly from VisionScanner — no executor
-/// involvement because it is read-only.
+/// The vision sidecar, screenshot capture, and wait observation paths remain
+/// outside the executor because they are read-only and do not commit runtime state.
 ///
 /// INVARIANTS:
 ///   - Executor observes and acts, but does NOT commit state
@@ -31,6 +32,10 @@ import Foundation
 ///     utilities run outside the bootstrapped runtime and are not covered by this guarantee
 ///   - oracle_experiment_search is an intentional exception: dispatched from MCPDispatch
 ///     directly to ExperimentManager without passing through VerifiedExecutor
+///   - oracle_screenshot and oracle_wait are intentional read-only special cases and
+///     do not pass through VerifiedExecutor because they do not create committed effects
+///   - oracle_parse_screen and oracle_ground are optional experimental perception
+///     edges and remain outside VerifiedExecutor because they are read-only
 ///   - Bypassing this path for Tier-2/3 effects from main-path surfaces is an architectural violation
 ///   - Governance tests verify Tier-2/3 effects route through here
 public actor VerifiedExecutor {

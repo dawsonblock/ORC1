@@ -151,38 +151,39 @@ public final class OpenAIProvider: LLMProvider, @unchecked Sendable {
         switch tier {
         case .planning:
             return """
-            You are a planning engine for an autonomous macOS agent. Given the current UI state \
-            and goal, emit the next action as a structured step. Be precise about element labels, \
-            roles, and expected postconditions. Prefer the simplest action that advances the goal.
+            You are a step-planning assistant for a bounded macOS automation runtime. Given the \
+            current UI state and goal, emit the next structured step. Be precise about element \
+            labels, roles, and expected postconditions. Prefer the simplest action that advances \
+            the goal.
             """
         case .codeRepair:
             return """
-            You are a code repair engine. Given a failing test, build error, or bug description \
-            plus the relevant source code, emit a minimal targeted patch. Prefer the smallest \
+            You are a code repair advisor. Given a failing test, build error, or bug description \
+            plus the relevant source code, propose a minimal targeted patch. Prefer the smallest \
             change that fixes the issue without introducing regressions.
             """
         case .browserReasoning:
             return """
-            You are a browser interaction planner. Given a web page's visible elements, form \
+            You are a browser interaction assistant. Given a web page's visible elements, form \
             fields, and navigation state, choose the correct element to interact with and the \
             correct input to provide. Be precise about CSS selectors and element labels.
             """
         case .recovery:
             return """
-            You are a recovery advisor for an autonomous agent. Given a failed action, the \
+            You are a recovery advisor for a bounded local runtime. Given a failed action, the \
             pre/post UI state, and the failure classification, suggest the best recovery strategy. \
             Prefer strategies that have succeeded before in similar states.
             """
         case .memorySummarization:
             return """
-            You are a memory summarization engine. Compress execution traces and episode data \
+            You are a memory summarization assistant. Compress execution traces and episode data \
             into concise, reusable knowledge entries. Focus on what worked, what failed, and \
             what patterns are worth remembering.
             """
         case .metaReasoning:
             return """
-            You are a meta-reasoning engine that evaluates and improves the agent's own planning \
-            and execution strategies. Identify systematic failures and suggest adjustments.
+            You are a planning reflection assistant that evaluates prior planning and execution \
+            strategies. Identify systematic failures and suggest bounded adjustments.
             """
         }
     }
