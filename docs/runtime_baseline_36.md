@@ -26,8 +26,8 @@ From `Package.resolved`:
 
 Saved logs:
 
-- Build log: `Diagnostics/runtime_baseline_36_build.log`
-- Test log: `Diagnostics/runtime_baseline_36_test.log`
+- Build log: `Diagnostics/archive/invalid-host/runtime_baseline_36_build.log`
+- Test log: `Diagnostics/archive/invalid-host/runtime_baseline_36_test.log`
 
 Observed status:
 
@@ -39,7 +39,7 @@ Observed status:
 
 - CLI:
   - `Sources/oracle/main.swift`
-  - commands include `mcp`, `setup`, `doctor`, `dashboard`, `status`, `version`
+  - commands include `mcp`, `setup`, `doctor`, `dashboard`, `status`, `version`, `help`
 - Controller app executable:
   - product target `OracleController`
   - source entrypoint `Sources/OracleController`
@@ -71,4 +71,4 @@ Observed status:
 
 ## Baseline conclusion
 
-The repository contains both the newer intent-oriented runtime spine and legacy bypass surfaces. Baseline logs are captured before architecture cleanup.
+The repository contains both the newer intent-oriented runtime spine and legacy bypass surfaces. The referenced logs are archived invalid captures from a Linux host and are not current proof.

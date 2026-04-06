@@ -13,7 +13,7 @@ Supported runtime surfaces in this checkout: the OracleController app, the MCP s
 
 ## Overview
 
-OracleOS is a **macOS-local automation runtime**. It is not a cross-platform runtime, cloud service, or general-purpose autonomous software engineering platform.
+OracleOS is a **macOS-local automation runtime**. Execution stays local on macOS. If configured, the reasoning layer may call local or remote OpenAI-compatible backends. It is not a cross-platform runtime, cloud service, or general-purpose autonomous software engineering platform.
 
 The three supported runtime surfaces are:
 
@@ -21,7 +21,7 @@ The three supported runtime surfaces are:
 | --- | --- | --- |
 | **OracleController** | native macOS app | human operator UI |
 | **MCP server** | `MCPDispatch` | 30 typed `oracle_*` tools for AI agents |
-| **CLI** | `oracle` binary | setup, doctor, status tooling |
+| **CLI** | `oracle` binary | setup, diagnostics, dashboard snapshot, status, version, and help tooling |
 
 Historical rebuild, phase, and deployment documents live in [docs/archive](docs/archive) — archaeology only, not the current contract.
 
@@ -87,8 +87,13 @@ The controller's readiness contract: Accessibility and Screen Recording permissi
 ```bash
 ./.build/debug/oracle setup
 ./.build/debug/oracle doctor
+./.build/debug/oracle dashboard
 ./.build/debug/oracle status
+./.build/debug/oracle version
+./.build/debug/oracle help
 ```
+
+`oracle mcp` launches the MCP surface. `oracle dashboard` prints a non-interactive terminal dashboard snapshot.
 
 On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the reusable runtime owner behind it.
 
@@ -148,12 +153,13 @@ bash scripts/verify-build.sh          # canonical proof — runs all guards + fu
 Individual guards:
 
 ```bash
+python3 scripts/cli_contract_guard.py
 python3 scripts/mcp_boundary_guard.py
 python3 scripts/architecture_guard.py
 python3 scripts/execution_boundary_guard.py
 ```
 
-`bash scripts/verify-build.sh` is the canonical local proof path. It runs the three guard scripts, a release build, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the shared proof artifact.
+`bash scripts/verify-build.sh` is the canonical local proof path. It runs the guard scripts, a release build, non-interactive `oracle` CLI smokes, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the shared proof artifact.
 It also records the verification environment in `local/verify/latest/environment.txt`.
 
 ---
@@ -164,6 +170,7 @@ This README does not claim:
 
 - **Build certification** — canonical proof is `bash scripts/verify-build.sh` (local) and the CI artifact (shared).
 - **Zero warnings** — see [STATUS.md](STATUS.md) and [BASELINE.md](BASELINE.md) for the current evidence posture.
+- **Fully local reasoning** — execution stays local, but reasoning may use configured local or remote OpenAI-compatible backends.
 - **Universal executor coverage** — `oracle_experiment_search` is a deliberate exception; the desktop Wait action is a host-side observational check, not an executor path.
 
 ---

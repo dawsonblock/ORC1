@@ -1,4 +1,4 @@
-// Doctor.swift - Diagnostic tool for Oracle OS v2
+// Doctor.swift - Diagnostic tool for Oracle OS
 //
 // Non-interactive. Checks everything, reports issues, suggests fixes.
 // Can auto-fix safe things (kill stale processes, recreate recipes dir).

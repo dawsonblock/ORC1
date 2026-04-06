@@ -1,5 +1,8 @@
 import Foundation
 
+/// CONCURRENCY INVARIANT: Immutable bundle of execution services.
+/// Each stored service declares its own actor, lock, or confinement boundary;
+/// this wrapper never mutates after initialization.
 public struct RuntimeExecutionServices: @unchecked Sendable {
     public let planner: any Planner
     public let executor: VerifiedExecutor
@@ -43,6 +46,8 @@ public struct RuntimeExecutionServices: @unchecked Sendable {
     }
 }
 
+/// CONCURRENCY INVARIANT: Immutable bundle of tracing services.
+/// Mutable tracing internals remain confined to their owning service types.
 public struct RuntimeTracingServices: @unchecked Sendable {
     public let traceRecorder: TraceRecorder
     public let traceStore: ExperienceStore
@@ -62,6 +67,8 @@ public struct RuntimeTracingServices: @unchecked Sendable {
     }
 }
 
+/// CONCURRENCY INVARIANT: Immutable bundle of knowledge services.
+/// Any mutable backing stores remain actor- or lock-confined in their own types.
 public struct RuntimeKnowledgeServices: @unchecked Sendable {
     public let graphStore: GraphStore
     public let memoryStore: UnifiedMemoryStore
@@ -81,6 +88,8 @@ public struct RuntimeKnowledgeServices: @unchecked Sendable {
     }
 }
 
+/// CONCURRENCY INVARIANT: Immutable bundle of observation-only adapters.
+/// These adapters do not own commit authority and are shared read-mostly.
 public struct RuntimeDiagnosticsAdapters: @unchecked Sendable {
     public let automationHost: AutomationHost
     public let browserController: BrowserController
@@ -100,6 +109,9 @@ public struct RuntimeDiagnosticsAdapters: @unchecked Sendable {
 /// The authoritative runtime container.
 /// All stateful runtime services must be created here once and shared.
 /// Do NOT create competing instances of these services elsewhere.
+/// CONCURRENCY INVARIANT: RuntimeContainer is confined to the main actor.
+/// `@unchecked Sendable` exists only so bootstrapped runtime handles can cross
+/// async seams while access stays on `@MainActor`.
 @MainActor
 public final class RuntimeContainer: @unchecked Sendable {
     // MARK: - Bundled live-path services
@@ -253,6 +265,9 @@ public struct RecoveryReport: Sendable, Equatable {
 
 /// Bundle returned by RuntimeBootstrap containing all runtime components.
 /// This is the authoritative handle passed between surfaces. RuntimeContext is not used.
+/// CONCURRENCY INVARIANT: The bundle is immutable after initialization.
+/// `container` remains `@MainActor`-confined even though the handle may be
+/// passed across async boundaries.
 public struct BootstrappedRuntime: @unchecked Sendable {
     public let container: RuntimeContainer
     public let orchestrator: RuntimeOrchestrator

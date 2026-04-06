@@ -1,11 +1,13 @@
-// main.swift - Oracle OS v2 CLI entry point
+// main.swift - Oracle OS CLI entry point
 //
 // Thin CLI:
 //   oracle mcp      Start the MCP server (used by Claude Code)
 //   oracle setup    Interactive setup wizard
 //   oracle doctor   Diagnose issues and suggest fixes
+//   oracle dashboard Print terminal dashboard snapshot
 //   oracle status   Quick health check
 //   oracle version  Print version
+//   oracle help     Print usage
 
 import AppKit
 import ApplicationServices
@@ -95,7 +97,7 @@ func printStatus() {
 
 func printUsage() {
     print("""
-    Oracle OS v\(OracleOS.version) - Accessibility-tree MCP server for AI agents
+        Oracle OS v\(OracleOS.version) - Local macOS automation runtime
 
     Usage: oracle <command>
 
@@ -103,14 +105,15 @@ func printUsage() {
       mcp         Start the MCP server (used by Claude Code)
       setup       Interactive setup wizard (first-time configuration)
       doctor      Diagnose issues and suggest fixes
-      dashboard   Live terminal dashboard (agent state, policy, metrics)
+            dashboard   Print terminal dashboard snapshot (agent state, policy, metrics)
       status      Quick health check
       version     Print version
+            help        Print usage
 
     Get started:
       oracle setup    Configure permissions and MCP
       oracle doctor   Check if everything is working
 
-    Oracle OS gives AI agents eyes and hands on macOS.
+        Execution stays local on macOS. Reasoning may use configured OpenAI-compatible backends.
     """)
 }

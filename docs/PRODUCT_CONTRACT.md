@@ -6,6 +6,8 @@ This file states the live product surface in this checkout. Historical rebuild, 
 
 OracleOS is a **macOS 14+ local automation runtime**.
 
+Execution is local on macOS. If configured, the reasoning layer may call local or remote OpenAI-compatible backends, but those optional backends are outside the execution authority path.
+
 The supported Swift runtime build and test path is macOS-only. The runtime depends on Apple accessibility frameworks and the vendored AX layer in `Vendor/AXorcist`, so Linux is not a supported runtime platform for `swift build`, `swift test`, the controller app, or the MCP host runtime. Some repository-analysis or guard scripts may run on Linux, but that does not constitute supported runtime operation.
 
 ## Supported Surfaces
@@ -16,7 +18,22 @@ The supported surfaces in this checkout are:
 | --- | --- | --- | --- | --- |
 | Controller app | `OracleController` plus `OracleControllerHost` | Native macOS operator UI over one bootstrapped runtime per app launch | Host lifecycle and controller readiness checks; outside MCP request budgets | `RuntimeKernelBootstrapTests`, `ExecutionBoundaryBehaviorTests`, `scripts/verify-build.sh` |
 | MCP server | `MCPDispatch` plus `MCPRuntimeHost` | Programmatic tool surface over one reusable runtime | Explicit bootstrap timeout plus per-tool timeout in `MCPDispatch` | `MCPDispatchBehaviorTests`, `MCPToolCoverageTests`, `scripts/verify-build.sh`, `.github/workflows/ci.yml` |
-| CLI | `oracle` | Local setup, doctor, and status tooling | Per-command CLI invocation; outside MCP timeout budgets | `ExecutionBoundaryBehaviorTests`, `scripts/build-release.sh` |
+| CLI | `oracle` | Local setup, diagnostics, dashboard snapshot, status, version, and help tooling | Per-command CLI invocation; outside MCP timeout budgets | `ExecutionBoundaryBehaviorTests`, `scripts/verify-build.sh` for non-interactive commands, `.github/workflows/ci.yml` |
+
+`oracle mcp` launches the MCP server surface. The remaining supported CLI commands are standalone local tooling commands.
+
+### Canonical CLI Command List
+
+<!-- CLI_CONTRACT_START -->
+primary: mcp, setup, doctor, dashboard, status, version, help
+aliases:
+    version: --version, -v
+    help: --help, -h
+<!-- CLI_CONTRACT_END -->
+
+`oracle dashboard` is a non-interactive terminal dashboard snapshot, not a long-running alternate host surface.
+
+`oracle setup` and `oracle doctor` remain supported standalone tooling commands, but the canonical automated proof path covers only the non-interactive CLI commands.
 
 `OracleControllerHost` is the bundled helper adapter for the desktop UI. It boots one `OracleOS` runtime per app launch and forwards typed requests into that runtime. It is not a second planner, executor, or commit authority.
 
@@ -49,8 +66,8 @@ The following exception surfaces are documented and are **not** part of the guar
 | `oracle_parse_screen` | Explicit exception | Read-only observation | Not required | MCP bootstrap and tool timeout | Optional experimental sidecar-backed perception | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/WorldModel/Perception/Vision/VisionScanner.swift` | `MCPDispatchBehaviorTests`, `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
 | `oracle_ground` | Explicit exception | Read-only observation | Not required | MCP bootstrap and tool timeout | Optional experimental sidecar-backed grounding | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/WorldModel/Perception/Vision/VisionScanner.swift` | `MCPDispatchBehaviorTests`, `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
 | `oracle_experiment_search` | Explicit exception | Sandboxed candidate execution | Not part of main-path approval; result must remain sandbox-only | MCP bootstrap timeout plus extended experiment tool timeout | Runs worktree-scoped experiments without committing the main workspace | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/Execution/Experiments/ExperimentManager.swift` | `MCPDispatchBehaviorTests`, `ExperimentResultIsolationTests`, `execution_boundary_guard.py` |
-| `oracle doctor` | Explicit exception | Tooling shell and diagnostics | Not applicable | Standalone CLI invocation; outside MCP timeout budgets | Standalone diagnostic utility outside `RuntimeBootstrap` | `Sources/oracle/Doctor.swift` | `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py`, `scripts/build-release.sh` |
-| `oracle setup` | Explicit exception | Tooling shell and setup | Not applicable | Standalone CLI invocation; outside MCP timeout budgets | Standalone setup utility outside `RuntimeBootstrap` | `Sources/oracle/SetupWizard.swift` | `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py`, `scripts/build-release.sh` |
+| `oracle doctor` | Explicit exception | Tooling shell and diagnostics | Not applicable | Standalone CLI invocation; outside MCP timeout budgets | Standalone diagnostic utility outside `RuntimeBootstrap` | `Sources/oracle/Doctor.swift` | `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
+| `oracle setup` | Explicit exception | Tooling shell and setup | Not applicable | Standalone CLI invocation; outside MCP timeout budgets | Standalone setup utility outside `RuntimeBootstrap` | `Sources/oracle/SetupWizard.swift` | `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
 
 ## Unsupported Assumptions
 
@@ -60,6 +77,7 @@ OracleOS is not a cloud service, not a browser product, and not a general-purpos
 
 - Linux runtime support for the supported Swift runtime build or host surfaces
 - Cloud or distributed deployment claims
+- All reasoning or model execution being local by default
 - Broad autonomous software-engineering claims beyond the bounded local runtime surfaces in this checkout
 - Generalized repair reliability or guaranteed patch correctness
 - Production-hardening or production-readiness claims unless they are separately proven by a live evidence source in this repo
@@ -118,7 +136,9 @@ The live controller/runtime result seam is typed internally. `ToolResult` expose
 
 ### 6. Evidence must come from the canonical verifier path
 
-Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment. The script is fail-fast, rejects unsupported non-macOS runtime verification, and writes environment, build, test, and summary artifacts to `local/verify/latest/`.
+Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment. The script is fail-fast, rejects unsupported non-macOS runtime verification, and writes environment, build, CLI smoke, test, and summary artifacts to `local/verify/latest/`.
+
+The verifier runs `scripts/cli_contract_guard.py` alongside the existing boundary guards so the documented CLI command list, the `main.swift` switch, and the printed usage output cannot silently drift apart.
 
 Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the CI artifact.
 

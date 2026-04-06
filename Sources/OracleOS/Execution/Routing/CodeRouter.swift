@@ -1,5 +1,8 @@
 import Foundation
 
+/// CONCURRENCY INVARIANT: CodeRouter is immutable after initialization.
+/// `workspaceRunner` and `repositoryIndexer` own any mutable state and expose
+/// their own confinement guarantees.
 public struct CodeRouter: @unchecked Sendable {
     private let workspaceRunner: WorkspaceRunner?
     private let repositoryIndexer: RepositoryIndexer

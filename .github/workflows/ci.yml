@@ -16,7 +16,7 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Verify build, tests, and boundary guards
+      - name: Verify build, tests, CLI smokes, and boundary guards
         run: bash scripts/verify-build.sh
 
       - name: Upload verification evidence

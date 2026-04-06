@@ -11,11 +11,27 @@ import Foundation
 /// All execution is mediated by IntentAPI (implemented by RuntimeOrchestrator).
 @MainActor
 public final class RuntimeExecutionDriver: AgentExecutionDriver {
+    /// CONCURRENCY INVARIANT: This box is shared between the detached submission
+    /// task and the waiting caller. All reads and writes of `result` are
+    /// serialized by `lock`; do not access the backing storage directly.
     private final class SubmissionState: @unchecked Sendable {
-        var result: ToolResult
+        private let lock = NSLock()
+        private var result: ToolResult
 
         init(result: ToolResult) {
             self.result = result
+        }
+
+        func store(_ newResult: ToolResult) {
+            lock.lock()
+            defer { lock.unlock() }
+            result = newResult
+        }
+
+        func load() -> ToolResult {
+            lock.lock()
+            defer { lock.unlock() }
+            return result
         }
     }
 
@@ -114,12 +130,12 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         Task.detached(priority: .userInitiated) { [submissionState, semaphore] in
             do {
                 let response = try await api.submitIntent(typedIntent)
-                submissionState.result = Self.makeToolResult(
+                submissionState.store(Self.makeToolResult(
                     from: response,
                     codeExecutionResult: codeExecutionResult
-                )
+                ))
             } catch {
-                submissionState.result = ToolResult(
+                submissionState.store(ToolResult(
                     success: false,
                     data: ["summary": "Intent submission failed"],
                     error: error.localizedDescription,
@@ -132,7 +148,7 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                         executedThroughExecutor: false
                     ),
                     codeExecutionResult: codeExecutionResult
-                )
+                ))
             }
             semaphore.signal()
         }
@@ -170,7 +186,7 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             )
         }
 
-        return submissionState.result
+        return submissionState.load()
     }
 
     nonisolated private static func makeToolResult(

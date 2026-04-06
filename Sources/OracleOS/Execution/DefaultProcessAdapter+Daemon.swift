@@ -3,6 +3,10 @@ import Foundation
 /// A specialized wrapper for starting long-running daemon processes, 
 /// used specifically for the XPC Host connection and Copilot CLI inference.
 /// Placed here to ensure `Process()` allocations are localized to the execution boundary layer.
+/// CONCURRENCY INVARIANT: A DaemonProcess instance owns a single Foundation.Process
+/// plus its file handles for the lifetime of that daemon. Callers must confine
+/// lifecycle mutations such as `terminate()` and `terminationHandler` updates to
+/// one coordination context.
 public final class DaemonProcess: @unchecked Sendable {
     private let process: Foundation.Process
     public let stdinHandle: FileHandle

@@ -1,4 +1,4 @@
-// VisionScanner.swift - Vision-based perception tools for Oracle OS v2
+// VisionScanner.swift - Vision-based perception tools for Oracle OS
 //
 // Maps to MCP tools: oracle_parse_screen, oracle_ground
 //

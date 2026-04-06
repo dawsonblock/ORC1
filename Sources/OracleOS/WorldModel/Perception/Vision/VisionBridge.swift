@@ -1,6 +1,6 @@
 // VisionBridge.swift - HTTP client to the Python vision sidecar
 //
-// Oracle OS v2 calls the vision sidecar when the AX tree can't find
+// Oracle OS calls the vision sidecar when the AX tree can't find
 // what the agent needs (web apps with generic AXGroup roles, dynamic
 // content, etc.).
 //
@@ -17,7 +17,7 @@
 
 import Foundation
 
-/// Bridge between Oracle OS v2 and the Python vision sidecar.
+/// Bridge between Oracle OS and the Python vision sidecar.
 /// All methods are synchronous (blocking) because the MCP server is synchronous.
 public enum VisionBridge {
 

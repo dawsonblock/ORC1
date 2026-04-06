@@ -1,4 +1,4 @@
-// SetupWizard.swift - Interactive first-run setup for Oracle OS v2
+// SetupWizard.swift - Interactive first-run setup for Oracle OS
 //
 // Walks the user through:
 //   1. Detect host app (iTerm2, VS Code, Cursor, Terminal)

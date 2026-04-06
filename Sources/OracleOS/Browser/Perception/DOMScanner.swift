@@ -1,4 +1,4 @@
-// DOMScanner.swift - Chrome DevTools Protocol client for Oracle OS v2
+// DOMScanner.swift - Chrome DevTools Protocol client for Oracle OS
 //
 // Connects to Chrome's internal debugging port to get instant access to
 // the real DOM, CSS selectors, and JavaScript evaluation. This solves

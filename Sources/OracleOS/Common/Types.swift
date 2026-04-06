@@ -1,4 +1,4 @@
-// Types.swift - Shared types for Oracle OS v2
+// Types.swift - Shared types for Oracle OS
 //
 // Data structures used across modules. Keep these minimal and focused.
 

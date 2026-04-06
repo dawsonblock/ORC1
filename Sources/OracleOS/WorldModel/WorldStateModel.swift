@@ -20,6 +20,10 @@ import Foundation
 ///    ``PlanSimulator`` *before* committing an action.
 /// 3. **Committed world state** — the model's ``snapshot``, the **ONLY**
 ///    layer that planners should read from when making decisions.
+///
+/// CONCURRENCY INVARIANT: `current` and `history` are accessed only while
+/// holding `lock`. Do not add direct field access or new mutation paths that
+/// bypass this lock-based confinement.
 public final class WorldStateModel: @unchecked Sendable {
     private let lock = NSLock()
     private var current: WorldModelSnapshot

@@ -1,5 +1,5 @@
 #!/bin/bash
-# build-release.sh — Build Oracle OS v2 release tarball
+# build-release.sh — Build Oracle OS release tarball
 #
 # Produces: oracle-os-{VERSION}-macos-arm64.tar.gz
 # Contents:
@@ -13,6 +13,10 @@
 # Usage:
 #   ./scripts/build-release.sh               # Build release tarball
 #   ./scripts/build-release.sh --debug       # Build debug tarball (faster)
+#
+# This script is packaging-first. It performs minimal post-build launch smoke
+# only. Canonical behavioral proof lives in scripts/verify-build.sh and the
+# CI workflow.
 #
 # The Homebrew formula downloads this tarball and installs:
 #   /opt/homebrew/bin/oracle
@@ -86,8 +90,11 @@ if [[ "$CONFIG" == "release" ]]; then
     strip "$BINARY"
 fi
 
-# Verify it runs
-"$BINARY" version
+# Minimal packaging smoke. Canonical behavioral proof lives in scripts/verify-build.sh.
+echo "  Running packaging smoke..."
+"$BINARY" version >/dev/null
+"$BINARY" help >/dev/null
+echo "  Packaging smoke: oracle version, oracle help"
 echo "  Binary: $BINARY ($(du -h "$BINARY" | awk '{print $1}'))"
 
 # Step 2: Stage release files
@@ -145,6 +152,7 @@ echo "========================================"
 echo "Release: Oracle OS v${VERSION}"
 echo "Tarball: $TARBALL_NAME"
 echo "SHA256:  $SHA256"
+echo "Proof:   canonical behavioral proof lives in bash scripts/verify-build.sh"
 echo ""
 echo "To install locally:"
 echo "  tar xzf $TARBALL_NAME -C /tmp/oracle-os-install"

@@ -4,6 +4,8 @@
 
 This document describes the current runtime layers and how they satisfy the governance contract in [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
 
+Execution remains local on macOS. If configured, planning and reasoning may call local or remote OpenAI-compatible backends, but those optional backends are outside the execution authority path described here.
+
 Executable proof for the boundary claims here lives in `scripts/mcp_boundary_guard.py`, `scripts/architecture_guard.py`, `scripts/execution_boundary_guard.py`, and the governance test suite.
 
 ## Core Spine
@@ -20,7 +22,9 @@ Supported surfaces:
 
 - OracleController via OracleControllerHost (supported macOS operator UI)
 - MCP server
-- `oracle` CLI
+- `oracle` CLI (`mcp`, `setup`, `doctor`, `dashboard`, `status`, `version`, `help`)
+
+`oracle dashboard` is a non-interactive terminal dashboard snapshot within the CLI surface, not a separate host surface.
 
 ## Dominant Subsystems
 

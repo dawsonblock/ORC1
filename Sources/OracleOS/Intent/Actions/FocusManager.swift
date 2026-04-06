@@ -1,4 +1,4 @@
-// FocusManager.swift - Focus orchestration for Oracle OS v2
+// FocusManager.swift - Focus orchestration for Oracle OS
 //
 // Handles: oracle_focus, oracle_window, focus save/restore, modifier clearing.
 // Uses AXorcist's Element.activateApplication(), focusWindow(), etc.

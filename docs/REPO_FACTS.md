@@ -41,7 +41,7 @@ Do not edit manually.
 | --- | --- |
 | Swift source files under `Sources/` | 510 |
 | Swift test files under `Tests/` | 122 |
-| Repo-owned Python files under `scripts/` and `vision-sidecar/` | 14 |
+| Repo-owned Python files under `scripts/` and `vision-sidecar/` | 15 |
 
 ## MCP Surface
 

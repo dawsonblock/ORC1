@@ -120,6 +120,8 @@ public final class DefaultProcessAdapter: ProcessAdapter {
         
         // Concurrent pipe draining using dispatch queues
         // IMPORTANT: Pipes must be drained WHILE process runs to prevent buffer deadlock
+        // CONCURRENCY INVARIANT: Each DrainResult is written from exactly one
+        // queue and read only after group.wait() joins those queue writes.
         final class DrainResult: @unchecked Sendable {
             var data: Data = Data()
             var truncated: Bool = false

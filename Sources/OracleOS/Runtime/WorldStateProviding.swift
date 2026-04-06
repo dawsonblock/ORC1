@@ -7,7 +7,7 @@ public protocol WorldStateProviding: Sendable {
 }
 
 /// Adapter that provides world state via a closure — decoupled from any specific runtime authority.
-public final class RuntimeWorldStateProvider: WorldStateProviding, @unchecked Sendable {
+public final class RuntimeWorldStateProvider: WorldStateProviding, Sendable {
     private let getWorldState: @Sendable () async -> WorldStateModel
 
     public init(worldStateProvider: @escaping @Sendable () async -> WorldStateModel) {

@@ -1,6 +1,6 @@
-// Dashboard.swift — Oracle OS terminal dashboard
+// Dashboard.swift — Oracle OS terminal dashboard snapshot
 //
-// Renders a live ANSI terminal view of agent state, loop configuration,
+// Prints a non-interactive ANSI snapshot of agent state, loop configuration,
 // policy rules, recovery strategies, memory, and runtime metrics.
 //
 // Usage: oracle dashboard

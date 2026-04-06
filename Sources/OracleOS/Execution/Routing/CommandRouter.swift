@@ -4,7 +4,7 @@ import Foundation
 ///
 /// CommandRouter routes commands after verification. It does not own commit or
 /// persistent state authority, and it is not a bypass around CommitCoordinator.
-public struct CommandRouter: @unchecked Sendable {
+public struct CommandRouter: Sendable {
     private let uiRouter: UIRouter
     private let codeRouter: CodeRouter
 

@@ -4,7 +4,7 @@ import Foundation
 // UIRouter: executes UI commands by dispatching to Actions.perform* directly.
 // AutomationHost is NOT the UI execution authority — it is an observation/snapshot
 // tool used only by ControllerRuntimeBridge for AX snapshots.
-public struct UIRouter: @unchecked Sendable {
+public struct UIRouter: Sendable {
     init() {}
 
     public func execute(
