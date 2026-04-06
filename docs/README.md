@@ -10,6 +10,7 @@ Use this directory together with the root truth docs. The root holds the current
 - [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md) — live product surface and guarantees
 - [../ORACLE-MCP.md](../ORACLE-MCP.md) — public MCP tool catalog
 - [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — live release gate checklist
+- [RELEASE_READY_SUMMARY.md](RELEASE_READY_SUMMARY.md) — current release-readiness and PR summary
 
 ## Runtime References
 
