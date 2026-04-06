@@ -23,32 +23,36 @@ struct HealthWorkspaceView: View {
                                 KVRow(key: "Model", value: health.visionModelPath ?? "Unknown")
                             }
                             GridRow {
+                                KVRow(key: "Runtime Control", value: health.controlPreset.title)
                                 KVRow(key: "Policy Mode", value: health.policyMode)
-                                KVRow(key: "Host Bridge", value: store.hostConnection.label)
                             }
                             GridRow {
-                                KVRow(key: "Controller", value: controllerStatusValue(health: health))
+                                KVRow(key: "Host Bridge", value: store.hostConnection.label)
                                 KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
                             }
                             GridRow {
+                                KVRow(key: "Controller", value: controllerStatusValue(health: health))
                                 KVRow(key: "Copilot", value: copilotStatusValue(store: store))
+                            }
+                            GridRow {
                                 KVRow(key: "Bundle Mode", value: health.runningFromAppBundle ? "Packaged App" : "Developer")
-                            }
-                            GridRow {
                                 KVRow(key: "Bundled Host", value: health.bundledHostAvailable ? "Embedded" : "Missing")
+                            }
+                            GridRow {
                                 KVRow(key: "Writable Storage", value: health.storageReady ? "Ready" : "Attention")
-                            }
-                            GridRow {
                                 KVRow(key: "Trace Dir", value: health.traceDirectoryPath)
+                            }
+                            GridRow {
                                 KVRow(key: "Recipe Dir", value: health.recipeDirectoryPath)
-                            }
-                            GridRow {
                                 KVRow(key: "App Support", value: health.applicationSupportPath)
-                                KVRow(key: "Logs", value: health.logsDirectoryPath)
                             }
                             GridRow {
+                                KVRow(key: "Logs", value: health.logsDirectoryPath)
                                 KVRow(key: "Graph DB", value: health.graphDatabasePath)
+                            }
+                            GridRow {
                                 KVRow(key: "Vision Install", value: health.visionInstallPath)
+                                KVRow(key: "Recipes", value: "\(health.recipeCount)")
                             }
                         }
 
@@ -217,6 +221,7 @@ struct HealthInspectorView: View {
                     KVRow(key: "Sidecar Version", value: health.visionSidecarVersion ?? "Unknown")
                     KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
                     KVRow(key: "Controller", value: controllerStatusValue(health: health))
+                    KVRow(key: "Runtime Control", value: health.controlPreset.title)
                     KVRow(key: "Policy Mode", value: health.policyMode)
                     KVRow(key: "Local Storage", value: health.storageReady ? "Ready" : "Attention")
                     KVRow(key: "App Support", value: health.applicationSupportPath, monospaced: true)

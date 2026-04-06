@@ -24,6 +24,29 @@ extension ControllerStore {
         }
     }
 
+    func setControlPreset(_ preset: RuntimeControlPreset) async {
+        let previousPreset = selectedControlPreset
+        selectedControlPreset = preset
+        isUpdatingControlPreset = true
+
+        defer {
+            isUpdatingControlPreset = false
+        }
+
+        do {
+            let response = try await send(.init(command: .setControlPreset, controlPreset: preset))
+            guard requireAcknowledged(response, fallback: "Runtime control update failed") else {
+                selectedControlPreset = previousPreset
+                return
+            }
+
+            applyHealthResponse(response, fallback: "Runtime control update did not return health state")
+        } catch {
+            selectedControlPreset = previousPreset
+            present(error)
+        }
+    }
+
     func loadDiagnostics() async {
         do {
             let response = try await send(.init(command: .getDiagnostics))

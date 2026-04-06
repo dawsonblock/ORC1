@@ -88,6 +88,14 @@ public enum OracleProductPaths {
         dataRootDirectory.appendingPathComponent("Diagnostics", isDirectory: true)
     }
 
+    public static var settingsDirectory: URL {
+        dataRootDirectory.appendingPathComponent("Settings", isDirectory: true)
+    }
+
+    public static var runtimeControlSettingsURL: URL {
+        settingsDirectory.appendingPathComponent("runtime-control.json", isDirectory: false)
+    }
+
     public static var exportsDirectory: URL {
         dataRootDirectory.appendingPathComponent("Exports", isDirectory: true)
     }
@@ -297,6 +305,7 @@ public enum OracleProductPaths {
             approvalsDirectory,
             projectMemoryDirectory,
             experimentsDirectory,
+            settingsDirectory,
             graphDirectory,
             diagnosticsDirectory,
             exportsDirectory,

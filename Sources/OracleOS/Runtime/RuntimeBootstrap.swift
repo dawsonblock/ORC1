@@ -110,6 +110,7 @@ public enum RuntimeBootstrap {
         }
 
         let policyEngine = PolicyEngine.shared
+        policyEngine.reloadPolicies(mode: configuration.policyMode)
         let processAdapter = DefaultProcessAdapter(policyEngine: policyEngine)
         // Wire the shared process adapter into VisionBridge so sidecar startup
         // does not mint its own DefaultProcessAdapter locally.

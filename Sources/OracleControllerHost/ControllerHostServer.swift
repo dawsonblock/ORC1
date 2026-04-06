@@ -164,6 +164,48 @@ actor ControllerHostServer {
                 diagnostics: diagnostics
             ))
 
+        case .setControlPreset:
+            guard let controlPreset = request.controlPreset else {
+                await output.send(response: ControllerHostResponse(
+                    requestID: request.id,
+                    command: request.command,
+                    acknowledged: false,
+                    errorMessage: "Missing runtime control preset"
+                ))
+                return
+            }
+
+            do {
+                let health = try await MainActor.run { try bridge.setControlPreset(controlPreset) }
+                let monitoring = monitoringConfiguration
+                let session = await MainActor.run {
+                    bridge.currentSession(
+                        autoRefreshEnabled: monitoring.enabled,
+                        appName: monitoring.appName
+                    )
+                }
+                lastHealth = health
+                await output.send(response: ControllerHostResponse(
+                    requestID: request.id,
+                    command: request.command,
+                    acknowledged: true,
+                    health: health
+                ))
+                await output.send(event: ControllerHostEvent(
+                    kind: .healthChanged,
+                    session: session,
+                    health: health
+                ))
+                await emitMissionControlUpdate(appName: monitoring.appName)
+            } catch {
+                await output.send(response: ControllerHostResponse(
+                    requestID: request.id,
+                    command: request.command,
+                    acknowledged: false,
+                    errorMessage: error.localizedDescription
+                ))
+            }
+
         case .performAction:
             guard let action = request.action else {
                 await output.send(response: ControllerHostResponse(

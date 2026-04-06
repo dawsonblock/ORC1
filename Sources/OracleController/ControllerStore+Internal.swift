@@ -46,7 +46,7 @@ extension ControllerStore {
         case .healthChanged:
             session = event.session ?? session
             if let health = event.health {
-                self.health = health
+                apply(health: health)
             }
             scheduleDiagnosticsRefresh()
             scheduleMissionControlRefresh()
@@ -136,11 +136,12 @@ extension ControllerStore {
     func applyHealthResponse(_ response: ControllerHostResponse, fallback: String = "Health snapshot unavailable") {
         guard let health = response.health else {
             self.health = nil
+            selectedControlPreset = nil
             errorMessage = response.errorMessage ?? fallback
             return
         }
 
-        self.health = health
+        apply(health: health)
     }
 
     func applySnapshotResponse(_ response: ControllerHostResponse, fallback: String = "Observation snapshot unavailable") {
@@ -283,7 +284,7 @@ extension ControllerStore {
         guard let bootstrap else { return }
         session = bootstrap.session
         snapshot = bootstrap.snapshot
-        health = bootstrap.health
+        apply(health: bootstrap.health)
         recipes = bootstrap.recipes
         traceSessions = bootstrap.traceSessions
         approvalQueue = bootstrap.approvals
@@ -307,6 +308,11 @@ extension ControllerStore {
         self.snapshot = snapshot
         selectedElementID = snapshot.observation.focusedElementID ?? selectedElementID
         actionComposer.hydrate(from: snapshot)
+    }
+
+    func apply(health: HealthStatus) {
+        self.health = health
+        selectedControlPreset = health.controlPreset
     }
 
     func apply(recipe: RecipeDocument) {

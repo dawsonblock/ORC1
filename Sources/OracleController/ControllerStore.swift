@@ -129,6 +129,7 @@ final class ControllerStore {
     var session: ControllerSession?
     var snapshot: ControlSnapshot?
     var health: HealthStatus?
+    var selectedControlPreset: RuntimeControlPreset?
     var diagnostics: ControllerDiagnosticsSnapshot?
     var missionControl: MissionControlSnapshot?
     var productStatus: ProductEnvironmentStatus?
@@ -164,6 +165,7 @@ final class ControllerStore {
 
     var monitorAppName = ""
     var autoRefreshEnabled = true
+    var isUpdatingControlPreset = false
     var isBusy = false
     var isLoaded = false
     var showOnboarding = false

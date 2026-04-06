@@ -182,6 +182,35 @@ struct ControlWorkspaceView: View {
                     }
                     .buttonStyle(ControllerPrimaryButtonStyle())
 
+                    Menu {
+                        ForEach(RuntimeControlPreset.allCases) { preset in
+                            Button {
+                                Task { await store.setControlPreset(preset) }
+                            } label: {
+                                if store.selectedControlPreset == preset {
+                                    Label(preset.title, systemImage: "checkmark")
+                                } else {
+                                    Text(preset.title)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("Runtime Control")
+                            Text(store.selectedControlPreset?.title ?? "Loading")
+                                .foregroundStyle(ControllerTheme.accent)
+                        }
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(ControllerTheme.panelRaised.opacity(0.92), in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(ControllerTheme.borderStrong.opacity(0.7), lineWidth: 1)
+                        )
+                    }
+                    .disabled(store.isUpdatingControlPreset)
+
                     Button("Run Setup Wizard") {
                         store.reopenOnboarding()
                     }

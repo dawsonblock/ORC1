@@ -10,4 +10,5 @@ public enum PolicyMode: String, Codable, Sendable {
     case open
     case confirmRisky = "confirm-risky"
     case lockedDown = "locked-down"
+    case adaptive
 }

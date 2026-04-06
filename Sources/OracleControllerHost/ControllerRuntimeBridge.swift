@@ -14,6 +14,9 @@ final class ControllerRuntimeBridge {
     
     /// The bootstrapped runtime bundle — single authority for all services.
     private let bootstrappedRuntime: BootstrappedRuntime
+    private let runtimeControlSettingsStore: RuntimeControlSettingsStore
+    private var currentControlPreset: RuntimeControlPreset
+    private var currentPolicyMode: PolicyMode
     
     /// Direct container access — the single runtime authority.
     var container: RuntimeContainer { bootstrappedRuntime.container }
@@ -24,9 +27,18 @@ final class ControllerRuntimeBridge {
     var artifactWriter: FailureArtifactWriter { bootstrappedRuntime.container.artifactWriter }
 
     init() async throws {
+        let runtimeControlSettingsStore = RuntimeControlSettingsStore()
+        let persistedPreset = runtimeControlSettingsStore.loadSelectedPreset()
+        let initialPreset = persistedPreset ?? RuntimeControlPreset(policyMode: PolicyEngine.defaultMode())
+
         // Single source of truth: RuntimeBootstrap creates all shared services with recovery
-        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .live())
+        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(
+            configuration: .live(policyMode: initialPreset.policyMode)
+        )
         self.bootstrappedRuntime = bootstrapped
+        self.runtimeControlSettingsStore = runtimeControlSettingsStore
+        self.currentControlPreset = initialPreset
+        self.currentPolicyMode = initialPreset.policyMode
         
         // Log recovery status
         if bootstrapped.recoveryReport.didRecover {
@@ -97,7 +109,8 @@ final class ControllerRuntimeBridge {
             storageLocations: storageLocations,
             approvalBrokerActive: container.approvalStore.isActive(),
             controllerConnected: runtimeLifecycle.controllerConnected(),
-            policyMode: container.config.policyMode.rawValue,
+            controlPreset: currentControlPreset,
+            policyMode: currentPolicyMode.rawValue,
             runningFromAppBundle: OracleProductPaths.runningFromAppBundle,
             bundledHostAvailable: OracleProductPaths.bundledHelperURL != nil,
             bundledVisionBootstrapAvailable: OracleProductPaths.bundledVisionBootstrapDirectory != nil,
@@ -105,6 +118,18 @@ final class ControllerRuntimeBridge {
             buildVersion: OracleProductPaths.buildVersion,
             buildNumber: OracleProductPaths.buildNumber
         )
+    }
+
+    func setControlPreset(_ preset: RuntimeControlPreset) throws -> HealthStatus {
+        if preset == currentControlPreset {
+            return healthStatus()
+        }
+
+        try runtimeControlSettingsStore.saveSelectedPreset(preset)
+        currentControlPreset = preset
+        currentPolicyMode = preset.policyMode
+        container.policyEngine.reloadPolicies(mode: currentPolicyMode)
+        return healthStatus()
     }
 
     private func storageLocationStatuses() -> [StorageLocationStatus] {

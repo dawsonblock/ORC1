@@ -56,6 +56,7 @@ public struct HealthStatus: Codable, Sendable, Equatable {
     public let storageLocations: [StorageLocationStatus]
     public let approvalBrokerActive: Bool
     public let controllerConnected: Bool
+    public let controlPreset: RuntimeControlPreset
     public let policyMode: String
     public let runningFromAppBundle: Bool
     public let bundledHostAvailable: Bool
@@ -84,6 +85,7 @@ public struct HealthStatus: Codable, Sendable, Equatable {
         storageLocations: [StorageLocationStatus],
         approvalBrokerActive: Bool,
         controllerConnected: Bool,
+        controlPreset: RuntimeControlPreset = .original,
         policyMode: String,
         runningFromAppBundle: Bool,
         bundledHostAvailable: Bool,
@@ -111,6 +113,7 @@ public struct HealthStatus: Codable, Sendable, Equatable {
         self.storageLocations = storageLocations
         self.approvalBrokerActive = approvalBrokerActive
         self.controllerConnected = controllerConnected
+        self.controlPreset = controlPreset
         self.policyMode = policyMode
         self.runningFromAppBundle = runningFromAppBundle
         self.bundledHostAvailable = bundledHostAvailable

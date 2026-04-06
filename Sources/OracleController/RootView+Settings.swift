@@ -12,6 +12,77 @@ struct SettingsWorkspaceView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: layout.stackSpacing) {
+                PanelCard("Runtime Control", subtitle: "Whole-runtime autonomy mode, applied through the host") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(store.selectedControlPreset?.title ?? "Loading runtime control")
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(ControllerTheme.ink)
+                                Text(store.selectedControlPreset?.summary ?? "The host reports the active runtime preset here after bootstrap.")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(ControllerTheme.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
+                            Spacer()
+
+                            if let policyMode = store.health?.policyMode {
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text("Policy Mode")
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundStyle(ControllerTheme.muted)
+                                    Text(policyMode)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundStyle(ControllerTheme.ink)
+                                }
+                            }
+                        }
+
+                        ForEach(RuntimeControlPreset.allCases) { preset in
+                            Button {
+                                Task { await store.setControlPreset(preset) }
+                            } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(preset.title)
+                                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                            .foregroundStyle(ControllerTheme.ink)
+                                        Text(preset.summary)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundStyle(ControllerTheme.muted)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+
+                                    Spacer()
+
+                                    if store.selectedControlPreset == preset {
+                                        StatusBadge(
+                                            label: store.isUpdatingControlPreset ? "Applying" : "Active",
+                                            tone: store.isUpdatingControlPreset ? .neutral : .good
+                                        )
+                                    }
+                                }
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(store.selectedControlPreset == preset ? ControllerTheme.panelRaised : Color.white.opacity(0.45))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                .stroke(store.selectedControlPreset == preset ? ControllerTheme.accent.opacity(0.28) : ControllerTheme.border, lineWidth: 1)
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(store.isUpdatingControlPreset && store.selectedControlPreset != preset)
+                        }
+
+                        Text("Full Control still keeps the hard runtime safety blocks. AI Decides blocks irreversible or external risk and asks for review on the rest.")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(ControllerTheme.muted)
+                    }
+                }
+
                 PanelCard("Session Settings", subtitle: "Controller-local behavior, not runtime policy") {
                     Toggle("Auto refresh monitoring", isOn: $store.autoRefreshEnabled)
                         .onChange(of: store.autoRefreshEnabled) { _, _ in

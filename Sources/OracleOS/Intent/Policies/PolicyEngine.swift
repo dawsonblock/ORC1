@@ -3,7 +3,7 @@ import Foundation
 public final class PolicyEngine: @unchecked Sendable {
     public static let shared = PolicyEngine()
 
-    public var mode: PolicyMode
+    private var currentMode: PolicyMode
 
     /// Cache for policy decisions to avoid repeated evaluation
     private var decisionCache: [String: CachedDecision] = [:]
@@ -29,8 +29,14 @@ public final class PolicyEngine: @unchecked Sendable {
         }
     }
 
+    public var mode: PolicyMode {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return currentMode
+    }
+
     public init(mode: PolicyMode? = nil) {
-        self.mode = mode ?? Self.defaultMode()
+        self.currentMode = mode ?? Self.defaultMode()
     }
 
     /// Reset the repeated-action guard (call when world state changes).
@@ -51,10 +57,20 @@ public final class PolicyEngine: @unchecked Sendable {
 
     /// Reload policies with immediate cache invalidation
     public func reloadPolicies(mode: PolicyMode? = nil) {
-        if let mode = mode {
-            self.mode = mode
+        cacheLock.lock()
+        let previousMode = currentMode
+        if let mode {
+            currentMode = mode
         }
-        clearCache()
+        decisionCache.removeAll()
+        lastProtectedOperation = nil
+        consecutiveProtectedOpCount = 0
+        let activeMode = currentMode
+        cacheLock.unlock()
+
+        if previousMode != activeMode || mode == nil {
+            Log.info("PolicyEngine: reloaded policies in \(activeMode.rawValue) mode")
+        }
     }
 
     public func evaluate(intent: ActionIntent) -> PolicyDecision {
@@ -218,6 +234,7 @@ case .code(let action):
     }
 
     public func evaluate(intent: ActionIntent, context: PolicyEvaluationContext) -> PolicyDecision {
+        let activeMode = mode
         let appProtectionProfile = PolicyRules.appProtectionProfile(for: context.appName ?? intent.app)
         let classification = PolicyRules.classification(
             for: intent,
@@ -249,7 +266,7 @@ case .code(let action):
                     appProtectionProfile: appProtectionProfile,
                     blockedByPolicy: true,
                     surface: context.surface,
-                    policyMode: mode,
+                    policyMode: activeMode,
                     requiresApproval: false,
                     reason: "Repeated-action guard: \(op.rawValue) has fired \(consecutiveProtectedOpCount) consecutive times without a state change"
                 )
@@ -263,12 +280,12 @@ case .code(let action):
             appProtectionProfile: appProtectionProfile,
             blockedByPolicy: riskLevel == .blocked,
             surface: context.surface,
-            policyMode: mode,
+            policyMode: activeMode,
             requiresApproval: riskLevel == .risky,
-            reason: classification.reason ?? defaultReason(for: riskLevel, protectedOperation: protectedOperation, mode: mode)
+            reason: classification.reason ?? defaultReason(for: riskLevel, protectedOperation: protectedOperation, mode: activeMode)
         )
 
-        switch mode {
+        switch activeMode {
         case .open:
             if riskLevel == .blocked {
                 return baseDecision.withReason(baseDecision.reason ?? "Action blocked by policy")
@@ -280,7 +297,7 @@ case .code(let action):
                 appProtectionProfile: appProtectionProfile,
                 blockedByPolicy: false,
                 surface: context.surface,
-                policyMode: mode,
+                policyMode: activeMode,
                 requiresApproval: false,
                 reason: baseDecision.reason
             )
@@ -297,7 +314,7 @@ case .code(let action):
                     appProtectionProfile: appProtectionProfile,
                     blockedByPolicy: false,
                     surface: context.surface,
-                    policyMode: mode,
+                    policyMode: activeMode,
                     requiresApproval: false,
                     reason: nil
                 )
@@ -309,10 +326,41 @@ case .code(let action):
                 appProtectionProfile: appProtectionProfile,
                 blockedByPolicy: true,
                 surface: context.surface,
-                policyMode: mode,
+                policyMode: activeMode,
                 requiresApproval: false,
                 reason: "Action blocked by locked-down policy"
             )
+
+        case .adaptive:
+            if riskLevel == .low {
+                return PolicyDecision(
+                    allowed: true,
+                    riskLevel: riskLevel,
+                    protectedOperation: protectedOperation,
+                    appProtectionProfile: appProtectionProfile,
+                    blockedByPolicy: false,
+                    surface: context.surface,
+                    policyMode: activeMode,
+                    requiresApproval: false,
+                    reason: nil
+                )
+            }
+
+            if riskLevel == .blocked || adaptiveModeBlocks(protectedOperation: protectedOperation) {
+                return PolicyDecision(
+                    allowed: false,
+                    riskLevel: riskLevel,
+                    protectedOperation: protectedOperation,
+                    appProtectionProfile: appProtectionProfile,
+                    blockedByPolicy: true,
+                    surface: context.surface,
+                    policyMode: activeMode,
+                    requiresApproval: false,
+                    reason: adaptiveBlockReason(for: protectedOperation)
+                )
+            }
+
+            return baseDecision
         }
     }
 
@@ -338,6 +386,36 @@ case .code(let action):
                 return "Action blocked by policy: \(protectedOperation.rawValue)"
             }
             return "Action blocked by policy"
+        }
+    }
+
+    private func adaptiveModeBlocks(protectedOperation: ProtectedOperation?) -> Bool {
+        guard let protectedOperation else {
+            return false
+        }
+
+        switch protectedOperation {
+        case .send, .purchase, .delete, .uploadShare, .externalNetworkFetch, .gitPush, .destructiveVCS:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func adaptiveBlockReason(for protectedOperation: ProtectedOperation?) -> String {
+        guard let protectedOperation else {
+            return "Action blocked by adaptive policy"
+        }
+
+        switch protectedOperation {
+        case .send, .purchase, .delete, .uploadShare:
+            return "Action blocked by adaptive policy: irreversible UI risk"
+        case .externalNetworkFetch:
+            return "Action blocked by adaptive policy: remote network action"
+        case .gitPush, .destructiveVCS:
+            return "Action blocked by adaptive policy: external or destructive VCS action"
+        default:
+            return "Action blocked by adaptive policy"
         }
     }
 }

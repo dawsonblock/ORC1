@@ -20,6 +20,7 @@ public enum ControllerHostCommand: String, Codable, Sendable {
     case loadTraceSession
     case getHealth
     case getDiagnostics
+    case setControlPreset
     case setMonitoring
     case ping
 }
@@ -46,6 +47,7 @@ public struct ControllerHostRequest: Codable, Sendable, Identifiable {
     public let recipeParams: [String: String]?
     public let traceSessionID: String?
     public let monitoring: MonitoringConfiguration?
+    public let controlPreset: RuntimeControlPreset?
     public let approvalRequestID: String?
     public let resumeToken: String?
     public let conversationID: String?
@@ -62,6 +64,7 @@ public struct ControllerHostRequest: Codable, Sendable, Identifiable {
         recipeParams: [String: String]? = nil,
         traceSessionID: String? = nil,
         monitoring: MonitoringConfiguration? = nil,
+        controlPreset: RuntimeControlPreset? = nil,
         approvalRequestID: String? = nil,
         resumeToken: String? = nil,
         conversationID: String? = nil,
@@ -77,6 +80,7 @@ public struct ControllerHostRequest: Codable, Sendable, Identifiable {
         self.recipeParams = recipeParams
         self.traceSessionID = traceSessionID
         self.monitoring = monitoring
+        self.controlPreset = controlPreset
         self.approvalRequestID = approvalRequestID
         self.resumeToken = resumeToken
         self.conversationID = conversationID
