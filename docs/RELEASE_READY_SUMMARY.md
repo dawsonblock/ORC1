@@ -1,8 +1,8 @@
 # Release Readiness Summary
 
-**Date:** 2026-04-05  
+**Date:** 2026-04-06  
 **Branch:** `main`  
-**Status:** Ready on the supported proof surface
+**Status:** Build and test verified; signing/notarizing require repository secrets
 
 ## Included on Main
 
@@ -14,7 +14,6 @@
 
 ## Verification
 
-- `git status --short` is clean on `main`.
 - `bash scripts/verify-build.sh` returns `=== VERDICT: PASS ===`.
 - The verifier passed repo facts, MCP boundary guard, architecture guard, and execution boundary guard.
 - Current proof artifacts are written to `local/verify/latest/`.
@@ -32,4 +31,4 @@
 
 ## PR Summary
 
-This branch is release-ready on the supported Oracle OS proof surface. `main` contains the runtime truth/authority alignment pass, hardened architecture and execution guards, targeted behavioral proof coverage, the web/demo build repair, and the documentation cleanup pass. The canonical verifier passes on `main`, and the working tree is clean.
+This branch passes pre-release verification on the supported Oracle OS proof surface. `main` contains the runtime truth/authority alignment pass, hardened architecture and execution guards, targeted behavioral proof coverage, the web/demo build repair, and the documentation cleanup pass. The canonical verifier passes on `main`, and signed/notarized release artifacts still depend on repository secrets.

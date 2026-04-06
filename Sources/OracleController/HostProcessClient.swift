@@ -226,10 +226,10 @@ actor HostProcessClient {
                     await self.route(envelope)
                 }
                 guard !Task.isCancelled else { return }
-                await self.handleOutputClosed()
+                self.handleOutputClosed()
             } catch {
                 guard !Task.isCancelled else { return }
-                await self.handleOutputFailure(error)
+                self.handleOutputFailure(error)
             }
         }
     }

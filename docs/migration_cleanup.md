@@ -15,7 +15,7 @@ runtime-architecture unification effort.
 - Side effects must run through:
   `RuntimeOrchestrator.submitIntent(_:) -> VerifiedExecutor.execute(_:)`
 - Command dispatch is routed by:
-  `CommandRouter -> SystemRouter/UIRouter/CodeRouter`
+  `CommandRouter -> UIRouter / CodeRouter`
 
 ## Follow-up guardrails
 

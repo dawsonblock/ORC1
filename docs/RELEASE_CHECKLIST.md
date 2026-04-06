@@ -19,7 +19,6 @@ Use this checklist before tagging any release. Complete every item in order.
 
 - [ ] No `private` func/struct that should be `internal` when split across files
 - [ ] No `@Observable` var properties left in extensions (must be in main class body)
-- [ ] All `VerifiedExecutor` call sites include a `// VERIFIED:` comment with rationale
 - [ ] No new MCP tool added without a dispatch entry in `MCPDispatch.swift`
 - [ ] Vision sidecar `endpoints.py` schema matches `VisionSidecarContract.swift` types
 
@@ -43,7 +42,7 @@ Use this checklist before tagging any release. Complete every item in order.
 
 ### Versioning
 
-- [ ] Version string updated in `AppResources/OracleController/Info.plist`
+- [ ] Version string updated in `Sources/OracleOS/Common/Types.swift` (`AppResources/OracleController/Info.plist` is a build-time template)
 - [ ] Release notes updated in `AppResources/OracleController/ReleaseNotes.md`
 
 ### Tagging
@@ -55,9 +54,9 @@ git push origin vX.Y.Z
 
 ### Distribution
 
-- [ ] `scripts/build-release.sh` run successfully
-- [ ] `.dmg` created via `scripts/create-controller-dmg.sh`
-- [ ] Notarization via `scripts/notarize-controller-release.sh` verified (exit 0)
+- [ ] CLI/MCP tarball: `scripts/build-release.sh` succeeds (produces `oracle-os-{VERSION}*.tar.gz`)
+- [ ] Controller app: `scripts/create-controller-dmg.sh` succeeds (produces `.dmg`)
+- [ ] Controller notarization: `scripts/notarize-controller-release.sh` verified (exit 0)
 
 ---
 

@@ -5,6 +5,21 @@ import Foundation
 @Suite("Vision Perception Contract")
 struct VisionPerceptionContractTests {
 
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fm = FileManager.default
+        while true {
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) { return url }
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path { return url }
+            url = parent
+        }
+    }
+
+    private func read(_ relativePath: String) throws -> String {
+        try String(contentsOf: repositoryRoot().appendingPathComponent(relativePath), encoding: .utf8)
+    }
+
     // MARK: - Helpers
 
     private func validFrame(
@@ -131,5 +146,14 @@ struct VisionPerceptionContractTests {
         #expect(decoded.id == original.id)
         #expect(decoded.confidence == original.confidence)
         #expect(decoded.frame.centerX == 25)
+    }
+
+    @Test("Ground schema includes optional Swift response fields")
+    func groundSchemaIncludesSwiftOptionalFields() throws {
+        let schema = try read("vision-sidecar/schema/endpoints.py")
+
+        #expect(schema.contains("\"confidence\": (float, type(None))"))
+        #expect(schema.contains("\"raw\": (str, type(None))"))
+        #expect(schema.contains("\"inference_ms\": (int, type(None))"))
     }
 }

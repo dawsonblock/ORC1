@@ -55,6 +55,9 @@ GROUND_RESPONSE_SCHEMA: dict = {
     "y": float,             # logical Y coordinate
     "normalized_x": float,  # x / screen_w, in [0, 1]
     "normalized_y": float,  # y / screen_h, in [0, 1]
+    "confidence": (float, type(None)),
+    "raw": (str, type(None)),
+    "inference_ms": (int, type(None)),
     "method": str,          # "full-screen" | "crop-based"
     "crop_box": list,       # echoed crop region, only present for crop-based
     # Failure field (populated on error; other fields may be absent)

@@ -49,7 +49,7 @@ These are bounded exceptions and are **not** part of the guaranteed main-path ex
 
 - `oracle_experiment_search`
 - `oracle doctor` and `oracle setup`
-- optional `vision-sidecar/` workflows
+- optional experimental read-only perception via `vision-sidecar/`
 
 ---
 
@@ -94,7 +94,7 @@ On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRunti
 
 ## MCP Surface
 
-OracleOS exposes **30 stable public tools** across 9 categories via the Model Context Protocol.
+OracleOS exposes **30 public tools** across 9 categories via the Model Context Protocol.
 
 | Category | Tools |
 | --- | ---: |

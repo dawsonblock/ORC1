@@ -44,6 +44,16 @@ final class MCPToolCoverageTests: XCTestCase {
         }
     }
 
+    private func documentedToolNames(in markdown: String) -> [String] {
+        let pattern = #"(?m)^\| (oracle_[a-z_]+) \|"#
+        let regex = try! NSRegularExpression(pattern: pattern)
+        let range = NSRange(markdown.startIndex..., in: markdown)
+        return regex.matches(in: markdown, range: range).compactMap { match in
+            guard let r = Range(match.range(at: 1), in: markdown) else { return nil }
+            return String(markdown[r])
+        }
+    }
+
     // MARK: - Tests
 
     /// Every oracle_* tool in MCPTools.swift must appear as MCPToolName.xxx in MCPDispatch*.swift.
@@ -137,5 +147,21 @@ final class MCPToolCoverageTests: XCTestCase {
 
         let workflowMine = try description(for: MCPToolName.workflowMine)
         XCTAssertTrue(workflowMine.contains("caller review"))
+    }
+
+    @MainActor
+    func testPublicToolReferenceTableMatchesDefinitions() throws {
+        let markdown = try readSource("ORACLE-MCP.md")
+        let documented = Set(documentedToolNames(in: markdown))
+        let declared = Set(MCPTools.definitions().compactMap { $0["name"] as? String })
+
+        let missingFromDocs = declared.subtracting(documented).sorted()
+        let undocumented = documented.subtracting(declared).sorted()
+
+        XCTAssertEqual(documented.count, 30, "ORACLE-MCP.md must document exactly 30 public tools; found \(documented.count)")
+        XCTAssertTrue(
+            missingFromDocs.isEmpty && undocumented.isEmpty,
+            "ORACLE-MCP.md tool table drift. Missing from docs: \(missingFromDocs). Undocumented tools: \(undocumented)"
+        )
     }
 }
