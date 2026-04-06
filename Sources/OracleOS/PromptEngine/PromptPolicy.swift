@@ -25,7 +25,7 @@ public struct PromptPolicy {
 
         switch template {
         case .planning, .workflowSelection:
-            constraints.append("Prefer trusted workflow or stable graph reuse before exploration.")
+            constraints.append("Prefer replay-validated workflow or stable graph reuse before exploration.")
         case .codeRepair, .experimentGeneration:
             constraints.append("Keep the patch surface as small as possible.")
             constraints.append("Do not modify tests unless explicitly required.")

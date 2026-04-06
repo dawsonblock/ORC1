@@ -3,7 +3,7 @@
 // Maps to MCP tools: oracle_parse_screen, oracle_ground
 //
 // These tools use the Python vision sidecar (localhost:9876) for ML inference.
-// The sidecar handles grounding and experimental full-screen parsing/detection.
+// The sidecar provides best-effort grounding and experimental full-screen parsing.
 //
 // Architecture:
 //   oracle_parse_screen → screenshot → sidecar /parse → experimental structured output
@@ -18,7 +18,8 @@ import Foundation
 /// ⚠️ EXPERIMENTAL — Vision-based perception tools.
 ///
 /// These tools use the Python vision sidecar and are NOT part of the
-/// critical runtime path. Normal runtime operation succeeds without them.
+/// supported commit-authority path. The supported runtime remains functional
+/// without them.
 ///
 /// Allowed usage:
 /// - Debugging and offline evaluation
@@ -26,8 +27,8 @@ import Foundation
 /// - Fallback when AX tree is insufficient
 ///
 /// Prohibited usage:
-/// - Planner MUST NOT depend on vision output for decision-making
-/// - Runtime loop MUST NOT block on sidecar availability
+/// - Supported planners MUST NOT depend on vision output for decision-making
+/// - The supported runtime loop MUST NOT block on sidecar availability
 @MainActor
 public enum VisionScanner {
 
@@ -35,7 +36,7 @@ public enum VisionScanner {
 
     /// Experimental full-screen vision parsing.
     /// The sidecar can return structured output, but the runtime still treats
-    /// this as a partial/experimental surface.
+    /// this as a best-effort experimental perception surface.
     public static func parseScreen(
         appName: String?,
         fullResolution: Bool

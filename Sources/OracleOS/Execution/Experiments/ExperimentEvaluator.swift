@@ -1,4 +1,4 @@
-// ExperimentEvaluator.swift — Task-level scoring and evaluation engine.
+// ExperimentEvaluator.swift — Task-level scoring helper for sandbox outcomes.
 //
 // Turns raw experiment results and action outcomes into a normalised score
 // so the planner can measure progress and the learning loop can decide
@@ -75,7 +75,7 @@ public struct ActionOutcomeSummary: Sendable {
 
 // MARK: - Evaluator
 
-/// Scores task outcomes using configurable dimension weights.
+/// Advisory scoring helper for task outcomes using configurable dimension weights.
 ///
 /// Default dimensions:
 ///   - correctness:  postcondition pass rate

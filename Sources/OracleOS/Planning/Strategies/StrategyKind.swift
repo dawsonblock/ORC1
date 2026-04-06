@@ -1,6 +1,6 @@
 import Foundation
 
-/// Top-level strategy enum defining the agent's high-level approach.
+/// Top-level strategy enum defining the planner's high-level approach.
 ///
 /// Strategy selection is the first decision stage in every planning cycle.
 /// No plan generation happens before a strategy is selected.

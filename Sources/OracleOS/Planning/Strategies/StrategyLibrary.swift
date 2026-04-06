@@ -1,6 +1,6 @@
 import Foundation
 
-/// A high-level approach the agent can adopt for a task. The strategy layer
+/// A high-level approach the planner can adopt for a task. The strategy layer
 /// sits above the planner and constrains which planning operators are considered.
 ///
 ///     goal → strategy selection → planning → execution

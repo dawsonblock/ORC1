@@ -1,5 +1,9 @@
 import Foundation
 
+/// Advisory architecture review helper for candidate code changes.
+///
+/// This surface produces findings, risk scores, and refactor suggestions. It
+/// does not mutate source files and it does not own execution or commit authority.
 public final class ArchitectureEngine: @unchecked Sendable {
     private let dependencyAnalyzer: DependencyAnalyzer
     private let impactAnalyzer: ChangeImpactAnalyzer

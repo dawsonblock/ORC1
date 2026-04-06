@@ -3,7 +3,7 @@ import Foundation
 /// The canonical stage model for candidate patch evaluation in repair flows.
 ///
 /// This pipeline models ordered repair stages, but it does not by itself claim
-/// autonomous code correction or guaranteed repair success.
+/// fully automatic code correction or guaranteed repair success.
 ///
 /// Pipeline stages:
 ///

@@ -38,7 +38,7 @@ public struct PromptTemplateRegistry {
                 kind: kind,
                 expectedOutput: [
                     "One bounded next action",
-                    "Short rationale tied to trusted runtime evidence",
+                    "Short rationale tied to current runtime evidence",
                     "Fallback when the action fails",
                 ],
                 evaluationCriteria: [
@@ -59,7 +59,7 @@ public struct PromptTemplateRegistry {
                 kind: kind,
                 expectedOutput: [
                     "Workflow reuse decision",
-                    "Best matching workflow or an explicit fallback reason",
+                    "Highest-confidence reusable workflow or an explicit fallback reason",
                 ],
                 evaluationCriteria: [
                     "Prefer promoted workflows with high replay success",
@@ -81,7 +81,7 @@ public struct PromptTemplateRegistry {
                     "Fallback into bounded experiments if confidence is low",
                 ],
                 evaluationCriteria: [
-                    "Prefer trusted workflow and graph reuse before direct repair",
+                    "Prefer replay-validated workflow and graph reuse before direct repair",
                     "Use repository intelligence to localize likely root cause",
                     "Keep patch scope small and verifiable",
                 ],
@@ -103,7 +103,7 @@ public struct PromptTemplateRegistry {
                 expectedOutput: [
                     "Bounded candidate patch set",
                     "Clear ranking criteria",
-                    "Replay target for the winning candidate",
+                    "Replay target for the selected candidate",
                 ],
                 evaluationCriteria: [
                     "Generate only bounded candidate families",
@@ -130,7 +130,7 @@ public struct PromptTemplateRegistry {
                 ],
                 evaluationCriteria: [
                     "Use semantic targeting and fail closed on ambiguity",
-                    "Prefer existing trusted workflow and graph knowledge",
+                    "Prefer existing replay-validated workflow and graph knowledge",
                     "Keep the action consistent with runtime policy",
                 ],
                 defaultActions: [

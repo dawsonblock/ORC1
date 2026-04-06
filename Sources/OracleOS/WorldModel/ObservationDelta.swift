@@ -13,7 +13,7 @@ import Foundation
 ///     ↓
 ///     WorldModel.apply(delta)
 ///
-/// During long autonomous runs only a small fraction of UI elements change
+/// During long automation runs only a small fraction of UI elements change
 /// each loop iteration.  By capturing exactly *what* changed the system
 /// avoids re-processing thousands of unchanged elements.
 public struct ObservationDelta: Sendable {

@@ -22,7 +22,7 @@ public struct WorkflowMatch: Sendable {
 public struct WorkflowRetriever: Sendable {
     public init() {}
 
-    /// Retrieve the best matching workflow, optionally scoped by strategy.
+    /// Retrieve the highest-scoring reusable workflow, optionally scoped by strategy.
     public func retrieve(
         goal: Goal,
         taskContext: TaskContext,

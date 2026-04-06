@@ -32,7 +32,7 @@ public struct RankedPatch: Sendable {
 public struct PatchResult: Sendable {
     public enum Outcome: Sendable {
         /// A candidate met the heuristic quality bar and was selected as the
-        /// best apply candidate for a surrounding workflow.
+        /// recommended candidate for a surrounding workflow to consider applying.
         case applied(RankedPatch)
         /// Candidates were generated and evaluated but none met the quality bar.
         case noViablePatch
@@ -88,7 +88,7 @@ public typealias SandboxEvaluatorFn = @Sendable (
 /// Candidate patch pipeline for bounded repair workflows.
 ///
 /// The pipeline combines localization, candidate generation, lightweight
-/// sandbox evaluation, and ranking to select a best candidate patch. It does
+/// sandbox evaluation, and ranking to select a best-ranked candidate patch. It does
 /// not guarantee semantic correctness, applicability, or successful commit.
 ///
 /// Pipeline order (asserted via ``RepairPipeline`` invariants):
@@ -100,7 +100,7 @@ public typealias SandboxEvaluatorFn = @Sendable (
 ///     ↓  sandbox validation  (SandboxEvaluatorFn)
 ///     ↓  build / test / regression check
 ///     ↓  impact scoring  (PatchImpactPredictor)
-///     ↓  rank best patch  (rank = tests_fixed − regressions − dependency_impact)
+///     ↓  rank candidate patches  (rank = tests_fixed − regressions − dependency_impact)
 ///     ↓  apply
 ///
 /// **Invariants** (enforced at runtime):
@@ -136,7 +136,7 @@ public struct PatchPipeline: Sendable {
     /// - Parameters:
     ///   - failureDescription: Raw build or test failure output.
     ///   - snapshot: Repository snapshot for localization and impact analysis.
-    /// - Returns: Advisory pipeline output describing the best available candidate.
+    /// - Returns: Advisory pipeline output describing the best-ranked available candidate.
     public func run(
         failureDescription: String,
         snapshot: RepositorySnapshot
