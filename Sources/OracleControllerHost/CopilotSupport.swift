@@ -30,10 +30,7 @@ private enum OpenAICompatibleCopilot {
     static let providerID = "openai-compatible"
 
     static func hasExplicitConfigurationHints() -> Bool {
-        let env = ProcessInfo.processInfo.environment
-        return env["ORACLE_LLM_API_KEY"]?.isEmpty == false
-            || env["ORACLE_LLM_BASE_URL"]?.isEmpty == false
-            || env["ORACLE_LLM_MODEL"]?.isEmpty == false
+        ControllerCopilot.hasExplicitOpenAIHints(in: ProcessInfo.processInfo.environment)
     }
 
     static func status() -> ChatProviderStatus {
@@ -518,18 +515,36 @@ enum ControllerCopilot {
         detail: "Set ORACLE_LLM_API_KEY and ORACLE_LLM_BASE_URL for an OpenAI-compatible backend, or install the Claude CLI and run `oracle setup`."
     )
 
-    static func status() -> ChatProviderStatus {
-        let openAIStatus = OpenAICompatibleCopilot.status()
-        if openAIStatus.state == .ready || OpenAICompatibleCopilot.hasExplicitConfigurationHints() {
+    static func hasExplicitOpenAIHints(in environment: [String: String]) -> Bool {
+        environment["ORACLE_LLM_API_KEY"]?.isEmpty == false
+            || environment["ORACLE_LLM_BASE_URL"]?.isEmpty == false
+            || environment["ORACLE_LLM_MODEL"]?.isEmpty == false
+    }
+
+    static func selectStatus(
+        openAIStatus: ChatProviderStatus,
+        claudeStatus: ChatProviderStatus,
+        hasExplicitOpenAIHints: Bool
+    ) -> ChatProviderStatus {
+        if openAIStatus.state == .ready || hasExplicitOpenAIHints {
             return openAIStatus
         }
 
-        let claudeStatus = ClaudeLocalCopilot.status()
         if claudeStatus.state == .ready || claudeStatus.available || claudeStatus.configured {
             return claudeStatus
         }
 
         return fallbackStatus
+    }
+
+    static func status() -> ChatProviderStatus {
+        let openAIStatus = OpenAICompatibleCopilot.status()
+        let claudeStatus = ClaudeLocalCopilot.status()
+        return selectStatus(
+            openAIStatus: openAIStatus,
+            claudeStatus: claudeStatus,
+            hasExplicitOpenAIHints: OpenAICompatibleCopilot.hasExplicitConfigurationHints()
+        )
     }
 
     static func setupGuidance(for status: ChatProviderStatus) -> String {

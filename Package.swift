@@ -82,7 +82,7 @@ let package = Package(
         ),
         .testTarget(
             name: "OracleControllerTests",
-            dependencies: ["OracleController", "OracleControllerShared", "OracleOS"],
+            dependencies: ["OracleController", "OracleControllerHost", "OracleControllerShared", "OracleOS"],
             path: "Tests/OracleControllerTests",
             swiftSettings: concurrencySettings
         ),
