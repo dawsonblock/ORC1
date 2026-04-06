@@ -4,7 +4,7 @@ import OracleOS
 
 extension ControllerRuntimeBridge {
     func chatProviderStatus() -> ChatProviderStatus {
-        ClaudeLocalCopilot.status()
+        ControllerCopilot.status()
     }
 
     func missionControlSnapshot(appName: String?) -> MissionControlSnapshot {

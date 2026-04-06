@@ -26,6 +26,159 @@ private final class LockedDataBuffer: @unchecked Sendable {
     }
 }
 
+private enum OpenAICompatibleCopilot {
+    static let providerID = "openai-compatible"
+
+    static func hasExplicitConfigurationHints() -> Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["ORACLE_LLM_API_KEY"]?.isEmpty == false
+            || env["ORACLE_LLM_BASE_URL"]?.isEmpty == false
+            || env["ORACLE_LLM_MODEL"]?.isEmpty == false
+    }
+
+    static func status() -> ChatProviderStatus {
+        let env = ProcessInfo.processInfo.environment
+        let baseURL = env["ORACLE_LLM_BASE_URL"] ?? "https://api.openai.com/v1"
+        let model = env["ORACLE_LLM_MODEL"] ?? "gpt-4o"
+        let provider = OpenAIProvider()
+
+        guard provider.isConfigured else {
+            return ChatProviderStatus(
+                providerID: providerID,
+                displayName: displayName(for: baseURL),
+                state: .setupRequired,
+                configured: false,
+                available: false,
+                canStream: false,
+                command: baseURL,
+                detail: "Set ORACLE_LLM_API_KEY and ORACLE_LLM_BASE_URL, or point ORACLE_LLM_BASE_URL at a local OpenAI-compatible endpoint, to enable controller copilot responses."
+            )
+        }
+
+        let displayName = displayName(for: baseURL)
+        return ChatProviderStatus(
+            providerID: providerID,
+            displayName: displayName,
+            state: .ready,
+            configured: true,
+            available: true,
+            canStream: false,
+            command: baseURL,
+            detail: "Using \(displayName) via the OpenAI-compatible API (model: \(model))."
+        )
+    }
+
+    static func setupGuidance(for status: ChatProviderStatus) -> String {
+        switch status.state {
+        case .ready:
+            return "\(status.displayName) is ready."
+        case .setupRequired, .unavailable:
+            return """
+            OpenAI-compatible copilot is not ready yet.
+
+            1. Set ORACLE_LLM_BASE_URL to your backend URL.
+            2. Set ORACLE_LLM_API_KEY for hosted providers, or point ORACLE_LLM_BASE_URL at a local endpoint.
+            3. Optionally set ORACLE_LLM_MODEL for the controller copilot model name.
+            4. Relaunch Oracle Controller and send the prompt again.
+            """
+        }
+    }
+
+    static func complete(
+        conversation: ChatConversation,
+        prompt: String,
+        missionControl: MissionControlSnapshot,
+        onDelta: @escaping @Sendable (String) async -> Void
+    ) async throws -> String {
+        let client = LLMClient(defaultProvider: OpenAIProvider())
+        let request = LLMRequest(
+            prompt: """
+            \(systemPrompt())
+
+            \(buildPrompt(prompt: prompt, conversation: conversation, missionControl: missionControl))
+            """,
+            modelTier: .metaReasoning,
+            maxTokens: 1200,
+            temperature: 0.2
+        )
+        let response = try await client.complete(request)
+        let text = response.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolved = text.isEmpty ? "Copilot returned an empty response." : text
+        await onDelta(resolved)
+        return resolved
+    }
+
+    private static func buildPrompt(
+        prompt: String,
+        conversation: ChatConversation,
+        missionControl: MissionControlSnapshot
+    ) -> String {
+        let recentMessages = conversation.messages.suffix(6).map {
+            "\($0.role.rawValue.uppercased()): \($0.content)"
+        }.joined(separator: "\n\n")
+
+        let kpis = missionControl.kpis.map { "\($0.title): \($0.value) (\($0.detail))" }.joined(separator: "\n")
+        let alerts = missionControl.alerts.prefix(4).map { "\($0.severity.rawValue.uppercased()): \($0.title) - \($0.message)" }.joined(separator: "\n")
+        let approvals = missionControl.approvals.prefix(4).map { "\($0.displayTitle) [\($0.riskLevel)]" }.joined(separator: "\n")
+        let workflows = missionControl.workflows.prefix(3).map { "\($0.goalPattern) (\(Int($0.successRate * 100))%)" }.joined(separator: "\n")
+        let experiments = missionControl.experiments.prefix(2).map { "\($0.id): \(String(describing: $0.selectedCandidateID ?? "no winner"))" }.joined(separator: "\n")
+
+        return """
+        User request:
+        \(prompt)
+
+        Mission Control summary:
+        \(kpis)
+
+        Alerts:
+        \(alerts.isEmpty ? "None" : alerts)
+
+        Pending approvals:
+        \(approvals.isEmpty ? "None" : approvals)
+
+        Workflow signals:
+        \(workflows.isEmpty ? "None" : workflows)
+
+        Experiment signals:
+        \(experiments.isEmpty ? "None" : experiments)
+
+        Recent conversation:
+        \(recentMessages.isEmpty ? "No prior messages." : recentMessages)
+        """
+    }
+
+    private static func systemPrompt() -> String {
+        """
+        You are the Oracle Controller copilot inside a supervised local macOS operator console.
+        Keep answers concise, operational, and advisory-only.
+        Do not claim to have taken actions.
+        Do not suggest bypassing approvals, policy, or verified execution.
+        Prefer the current mission-control state, traces, diagnostics, approvals, and health data.
+        """
+    }
+
+    private static func displayName(for baseURL: String) -> String {
+        let lowercased = baseURL.lowercased()
+        if lowercased.contains("deepseek") {
+            return "DeepSeek"
+        }
+        if lowercased.contains("openai") {
+            return "OpenAI Compatible"
+        }
+        guard let host = URL(string: baseURL)?.host, !host.isEmpty else {
+            return "OpenAI Compatible"
+        }
+        let token = host
+            .split(separator: ".")
+            .first
+            .map(String.init)?
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? host
+        return token.isEmpty ? "OpenAI Compatible" : token.capitalized
+    }
+}
+
 enum ClaudeLocalCopilot {
     static let providerID = "claude-local"
 
@@ -351,6 +504,78 @@ enum ClaudeLocalCopilot {
         }
 
         return mcpServers["oracle-os"] != nil
+    }
+}
+
+enum ControllerCopilot {
+    private static let fallbackStatus = ChatProviderStatus(
+        providerID: "copilot-unconfigured",
+        displayName: "Copilot",
+        state: .setupRequired,
+        configured: false,
+        available: false,
+        canStream: false,
+        detail: "Set ORACLE_LLM_API_KEY and ORACLE_LLM_BASE_URL for an OpenAI-compatible backend, or install the Claude CLI and run `oracle setup`."
+    )
+
+    static func status() -> ChatProviderStatus {
+        let openAIStatus = OpenAICompatibleCopilot.status()
+        if openAIStatus.state == .ready || OpenAICompatibleCopilot.hasExplicitConfigurationHints() {
+            return openAIStatus
+        }
+
+        let claudeStatus = ClaudeLocalCopilot.status()
+        if claudeStatus.state == .ready || claudeStatus.available || claudeStatus.configured {
+            return claudeStatus
+        }
+
+        return fallbackStatus
+    }
+
+    static func setupGuidance(for status: ChatProviderStatus) -> String {
+        switch status.providerID {
+        case OpenAICompatibleCopilot.providerID:
+            return OpenAICompatibleCopilot.setupGuidance(for: status)
+        case ClaudeLocalCopilot.providerID:
+            return ClaudeLocalCopilot.setupGuidance(for: status)
+        default:
+            return fallbackStatus.detail
+        }
+    }
+
+    static func complete(
+        conversation: ChatConversation,
+        prompt: String,
+        missionControl: MissionControlSnapshot,
+        onDelta: @escaping @Sendable (String) async -> Void
+    ) async throws -> String {
+        let status = status()
+        switch status.providerID {
+        case OpenAICompatibleCopilot.providerID:
+            return try await OpenAICompatibleCopilot.complete(
+                conversation: conversation,
+                prompt: prompt,
+                missionControl: missionControl,
+                onDelta: onDelta
+            )
+        case ClaudeLocalCopilot.providerID:
+            return try await ClaudeLocalCopilot.complete(
+                conversation: conversation,
+                prompt: prompt,
+                missionControl: missionControl,
+                onDelta: onDelta
+            )
+        default:
+            return setupGuidance(for: status)
+        }
+    }
+
+    static func citations(for prompt: String, missionControl: MissionControlSnapshot) -> [ChatCitation] {
+        ClaudeLocalCopilot.citations(for: prompt, missionControl: missionControl)
+    }
+
+    static func drafts(for missionControl: MissionControlSnapshot) -> [ChatActionDraft] {
+        ClaudeLocalCopilot.drafts(for: missionControl)
     }
 }
 

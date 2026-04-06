@@ -557,7 +557,7 @@ actor ControllerHostServer {
             let finalText: String
             do {
                 if providerStatus.state == .ready {
-                    finalText = try await ClaudeLocalCopilot.complete(
+                    finalText = try await ControllerCopilot.complete(
                         conversation: conversation,
                         prompt: prompt,
                         missionControl: missionControl
@@ -577,7 +577,7 @@ actor ControllerHostServer {
                         }
                     }
                 } else {
-                    finalText = ClaudeLocalCopilot.setupGuidance(for: providerStatus)
+                    finalText = ControllerCopilot.setupGuidance(for: providerStatus)
                 }
             } catch {
                 finalText = "Copilot response failed: \(error.localizedDescription)"
@@ -586,8 +586,8 @@ actor ControllerHostServer {
             let completedConversation = self.completeChatMessage(
                 messageID: assistantMessageID,
                 content: finalText,
-                citations: ClaudeLocalCopilot.citations(for: prompt, missionControl: missionControl),
-                draftActions: ClaudeLocalCopilot.drafts(for: missionControl)
+                citations: ControllerCopilot.citations(for: prompt, missionControl: missionControl),
+                draftActions: ControllerCopilot.drafts(for: missionControl)
             )
             await output.send(event: ControllerHostEvent(
                 kind: .chatMessageCompleted,
