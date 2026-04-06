@@ -110,12 +110,12 @@ BOUNDARY_CONTRACT_RULES = {
     "Sources/OracleOS/Runtime/RuntimeOrchestrator.swift": {
         "required": [
             (
-                "container.executor.execute(",
+                "execution.executor.execute(",
                 "RuntimeOrchestrator must continue using "
                 "VerifiedExecutor on the supported path",
             ),
             (
-                "container.commitCoordinator.commit(",
+                "execution.commitCoordinator.commit(",
                 "RuntimeOrchestrator must continue handing durable mutation "
                 "to CommitCoordinator",
             ),

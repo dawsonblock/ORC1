@@ -16,6 +16,59 @@ public enum PlannerExecutionMode: String, Codable, Sendable {
     case experiment
 }
 
+public enum PlanSelectionPath: String, Codable, Sendable {
+    case family
+    case reasoning
+    case taskGraph = "task_graph"
+}
+
+public enum PlanSelectionReason: String, Codable, Sendable {
+    case matchingTrustedSource = "matching_trusted_source"
+    case taskGraphWonComparison = "task_graph_won_comparison"
+    case familyWonComparison = "family_won_comparison"
+    case reasoningWonComparison = "reasoning_won_comparison"
+    case familyOnly = "family_only"
+    case reasoningOnly = "reasoning_only"
+    case taskGraphOnly = "task_graph_only"
+}
+
+public struct PlanSelectionProvenance: Codable, Sendable, Equatable {
+    public let selectedPath: PlanSelectionPath
+    public let selectedSource: PlannerSource
+    public let selectionReason: PlanSelectionReason
+    public let selectedScore: Double
+    public let familyScore: Double?
+    public let reasoningScore: Double?
+    public let taskGraphScore: Double?
+    public let memoryBiasApplied: Double
+    public let sourceConfidenceComponent: Double
+    public let rejectedPaths: [PlanSelectionPath]
+
+    public init(
+        selectedPath: PlanSelectionPath,
+        selectedSource: PlannerSource,
+        selectionReason: PlanSelectionReason,
+        selectedScore: Double,
+        familyScore: Double?,
+        reasoningScore: Double?,
+        taskGraphScore: Double?,
+        memoryBiasApplied: Double,
+        sourceConfidenceComponent: Double,
+        rejectedPaths: [PlanSelectionPath]
+    ) {
+        self.selectedPath = selectedPath
+        self.selectedSource = selectedSource
+        self.selectionReason = selectionReason
+        self.selectedScore = selectedScore
+        self.familyScore = familyScore
+        self.reasoningScore = reasoningScore
+        self.taskGraphScore = taskGraphScore
+        self.memoryBiasApplied = memoryBiasApplied
+        self.sourceConfidenceComponent = sourceConfidenceComponent
+        self.rejectedPaths = rejectedPaths
+    }
+}
+
 public struct PlannerDecision: Sendable {
     public let agentKind: AgentKind
     public let skillName: String
@@ -43,6 +96,7 @@ public struct PlannerDecision: Sendable {
     public let knowledgeTier: KnowledgeTier
     public let notes: [String]
     public let planDiagnostics: PlanDiagnostics?
+    public let selectionProvenance: PlanSelectionProvenance?
     public let promptDiagnostics: PromptDiagnostics?
     public let recoveryTagged: Bool
     public let recoveryStrategy: String?
@@ -75,6 +129,7 @@ public struct PlannerDecision: Sendable {
         knowledgeTier: KnowledgeTier? = nil,
         notes: [String] = [],
         planDiagnostics: PlanDiagnostics? = nil,
+        selectionProvenance: PlanSelectionProvenance? = nil,
         promptDiagnostics: PromptDiagnostics? = nil,
         recoveryTagged: Bool = false,
         recoveryStrategy: String? = nil,
@@ -106,6 +161,7 @@ public struct PlannerDecision: Sendable {
         self.knowledgeTier = knowledgeTier ?? (recoveryTagged ? .recovery : (source == .exploration ? .exploration : .candidate))
         self.notes = notes
         self.planDiagnostics = planDiagnostics
+        self.selectionProvenance = selectionProvenance
         self.promptDiagnostics = promptDiagnostics
         self.recoveryTagged = recoveryTagged
         self.recoveryStrategy = recoveryStrategy
@@ -140,6 +196,43 @@ public struct PlannerDecision: Sendable {
             knowledgeTier: knowledgeTier,
             notes: notes,
             planDiagnostics: planDiagnostics,
+            selectionProvenance: selectionProvenance,
+            promptDiagnostics: promptDiagnostics,
+            recoveryTagged: recoveryTagged,
+            recoveryStrategy: recoveryStrategy,
+            recoverySource: recoverySource
+        )
+    }
+
+    public func with(selectionProvenance: PlanSelectionProvenance?) -> PlannerDecision {
+        PlannerDecision(
+            agentKind: agentKind,
+            skillName: skillName,
+            plannerFamily: plannerFamily,
+            stepPhase: stepPhase,
+            executionMode: executionMode,
+            actionContract: actionContract,
+            source: source,
+            workflowID: workflowID,
+            workflowStepID: workflowStepID,
+            pathEdgeIDs: pathEdgeIDs,
+            currentEdgeID: currentEdgeID,
+            fallbackReason: fallbackReason,
+            graphSearchDiagnostics: graphSearchDiagnostics,
+            semanticQuery: semanticQuery,
+            projectMemoryRefs: projectMemoryRefs,
+            architectureFindings: architectureFindings,
+            refactorProposalID: refactorProposalID,
+            experimentSpec: experimentSpec,
+            experimentDecision: experimentDecision,
+            experimentCandidateID: experimentCandidateID,
+            experimentSandboxPath: experimentSandboxPath,
+            selectedExperimentCandidate: selectedExperimentCandidate,
+            experimentOutcome: experimentOutcome,
+            knowledgeTier: knowledgeTier,
+            notes: notes,
+            planDiagnostics: planDiagnostics,
+            selectionProvenance: selectionProvenance,
             promptDiagnostics: promptDiagnostics,
             recoveryTagged: recoveryTagged,
             recoveryStrategy: recoveryStrategy,
@@ -178,6 +271,7 @@ public struct PlannerDecision: Sendable {
             knowledgeTier: knowledgeTier,
             notes: notes ?? self.notes,
             planDiagnostics: planDiagnostics,
+            selectionProvenance: selectionProvenance,
             promptDiagnostics: promptDiagnostics,
             recoveryTagged: recoveryTagged,
             recoveryStrategy: recoveryStrategy,

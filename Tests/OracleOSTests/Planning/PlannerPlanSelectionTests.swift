@@ -71,6 +71,8 @@ struct PlannerPlanSelectionTests {
 
         #expect(decision?.source == .workflow)
         #expect(decision?.workflowID == "workflow-test")
+        #expect(decision?.selectionProvenance?.selectedPath == .family)
+        #expect(decision?.selectionProvenance?.selectedSource == .workflow)
     }
 
     @Test("Stable graph plan beats candidate graph plan")
@@ -151,6 +153,50 @@ struct PlannerPlanSelectionTests {
         #expect(decision?.agentKind == .code)
     }
 
+    @Test("Task graph wins carry typed selection provenance")
+    func taskGraphWinsCarryTypedSelectionProvenance() {
+        let selected = PlanSelection.selectBest(
+            familyDecision: makeDecision(id: "family", source: .candidateGraph),
+            reasoningDecision: makeDecision(
+                id: "reasoning",
+                source: .reasoning,
+                planDiagnostics: PlanDiagnostics(
+                    selectedOperatorNames: ["reasoning"],
+                    candidatePlans: [ScoredPlanSummary(operatorNames: ["reasoning"], score: 0.2)]
+                )
+            ),
+            taskGraphDecision: makeDecision(id: "task-graph", source: .stableGraph),
+            taskContext: TaskContext.from(
+                goal: Goal(description: "inspect settings", targetApp: "Safari", preferredAgentKind: .os),
+                workspaceRoot: nil
+            ),
+            worldState: WorldState(
+                observationHash: "safari-settings",
+                planningState: planningState(
+                    id: "safari|settings",
+                    appID: "Safari",
+                    domain: nil,
+                    taskPhase: "browse",
+                    modalClass: nil
+                ),
+                observation: Observation(
+                    app: "Safari",
+                    windowTitle: "Settings",
+                    url: nil,
+                    focusedElementID: nil,
+                    elements: []
+                )
+            ),
+            memoryStore: UnifiedMemoryStore(appMemory: StrategyMemory())
+        )
+
+        #expect(selected?.source == .stableGraph)
+        #expect(selected?.selectionProvenance?.selectedPath == .taskGraph)
+        #expect(selected?.selectionProvenance?.selectionReason == .taskGraphWonComparison)
+        #expect(selected?.selectionProvenance?.selectedSource == .stableGraph)
+        #expect(selected?.selectionProvenance?.rejectedPaths == [.family, .reasoning])
+    }
+
     @Test("Memory bias changes plan ordering in evaluator")
     func memoryBiasChangesPlanOrdering() {
         let evaluator = PlanEvaluator(workflowRetriever: WorkflowRetriever())
@@ -226,6 +272,27 @@ struct PlannerPlanSelectionTests {
             modalClass: modalClass,
             navigationClass: nil,
             controlContext: nil
+        )
+    }
+
+    private func makeDecision(
+        id: String,
+        source: PlannerSource,
+        planDiagnostics: PlanDiagnostics? = nil
+    ) -> PlannerDecision {
+        PlannerDecision(
+            agentKind: .os,
+            plannerFamily: .os,
+            stepPhase: .operatingSystem,
+            actionContract: ActionContract(
+                id: id,
+                skillName: "click",
+                targetRole: nil,
+                targetLabel: nil,
+                locatorStrategy: "query"
+            ),
+            source: source,
+            planDiagnostics: planDiagnostics
         )
     }
 

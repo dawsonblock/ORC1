@@ -6,18 +6,10 @@ import Foundation
 /// The orchestrator coordinates runtime flow for supported surfaces, but it does
 /// not replace policy verification, routing, or centralized commit authority.
 public actor RuntimeOrchestrator: IntentAPI {
-    private let container: RuntimeContainer
-    private let eventStore: any EventStore
-    private let commitCoordinator: CommitCoordinator
-    private let planner: any Planner
-    private let verifiedExecutor: VerifiedExecutor
+    private let execution: RuntimeExecutionServices
 
     public init(container: RuntimeContainer) {
-        self.container = container
-        self.eventStore = container.eventStore
-        self.commitCoordinator = container.commitCoordinator
-        self.planner = container.planner
-        self.verifiedExecutor = container.executor
+        self.execution = container.execution
     }
 
     private func evaluate(_ outcome: ExecutionOutcome) async -> EvaluationResult {
@@ -94,8 +86,8 @@ extension RuntimeOrchestrator {
 
         let command: Command
         do {
-            let state = WorldStateModel(snapshot: await container.commitCoordinator.snapshot())
-            let plannedCommand = try await container.planner.plan(intent: intent, state: state)
+            let state = WorldStateModel(snapshot: await execution.commitCoordinator.snapshot())
+            let plannedCommand = try await execution.planner.plan(intent: intent, state: state)
             pendingEvents.append(try makePlanEvent(intentID: intent.id, command: plannedCommand))
 
             // Thread approval token from intent metadata into command metadata so
@@ -129,7 +121,7 @@ extension RuntimeOrchestrator {
 
         let executionOutcome: ExecutionOutcome
         do {
-            executionOutcome = try await container.executor.execute(command)
+            executionOutcome = try await execution.executor.execute(command)
         } catch {
             executionOutcome = ExecutionOutcome.failure(from: error, command: command)
         }
@@ -142,7 +134,7 @@ extension RuntimeOrchestrator {
         // orchestrator only hands off the event batch for commit.
         let receipt: CommitReceipt
         do {
-            receipt = try await container.commitCoordinator.commit(pendingEvents)
+            receipt = try await execution.commitCoordinator.commit(pendingEvents)
         } catch {
             return IntentResponse(
                 intentID: intent.id,
@@ -189,7 +181,7 @@ extension RuntimeOrchestrator {
     }
 
     public func queryState() async throws -> RuntimeSnapshot {
-        let snapshot = await commitCoordinator.snapshot()
+        let snapshot = await execution.commitCoordinator.snapshot()
 
         let lastIntentID = snapshot.notes
             .last(where: { $0.hasPrefix("lastIntentID=") })

@@ -58,15 +58,16 @@ final class RuntimeInvariantTests: XCTestCase {
     func test_runtime_orchestrator_has_single_pipeline_entry() throws {
         let orchestrator = try read("Sources/OracleOS/Runtime/RuntimeOrchestrator.swift")
         XCTAssertTrue(orchestrator.contains("public func submitIntent"))
-        XCTAssertTrue(orchestrator.contains("container.executor.execute"))
-        XCTAssertTrue(orchestrator.contains("container.commitCoordinator.commit"))
+        XCTAssertTrue(orchestrator.contains("private let execution: RuntimeExecutionServices"))
+        XCTAssertTrue(orchestrator.contains("execution.executor.execute"))
+        XCTAssertTrue(orchestrator.contains("execution.commitCoordinator.commit"))
         XCTAssertTrue(orchestrator.contains("private func evaluate"))
         XCTAssertFalse(orchestrator.contains("public func execute"))
         XCTAssertFalse(orchestrator.contains("public func commit"))
         XCTAssertFalse(orchestrator.contains("public func evaluate"))
-        XCTAssertTrue(orchestrator.contains("try await container.executor.execute(command)"))
+        XCTAssertTrue(orchestrator.contains("try await execution.executor.execute(command)"))
         XCTAssertFalse(orchestrator.contains("_legacyContext"))
-        XCTAssertTrue(orchestrator.contains("try await container.commitCoordinator.commit(pendingEvents)"))
+        XCTAssertTrue(orchestrator.contains("try await execution.commitCoordinator.commit(pendingEvents)"))
     }
 
     func test_runtime_spine_avoids_direct_process_usage_outside_workspace_runner() throws {

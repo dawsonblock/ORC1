@@ -118,4 +118,77 @@ struct SafeRuntimeTests {
         #expect(matched != nil)
         #expect(matched?.consumed == true)
     }
+
+    @Test("Approval receipts require an approved request record")
+    func approvalReceiptsRequireApprovedRequestState() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let store = ApprovalStore(rootDirectory: root)
+        let request = ApprovalRequest(
+            surface: .controller,
+            toolName: "oracle_click",
+            appName: "Google Chrome",
+            displayTitle: "Click Send",
+            reason: "Action requires approval",
+            riskLevel: .risky,
+            protectedOperation: .send,
+            actionFingerprint: "fingerprint-send",
+            appProtectionProfile: .confirmRisky
+        )
+
+        _ = try store.createRequest(request)
+        _ = try store.approve(requestID: request.id)
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let rejected = ApprovalRequest(
+            id: request.id,
+            createdAt: request.createdAt,
+            surface: request.surface,
+            toolName: request.toolName,
+            appName: request.appName,
+            displayTitle: request.displayTitle,
+            reason: request.reason,
+            riskLevel: request.riskLevel,
+            protectedOperation: request.protectedOperation,
+            actionFingerprint: request.actionFingerprint,
+            appProtectionProfile: request.appProtectionProfile,
+            status: .rejected
+        )
+        try encoder.encode(rejected).write(to: requestFileURL(root: root, requestID: request.id))
+
+        let receipt = store.consumeApprovedReceipt(requestID: request.id, actionFingerprint: request.actionFingerprint)
+
+        #expect(receipt == nil)
+    }
+
+    @Test("Approval receipts require the request file to remain present")
+    func approvalReceiptsRequireRequestFile() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let store = ApprovalStore(rootDirectory: root)
+        let request = ApprovalRequest(
+            surface: .controller,
+            toolName: "oracle_click",
+            appName: "Google Chrome",
+            displayTitle: "Click Send",
+            reason: "Action requires approval",
+            riskLevel: .risky,
+            protectedOperation: .send,
+            actionFingerprint: "fingerprint-send",
+            appProtectionProfile: .confirmRisky
+        )
+
+        _ = try store.createRequest(request)
+        _ = try store.approve(requestID: request.id)
+        try FileManager.default.removeItem(at: requestFileURL(root: root, requestID: request.id))
+
+        let receipt = store.consumeApprovedReceipt(requestID: request.id, actionFingerprint: request.actionFingerprint)
+
+        #expect(receipt == nil)
+    }
+
+    private func requestFileURL(root: URL, requestID: String) -> URL {
+        root
+            .appendingPathComponent("requests", isDirectory: true)
+            .appendingPathComponent("\(requestID).json")
+    }
 }

@@ -33,6 +33,8 @@ The supported Swift runtime build and test path is **macOS 14+ only**.
 
 The runtime depends on Apple accessibility frameworks and the vendored AX layer in `Vendor/AXorcist`, so `swift build`, `swift test`, and the supported controller or MCP runtime flow require macOS. Linux may run some repository-analysis or guard scripts, but it is not a supported platform for the Swift runtime build.
 
+`bash scripts/verify-build.sh` is the canonical local proof path for that supported runtime. It is fail-fast, writes evidence only under `local/verify/latest/`, and should be treated as the release-gate verifier in this checkout.
+
 ---
 
 ## Execution Model
@@ -152,6 +154,7 @@ python3 scripts/execution_boundary_guard.py
 ```
 
 `bash scripts/verify-build.sh` is the canonical local proof path. It runs the three guard scripts, a release build, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the shared proof artifact.
+It also records the verification environment in `local/verify/latest/environment.txt`.
 
 ---
 

@@ -46,8 +46,12 @@ struct ExecutionSpineTests {
         let content = try String(contentsOf: orchestratorPath, encoding: .utf8)
 
         #expect(
-            content.contains("WorldStateModel(snapshot: await container.commitCoordinator.snapshot())"),
+            content.contains("WorldStateModel(snapshot: await execution.commitCoordinator.snapshot())"),
             "RuntimeOrchestrator should plan from committed state rather than a fresh empty model"
+        )
+        #expect(
+            content.contains("private let execution: RuntimeExecutionServices"),
+            "RuntimeOrchestrator should depend on the bundled execution core instead of the whole container"
         )
         #expect(
             !content.contains("_legacyContext"),

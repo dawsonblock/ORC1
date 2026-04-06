@@ -89,6 +89,12 @@ public final class ApprovalStore: @unchecked Sendable {
     }
 
     public func consumeApprovedReceipt(requestID: String, actionFingerprint: String) -> ApprovalReceipt? {
+        guard let request = try? loadRequest(id: requestID),
+              request.status == .approved,
+              request.actionFingerprint == actionFingerprint else {
+            return nil
+        }
+
         let fileURL = receiptFileURL(for: requestID)
         guard let data = try? Data(contentsOf: fileURL),
               let receipt = try? decoder.decode(ApprovalReceipt.self, from: data),
@@ -99,23 +105,21 @@ public final class ApprovalStore: @unchecked Sendable {
 
         try? FileManager.default.removeItem(at: fileURL)
 
-        if let request = try? loadRequest(id: requestID) {
-            let executed = ApprovalRequest(
-                id: request.id,
-                createdAt: request.createdAt,
-                surface: request.surface,
-                toolName: request.toolName,
-                appName: request.appName,
-                displayTitle: request.displayTitle,
-                reason: request.reason,
-                riskLevel: request.riskLevel,
-                protectedOperation: request.protectedOperation,
-                actionFingerprint: request.actionFingerprint,
-                appProtectionProfile: request.appProtectionProfile,
-                status: .executed
-            )
-            try? encoder.encode(executed).write(to: requestFileURL(for: requestID))
-        }
+        let executed = ApprovalRequest(
+            id: request.id,
+            createdAt: request.createdAt,
+            surface: request.surface,
+            toolName: request.toolName,
+            appName: request.appName,
+            displayTitle: request.displayTitle,
+            reason: request.reason,
+            riskLevel: request.riskLevel,
+            protectedOperation: request.protectedOperation,
+            actionFingerprint: request.actionFingerprint,
+            appProtectionProfile: request.appProtectionProfile,
+            status: .executed
+        )
+        try? encoder.encode(executed).write(to: requestFileURL(for: requestID))
 
         return ApprovalReceipt(
             requestID: receipt.requestID,

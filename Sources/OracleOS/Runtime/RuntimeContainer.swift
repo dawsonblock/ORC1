@@ -1,11 +1,6 @@
 import Foundation
 
-/// The authoritative runtime container.
-/// All stateful runtime services must be created here once and shared.
-/// Do NOT create competing instances of these services elsewhere.
-@MainActor
-public final class RuntimeContainer: @unchecked Sendable {
-    // MARK: - Kernel Services (authoritative execution path)
+public struct RuntimeExecutionServices: @unchecked Sendable {
     public let planner: any Planner
     public let executor: VerifiedExecutor
     public let commitCoordinator: CommitCoordinator
@@ -16,22 +11,127 @@ public final class RuntimeContainer: @unchecked Sendable {
     public let commandRouter: CommandRouter
     public let workspaceRunner: WorkspaceRunner
     public let repositoryIndexer: RepositoryIndexer
-
-    // MARK: - Configuration
+    public let approvalStore: ApprovalStore
     public let config: RuntimeConfig
 
-    // MARK: - Shared Runtime Services (created once, injected everywhere)
+    public init(
+        planner: any Planner,
+        executor: VerifiedExecutor,
+        commitCoordinator: CommitCoordinator,
+        eventStore: any EventStore,
+        reducer: any EventReducer,
+        policyEngine: PolicyEngine,
+        processAdapter: any ProcessAdapter,
+        commandRouter: CommandRouter,
+        workspaceRunner: WorkspaceRunner,
+        repositoryIndexer: RepositoryIndexer,
+        approvalStore: ApprovalStore,
+        config: RuntimeConfig
+    ) {
+        self.planner = planner
+        self.executor = executor
+        self.commitCoordinator = commitCoordinator
+        self.eventStore = eventStore
+        self.reducer = reducer
+        self.policyEngine = policyEngine
+        self.processAdapter = processAdapter
+        self.commandRouter = commandRouter
+        self.workspaceRunner = workspaceRunner
+        self.repositoryIndexer = repositoryIndexer
+        self.approvalStore = approvalStore
+        self.config = config
+    }
+}
+
+public struct RuntimeTracingServices: @unchecked Sendable {
     public let traceRecorder: TraceRecorder
     public let traceStore: ExperienceStore
     public let artifactWriter: FailureArtifactWriter
-    public let approvalStore: ApprovalStore
     public let metricsRecorder: MetricsRecorder
 
-    // MARK: - Shared Stateful Read-Side Services
+    public init(
+        traceRecorder: TraceRecorder,
+        traceStore: ExperienceStore,
+        artifactWriter: FailureArtifactWriter,
+        metricsRecorder: MetricsRecorder
+    ) {
+        self.traceRecorder = traceRecorder
+        self.traceStore = traceStore
+        self.artifactWriter = artifactWriter
+        self.metricsRecorder = metricsRecorder
+    }
+}
+
+public struct RuntimeKnowledgeServices: @unchecked Sendable {
     public let graphStore: GraphStore
     public let memoryStore: UnifiedMemoryStore
     public let stateMemoryIndex: StateMemoryIndex
     public let searchController: SearchController
+
+    public init(
+        graphStore: GraphStore,
+        memoryStore: UnifiedMemoryStore,
+        stateMemoryIndex: StateMemoryIndex,
+        searchController: SearchController
+    ) {
+        self.graphStore = graphStore
+        self.memoryStore = memoryStore
+        self.stateMemoryIndex = stateMemoryIndex
+        self.searchController = searchController
+    }
+}
+
+public struct RuntimeDiagnosticsAdapters: @unchecked Sendable {
+    public let automationHost: AutomationHost
+    public let browserController: BrowserController
+    public let browserPageStateBuilder: BrowserPageStateBuilder
+
+    public init(
+        automationHost: AutomationHost,
+        browserController: BrowserController,
+        browserPageStateBuilder: BrowserPageStateBuilder
+    ) {
+        self.automationHost = automationHost
+        self.browserController = browserController
+        self.browserPageStateBuilder = browserPageStateBuilder
+    }
+}
+
+/// The authoritative runtime container.
+/// All stateful runtime services must be created here once and shared.
+/// Do NOT create competing instances of these services elsewhere.
+@MainActor
+public final class RuntimeContainer: @unchecked Sendable {
+    // MARK: - Bundled live-path services
+    public let execution: RuntimeExecutionServices
+    public let tracing: RuntimeTracingServices
+    public let knowledge: RuntimeKnowledgeServices
+    public let diagnostics: RuntimeDiagnosticsAdapters
+
+    // MARK: - Compatibility shims
+    public var planner: any Planner { execution.planner }
+    public var executor: VerifiedExecutor { execution.executor }
+    public var commitCoordinator: CommitCoordinator { execution.commitCoordinator }
+    public var eventStore: any EventStore { execution.eventStore }
+    public var reducer: any EventReducer { execution.reducer }
+    public var policyEngine: PolicyEngine { execution.policyEngine }
+    public var processAdapter: any ProcessAdapter { execution.processAdapter }
+    public var commandRouter: CommandRouter { execution.commandRouter }
+    public var workspaceRunner: WorkspaceRunner { execution.workspaceRunner }
+    public var repositoryIndexer: RepositoryIndexer { execution.repositoryIndexer }
+    public var approvalStore: ApprovalStore { execution.approvalStore }
+    public var config: RuntimeConfig { execution.config }
+    public var traceRecorder: TraceRecorder { tracing.traceRecorder }
+    public var traceStore: ExperienceStore { tracing.traceStore }
+    public var artifactWriter: FailureArtifactWriter { tracing.artifactWriter }
+    public var metricsRecorder: MetricsRecorder { tracing.metricsRecorder }
+    public var graphStore: GraphStore { knowledge.graphStore }
+    public var memoryStore: UnifiedMemoryStore { knowledge.memoryStore }
+    public var stateMemoryIndex: StateMemoryIndex { knowledge.stateMemoryIndex }
+    public var searchController: SearchController { knowledge.searchController }
+    public var automationHost: AutomationHost { diagnostics.automationHost }
+    public var browserController: BrowserController { diagnostics.browserController }
+    public var browserPageStateBuilder: BrowserPageStateBuilder { diagnostics.browserPageStateBuilder }
 
     // MARK: - Peripheral Services
     public let stateAbstraction: StateAbstraction
@@ -40,11 +140,6 @@ public final class RuntimeContainer: @unchecked Sendable {
     public let experimentManager: ExperimentManager
     public let criticLoop: CriticLoop
     public let stateAbstractionEngine: StateAbstractionEngine
-    
-    // MARK: - External Adapters
-    public let automationHost: AutomationHost
-    public let browserController: BrowserController
-    public let browserPageStateBuilder: BrowserPageStateBuilder
     
     // MARK: - Recovery State
     public private(set) var recoveryReport: RecoveryReport?
@@ -80,35 +175,43 @@ public final class RuntimeContainer: @unchecked Sendable {
         browserController: BrowserController,
         browserPageStateBuilder: BrowserPageStateBuilder
     ) {
-        self.planner = planner
-        self.executor = executor
-        self.commitCoordinator = commitCoordinator
-        self.eventStore = eventStore
-        self.reducer = reducer
-        self.policyEngine = policyEngine
-        self.processAdapter = processAdapter
-        self.commandRouter = commandRouter
-        self.workspaceRunner = workspaceRunner
-        self.repositoryIndexer = repositoryIndexer
-        self.config = config
-        self.traceRecorder = traceRecorder
-        self.traceStore = traceStore
-        self.artifactWriter = artifactWriter
-        self.approvalStore = approvalStore
-        self.metricsRecorder = metricsRecorder
-        self.graphStore = graphStore
-        self.memoryStore = memoryStore
-        self.stateMemoryIndex = stateMemoryIndex
-        self.searchController = searchController
+        self.execution = RuntimeExecutionServices(
+            planner: planner,
+            executor: executor,
+            commitCoordinator: commitCoordinator,
+            eventStore: eventStore,
+            reducer: reducer,
+            policyEngine: policyEngine,
+            processAdapter: processAdapter,
+            commandRouter: commandRouter,
+            workspaceRunner: workspaceRunner,
+            repositoryIndexer: repositoryIndexer,
+            approvalStore: approvalStore,
+            config: config
+        )
+        self.tracing = RuntimeTracingServices(
+            traceRecorder: traceRecorder,
+            traceStore: traceStore,
+            artifactWriter: artifactWriter,
+            metricsRecorder: metricsRecorder
+        )
+        self.knowledge = RuntimeKnowledgeServices(
+            graphStore: graphStore,
+            memoryStore: memoryStore,
+            stateMemoryIndex: stateMemoryIndex,
+            searchController: searchController
+        )
+        self.diagnostics = RuntimeDiagnosticsAdapters(
+            automationHost: automationHost,
+            browserController: browserController,
+            browserPageStateBuilder: browserPageStateBuilder
+        )
         self.stateAbstraction = stateAbstraction
         self.recoveryEngine = recoveryEngine
         self.architectureEngine = architectureEngine
         self.experimentManager = experimentManager
         self.criticLoop = criticLoop
         self.stateAbstractionEngine = stateAbstractionEngine
-        self.automationHost = automationHost
-        self.browserController = browserController
-        self.browserPageStateBuilder = browserPageStateBuilder
     }
 
     /// Records the recovery report after startup recovery completes.

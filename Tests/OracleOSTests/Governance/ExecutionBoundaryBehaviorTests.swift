@@ -251,7 +251,8 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
         let waitSource = try readSource("Sources/OracleOS/MCP/WaitManager.swift")
         let screenshotSource = try readSource("Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Screenshot.swift")
 
-        XCTAssertTrue(contractSource.contains("| Surface | Main-path status | Mutability | Approval | Reason | Owning file(s) | Proof coverage |"))
+        XCTAssertTrue(contractSource.contains("| Surface | Entry point | Role | Timeout model | Proof source |"))
+        XCTAssertTrue(contractSource.contains("| Surface | Contract lane | Mutability | Approval | Timeout model | Reason | Owning file(s) | Proof source |"))
         XCTAssertTrue(contractSource.contains("oracle_experiment_search"))
         XCTAssertTrue(contractSource.contains("oracle_screenshot"))
         XCTAssertTrue(contractSource.contains("oracle_wait"))

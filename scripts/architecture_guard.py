@@ -162,17 +162,17 @@ RULES = {
         ],
         "required": [
             (
-                "container.planner.plan(",
+                "execution.planner.plan(",
                 "RuntimeOrchestrator must keep planning inside the "
                 "supported spine",
             ),
             (
-                "container.executor.execute(",
+                "execution.executor.execute(",
                 "RuntimeOrchestrator must keep verified execution inside "
                 "the supported spine",
             ),
             (
-                "container.commitCoordinator.commit(",
+                "execution.commitCoordinator.commit(",
                 "RuntimeOrchestrator must keep durable mutation "
                 "centralized in CommitCoordinator",
             ),
