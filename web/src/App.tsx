@@ -130,7 +130,7 @@ function App() {
                 <span className="font-mono font-medium text-emerald-400">{metrics.recovery.health}</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 w-[85%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
+                <div className="h-full bg-linear-to-r from-emerald-500 to-emerald-400 w-[85%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
               </div>
             </div>
           </div>
