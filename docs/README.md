@@ -9,6 +9,8 @@ Use this directory together with the root truth docs. The root holds the current
 - [../ARCHITECTURE.md](../ARCHITECTURE.md) — live runtime model
 - [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md) — live product surface and guarantees
 - [../ORACLE-MCP.md](../ORACLE-MCP.md) — public MCP tool catalog
+- [OPERATOR_CHEAT_SHEET.md](OPERATOR_CHEAT_SHEET.md) — practical prompt and task guide for this build
+- [MCP_TOOL_EXAMPLES.md](MCP_TOOL_EXAMPLES.md) — all 30 MCP tools with concrete example asks
 - [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — live release gate checklist
 - [RELEASE_READY_SUMMARY.md](RELEASE_READY_SUMMARY.md) — current release-readiness and PR summary
 

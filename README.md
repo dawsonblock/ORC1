@@ -176,6 +176,8 @@ This README does not claim:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Runtime model and execution spine |
 | [ORACLE-MCP.md](ORACLE-MCP.md) | Public MCP tool catalog |
 | [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_CONTRACT.md) | Live product surface and guarantees |
+| [docs/OPERATOR_CHEAT_SHEET.md](docs/OPERATOR_CHEAT_SHEET.md) | Practical "what can I ask it to do?" guide |
+| [docs/MCP_TOOL_EXAMPLES.md](docs/MCP_TOOL_EXAMPLES.md) | Tool-by-tool walkthrough of all 30 MCP capabilities |
 | [AUDIT.md](AUDIT.md) | Truth audit and cleanup findings |
 | [BASELINE.md](BASELINE.md) | Point-in-time baseline and evidence notes |
 | [docs/REPO_FACTS.md](docs/REPO_FACTS.md) | Generated package, tree, and MCP inventory |
