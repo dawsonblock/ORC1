@@ -2,21 +2,61 @@
 
 This file states the live product surface in this checkout. Historical rebuild, handoff, and phase docs live under [archive/](archive/) and are not current certification.
 
-## Product Scope
+## Supported Platform
 
-OracleOS is a Swift-native macOS automation runtime with three live entry points and one supported human operator UI:
+OracleOS is a **macOS 14+ local automation runtime**.
 
-1. **Controller** — supported native macOS operator UI for monitoring, approvals, recipes, diagnostics, and project memory
-2. **MCP** — Model Context Protocol tool server for programmatic use
-3. **CLI** — `oracle` binary for local setup, diagnostics, and recipe execution
+The supported Swift runtime build and test path is macOS-only. The runtime depends on Apple accessibility frameworks and the vendored AX layer in `Vendor/AXorcist`, so Linux is not a supported runtime platform for `swift build`, `swift test`, the controller app, or the MCP host runtime. Some repository-analysis or guard scripts may run on Linux, but that does not constitute supported runtime operation.
+
+## Supported Surfaces
+
+The supported surfaces in this checkout are:
+
+1. **Controller app** — `OracleController`, the native macOS operator UI
+2. **MCP server** — `MCPDispatch` plus `MCPRuntimeHost`, the programmatic tool surface
+3. **CLI** — `oracle`, the local setup and diagnostics surface
 
 `OracleControllerHost` is the bundled helper adapter for the desktop UI. It boots one `OracleOS` runtime per app launch and forwards typed requests into that runtime. It is not a second planner, executor, or commit authority.
 
-`MCPDispatch` is the public MCP tool entrypoint. `MCPRuntimeHost` owns reusable runtime bootstrap, reuse, and reset semantics for the MCP host process behind that entrypoint.
-
 `OracleControllerShared` is intentionally split across `ControllerModels.swift`, `ControllerDiagnosticsModels.swift`, and `ControllerTraceModels.swift` so the shared desktop contract mirrors action/control, diagnostics/host state, and trace/recipe/dashboard ownership boundaries.
 
-OracleOS is not a cloud service, not a browser product, and not a general-purpose agent framework. It is intentionally scoped to local macOS automation with explicit approval and execution boundaries.
+## Guaranteed Execution Spine
+
+The guaranteed main-path execution spine for supported runtime effects is:
+
+```text
+RuntimeBootstrap
+    -> RuntimeOrchestrator
+    -> MainPlanner
+    -> VerifiedExecutor
+    -> CommandRouter
+    -> UIRouter / CodeRouter
+    -> CommitCoordinator
+```
+
+Surface code is a consumer of this spine, not a mutator of it.
+
+## Bounded Exceptions
+
+The following are documented exceptions and are **not** part of the guaranteed main-path execution contract:
+
+- `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`; its result payloads explicitly advertise `execution_context = sandbox` and `committed_to_workspace = false`
+- `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
+- `vision-sidecar/` is an optional service edge, not part of committed-state authority
+
+## Unsupported Assumptions
+
+OracleOS is not a cloud service, not a browser product, and not a general-purpose agent framework. It is intentionally scoped to bounded local macOS automation with explicit approval and execution boundaries.
+
+## Not Guaranteed
+
+- Linux runtime support for the supported Swift runtime build or host surfaces
+- Cloud or distributed deployment claims
+- Broad autonomous software-engineering claims beyond the bounded local runtime surfaces in this checkout
+- Generalized repair reliability or guaranteed patch correctness
+- Production-hardening or production-readiness claims unless they are separately proven by a live evidence source in this repo
+
+Candidate patching, repair ranking, and advisory code workflows in this checkout may be heuristic, advisory, or experimental. They do not by themselves prove patch applicability, semantic correctness, or automatic persistence.
 
 ## Live Guarantees
 
@@ -50,26 +90,6 @@ The controller's Wait action is not a side-effecting runtime action. It is an ob
 
 ### 3. The main runtime spine is stable for main-path effects
 
-The current main-path runtime spine is:
-
-```text
-RuntimeBootstrap
-    -> RuntimeOrchestrator
-    -> MainPlanner
-    -> VerifiedExecutor
-    -> CommandRouter
-    -> UIRouter / CodeRouter
-    -> CommitCoordinator
-```
-
-Surface code is a consumer of this spine, not a mutator of it.
-
-Explicit exceptions:
-
-- `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`; its result payloads now explicitly advertise `execution_context = sandbox` and `committed_to_workspace = false`
-- `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
-- `vision-sidecar/` is an optional service edge, not part of committed-state authority
-
 Behavioral proof for the main path is no longer only source-scan based. `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift` submits a live intent through `RuntimeOrchestrator.submitIntent(_:)` and asserts commit-visible state, while `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift` exercises the live approval gate in `VerifiedExecutor`. Supported `.code` repository actions also preserve typed policy classification during policy evaluation, so `readFile` and `searchRepository` stay on the typed code path instead of being treated as arbitrary shell execution.
 
 ### 4. Side effects follow a three-tier taxonomy
@@ -96,7 +116,7 @@ Repo-owned workflow roles are intentionally narrow: `.github/workflows/ci.yml` i
 
 Direct `swift build` and `swift test` remain useful local commands, but archived repair notes, milestone docs, checked-in diagnostics, and ad hoc command output are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified through the supported verifier path.
 
-## What OracleOS Does Not Guarantee
+## Additional Limits
 
 - Vision grounding accuracy
 - Experiment search determinism

@@ -25,6 +25,10 @@ struct RuntimeKernelBootstrapTests {
         try JSONEncoder().encode(actionIntent).base64EncodedString()
     }
 
+    private func readSource(_ relativePath: String) throws -> String {
+        try String(contentsOf: repositoryRoot().appendingPathComponent(relativePath), encoding: .utf8)
+    }
+
     // MARK: - Bootstrap Truth Tests
 
     @Test func kernelBootstrapReturnsCompleteKernel() async throws {
@@ -97,6 +101,19 @@ struct RuntimeKernelBootstrapTests {
         #expect(committedSnapshot.notes.contains("lastCommandKind=readFile"))
         #expect(committedSnapshot.notes.contains("lastExecutionStatus=success"))
         #expect(committedSnapshot.notes.contains("criticOutcome=success"))
+    }
+
+    @Test func bootstrapAndManifestMakeMacOSOnlySupportExplicit() throws {
+        let manifest = try readSource("Package.swift")
+        let bootstrap = try readSource("Sources/OracleOS/Runtime/RuntimeBootstrap.swift")
+
+        #expect(manifest.contains(".macOS(.v14)"))
+        #expect(
+            bootstrap.contains("OracleOS runtime build and test are supported on macOS 14+ only")
+        )
+        #expect(
+            bootstrap.contains("Apple accessibility frameworks and the vendored AX layer")
+        )
     }
 
     // MARK: - Snapshot Immutability Tests

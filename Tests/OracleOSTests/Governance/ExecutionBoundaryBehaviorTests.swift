@@ -44,6 +44,11 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
         return (executor, approvalStore)
     }
 
+    private func readSource(_ relativePath: String) throws -> String {
+        let url = URL(fileURLWithPath: repositoryRoot()).appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
     /// PROVES: Bootstrap returns independently wired runtimes for the same config.
     @MainActor
     func testRuntimeBootstrapProducesIndependentStructuredRuntimes() async throws {
@@ -180,6 +185,52 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
         XCTAssertEqual(result.status, .success)
         XCTAssertNotEqual(result.status, .preconditionFailed)
         XCTAssertNotEqual(result.status, .policyBlocked)
+    }
+
+    /// PROVES: VerifiedExecutor returns events but does not mutate committed
+    /// runtime state until CommitCoordinator is invoked on the supported path.
+    @MainActor
+    func testVerifiedExecutorLeavesCommittedStateUnchangedUntilCommit() async throws {
+        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        let before = await bootstrapped.container.commitCoordinator.snapshot()
+
+        let command = Command(
+            type: .code,
+            payload: .code(
+                CodeAction(
+                    name: "readFile",
+                    filePath: "Package.swift",
+                    workspacePath: repositoryRoot()
+                )
+            ),
+            metadata: CommandMetadata(intentID: UUID(), source: "commit-authority-proof")
+        )
+
+        let outcome = try await bootstrapped.container.executor.execute(command)
+        let afterExecute = await bootstrapped.container.commitCoordinator.snapshot()
+
+        XCTAssertEqual(outcome.status, .success)
+        XCTAssertEqual(before.cycleCount, afterExecute.cycleCount)
+        XCTAssertEqual(before.notes, afterExecute.notes)
+
+        _ = try await bootstrapped.container.commitCoordinator.commit(outcome.events)
+        let afterCommit = await bootstrapped.container.commitCoordinator.snapshot()
+
+        XCTAssertEqual(afterCommit.cycleCount, afterExecute.cycleCount)
+        XCTAssertNotEqual(afterCommit.notes, afterExecute.notes)
+        XCTAssertTrue(afterCommit.notes.contains("lastExecutionStatus=success"))
+    }
+
+    /// PROVES: Tooling-only CLI entry points stay documented as bounded
+    /// exceptions instead of silently joining the guaranteed main runtime path.
+    func testToolingCommandsRemainDocumentedExecutionExceptions() throws {
+        let doctorSource = try readSource("Sources/oracle/Doctor.swift")
+        let setupSource = try readSource("Sources/oracle/SetupWizard.swift")
+
+        XCTAssertTrue(doctorSource.contains("EXECUTION AUTHORITY NOTE"))
+        XCTAssertTrue(doctorSource.contains("OUTSIDE the bootstrapped runtime"))
+        XCTAssertTrue(setupSource.contains("EXECUTION AUTHORITY NOTE"))
+        XCTAssertTrue(setupSource.contains("OUTSIDE the bootstrapped runtime"))
     }
 
     /// PROVES: Planner interface is typed (`Intent` -> `Command`) even outside runtime wiring.

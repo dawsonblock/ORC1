@@ -337,7 +337,7 @@ public enum MCPTools {
     private static let experiments: [[String: Any]] = [
         tool(
             name: MCPToolName.experimentSearch,
-            description: "Run a bounded parallel experiment search. Evaluates multiple candidate file patches in isolated worktrees concurrently to find a working solution. Returns the ranking and test outputs of each candidate.",
+            description: "Run a bounded parallel experiment search. Evaluates multiple candidate file patches in isolated worktrees and returns advisory rankings plus build or test summaries for each candidate. Results are sandbox-only and do not commit to the workspace.",
             properties: [
                 "goal_description": prop("string", "A summary of what the patches are trying to achieve."),
                 "candidates": propArray("object", "List of candidates. Each must be an object with 'title', 'summary', 'workspace_relative_path', and 'content' (the complete new file string). Optional 'hypothesis' and 'strategy_kind'."),
@@ -354,7 +354,7 @@ public enum MCPTools {
     private static let architecture: [[String: Any]] = [
         tool(
             name: MCPToolName.architectureReview,
-            description: "Review planned changes for architectural risks and potential invariant violations before executing them. Returns structured findings, risk scores, and refactoring proposals.",
+            description: "Review planned changes for architectural risks and potential invariant violations before executing them. Returns structured findings, heuristic risk scores, and refactoring suggestions.",
             properties: [
                 "goal_description": prop("string", "A summary of what the change is trying to achieve."),
                 "candidate_paths": propArray("string", "List of workspace relative paths that are expected to be changed."),
@@ -379,7 +379,7 @@ public enum MCPTools {
     private static let workflows: [[String: Any]] = [
         tool(
             name: MCPToolName.workflowMine,
-            description: "Synthesize reusable workflows by mining recent telemetry and traces. Extracts generalized patterns of success.",
+            description: "Mine candidate workflows from recent telemetry and traces. Returns synthesized workflow suggestions that still require caller review.",
             properties: [
                 "goal_pattern": prop("string", "The goal or pattern to search for in traces."),
                 "limit": prop("integer", "Maximum number of recent events to analyze (default: 1000).")

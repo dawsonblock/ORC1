@@ -55,6 +55,111 @@ FORBIDDEN_PROCESS_DIRS = [
 ]
 
 
+# Structural execution-boundary rules for the supported runtime path.
+BOUNDARY_CONTRACT_RULES = {
+    "Sources/OracleOS/Execution/VerifiedExecutor.swift": {
+        "required": [
+            (
+                "commandRouter.execute(",
+                "VerifiedExecutor must route verified commands "
+                "through CommandRouter",
+            ),
+        ],
+        "forbidden": [
+            (
+                "commitCoordinator.commit(",
+                "VerifiedExecutor must not own committed-state mutation",
+            ),
+        ],
+    },
+    "Sources/OracleOS/Execution/Routing/CommandRouter.swift": {
+        "required": [
+            (
+                "uiRouter.execute(",
+                "CommandRouter must continue routing UI commands "
+                "through UIRouter",
+            ),
+            (
+                "codeRouter.execute(",
+                "CommandRouter must continue routing code commands "
+                "through CodeRouter",
+            ),
+        ],
+        "forbidden": [
+            (
+                "commitCoordinator.commit(",
+                "CommandRouter must not own committed-state mutation",
+            ),
+        ],
+    },
+    "Sources/OracleOS/Runtime/RuntimeOrchestrator.swift": {
+        "required": [
+            (
+                "container.executor.execute(",
+                "RuntimeOrchestrator must continue using "
+                "VerifiedExecutor on the supported path",
+            ),
+            (
+                "container.commitCoordinator.commit(",
+                "RuntimeOrchestrator must continue handing durable mutation "
+                "to CommitCoordinator",
+            ),
+        ],
+    },
+    "Sources/OracleOS/Events/CommitCoordinator.swift": {
+        "required": [
+            (
+                "public actor CommitCoordinator",
+                "CommitCoordinator must remain the centralized "
+                "committed-state authority",
+            ),
+            (
+                "public func commit(",
+                "CommitCoordinator must continue exposing the supported "
+                "commit entrypoint",
+            ),
+        ],
+    },
+    "Sources/OracleOS/MCP/MCPDispatch.swift": {
+        "required": [
+            (
+                "toolName == MCPToolName.experimentSearch",
+                "MCPDispatch must keep experiment search as an explicit "
+                "exception branch",
+            ),
+            (
+                "handleExperimentSearch(request)",
+                "MCPDispatch must keep experiment search on its explicit "
+                "async handler path",
+            ),
+            (
+                "bootstrapped.container.experimentManager.run(spec: spec)",
+                "Experiment search must remain sandboxed through "
+                "ExperimentManager",
+            ),
+        ],
+    },
+    "Sources/oracle/Doctor.swift": {
+        "required": [
+            (
+                "EXECUTION AUTHORITY NOTE",
+                "Doctor must continue documenting its tooling-only "
+                "exception status",
+            ),
+        ],
+    },
+    "Sources/oracle/SetupWizard.swift": {
+        "required": [
+            (
+                "EXECUTION AUTHORITY NOTE",
+                "SetupWizard must continue documenting its tooling-only "
+                "exception status",
+            ),
+        ],
+    },
+}
+
+
 def is_in_allowed_dir(filepath):
     """Check if file is in an allowed directory."""
     for allowed_dir in ALLOWED_PROCESS_DIRS:
@@ -125,6 +230,34 @@ def scan_repo(root):
 
                 if v:
                     violations.append((path, v))
+
+    return violations
+
+
+def scan_boundary_contract_files() -> list:
+    violations = []
+
+    for path, rule in BOUNDARY_CONTRACT_RULES.items():
+        if not os.path.exists(path):
+            violations.append((path, [(0, "required file missing")]))
+            continue
+
+        with open(path, encoding="utf-8") as fh:
+            content = fh.read()
+
+        issues = []
+        for pattern, message in rule.get("required", []):
+            if pattern not in content:
+                issues.append(
+                    (0, f"missing required marker '{pattern}': {message}")
+                )
+
+        for pattern, message in rule.get("forbidden", []):
+            if pattern in content:
+                issues.append((0, f"forbidden marker '{pattern}': {message}"))
+
+        if issues:
+            violations.append((path, issues))
 
     return violations
 
@@ -330,6 +463,29 @@ if __name__ == "__main__":
         print(
             "✓ Persistence boundary guard passed - "
             "file writes confined to explicit authority owners"
+        )
+
+    boundary_violations = scan_boundary_contract_files()
+    if boundary_violations:
+        print("\nMAIN-PATH EXECUTION CONTRACT VIOLATIONS FOUND\n")
+        print(
+            "main-path execution boundary drifted; update code and "
+            "contract together or route new behavior through the "
+            "verified spine.\n"
+        )
+        for path, items in boundary_violations:
+            print(f"{path}")
+            for lineno, message in items:
+                if lineno > 0:
+                    print(f"  line {lineno}: {message}")
+                else:
+                    print(f"  issue: {message}")
+            print("")
+        exit_code = 1
+    else:
+        print(
+            "✓ Main-path execution contract guard passed - "
+            "verified spine and documented exceptions remain explicit"
         )
 
     sys.exit(exit_code)

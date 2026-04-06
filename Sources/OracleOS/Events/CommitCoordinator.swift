@@ -1,7 +1,10 @@
 import Foundation
 
-/// Orchestrates the commit flow: appends events → runs reducers → emits new snapshot.
-/// INVARIANT: No state write may bypass CommitCoordinator.
+/// Centralized persistent commit authority for the supported runtime path.
+///
+/// CommitCoordinator is the place to answer "who owns final state mutation?"
+/// for the main path: it appends events, runs reducers, and emits the next
+/// committed snapshot. No committed runtime-state write may bypass this actor.
 public actor CommitCoordinator {
     private let eventStore: any EventStore
     private let reducers: [any EventReducer]
@@ -76,6 +79,9 @@ public actor CommitCoordinator {
         guard !envelopes.isEmpty else {
             throw CommitError.emptyCommit
         }
+
+        // This is the only supported path that turns execution events into a
+        // committed runtime snapshot.
 
         // Assign sequence numbers to envelopes before appending
         var numberedEnvelopes = envelopes

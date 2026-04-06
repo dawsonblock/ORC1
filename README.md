@@ -1,23 +1,21 @@
-<div align="center">
-
 # OracleOS
 
-**A local macOS agent runtime written in Swift.**
+**A macOS 14+ local automation runtime written in Swift.**
 
-Every effect on your machine flows through one auditable, policy-enforced execution spine before it is committed.
+Supported runtime surfaces in this checkout: the OracleController app, the MCP server, and the `oracle` CLI.
 
 [![CI](https://github.com/dawsonblock/ORC1/actions/workflows/ci.yml/badge.svg)](https://github.com/dawsonblock/ORC1/actions/workflows/ci.yml)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://swift.org)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](https://developer.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-</div>
-
 ---
 
 ## Overview
 
-OracleOS is a **local macOS agent runtime** whose three supported surfaces are:
+OracleOS is a **macOS-local automation runtime**. It is not a cross-platform runtime, cloud service, or general-purpose autonomous software engineering platform.
+
+The three supported runtime surfaces are:
 
 | Surface | Entry point | Role |
 | --- | --- | --- |
@@ -26,6 +24,32 @@ OracleOS is a **local macOS agent runtime** whose three supported surfaces are:
 | **CLI** | `oracle` binary | setup, doctor, status tooling |
 
 Historical rebuild, phase, and deployment documents live in [docs/archive](docs/archive) — archaeology only, not the current contract.
+
+---
+
+## Supported Platform
+
+The supported Swift runtime build and test path is **macOS 14+ only**.
+
+The runtime depends on Apple accessibility frameworks and the vendored AX layer in `Vendor/AXorcist`, so `swift build`, `swift test`, and the supported controller or MCP runtime flow require macOS. Linux may run some repository-analysis or guard scripts, but it is not a supported platform for the Swift runtime build.
+
+---
+
+## Execution Model
+
+The supported main-path execution spine is:
+
+`RuntimeBootstrap -> RuntimeOrchestrator -> MainPlanner -> VerifiedExecutor -> CommandRouter -> UIRouter / CodeRouter -> CommitCoordinator`
+
+---
+
+## Documented Exceptions
+
+These are bounded exceptions and are **not** part of the guaranteed main-path execution contract:
+
+- `oracle_experiment_search`
+- `oracle doctor` and `oracle setup`
+- optional `vision-sidecar/` workflows
 
 ---
 
@@ -41,8 +65,7 @@ swift test
 bash scripts/verify-build.sh   # canonical local proof
 ```
 
-<details>
-<summary>Controller app (native UI)</summary>
+### Controller App
 
 ```bash
 # Run from source
@@ -55,12 +78,9 @@ open OracleController.xcworkspace
 ./scripts/build-controller-app.sh --configuration debug --skip-sign
 ```
 
-The controller's readiness contract: Accessibility and Screen Recording permissions granted, host bridge reachable, and local Application Support storage writable. Vision sidecar and Claude-backed copilot support are optional extensions, not blockers for the manual operator surface.
+The controller's readiness contract: Accessibility and Screen Recording permissions granted, host bridge reachable, and local Application Support storage writable. The optional vision sidecar is outside the core authority chain and is not required for the supported manual operator surface.
 
-</details>
-
-<details>
-<summary>CLI commands</summary>
+### CLI Commands
 
 ```bash
 ./.build/debug/oracle setup
@@ -68,32 +88,7 @@ The controller's readiness contract: Accessibility and Screen Recording permissi
 ./.build/debug/oracle status
 ```
 
-</details>
-
----
-
-## Execution Spine
-
-Every main-path effect flows through a single auditable chain before being committed to state:
-
-```
-RuntimeBootstrap
-  └─▶ RuntimeOrchestrator.submitIntent(_:)
-        └─▶ MainPlanner.plan(intent:context:)
-              └─▶ VerifiedExecutor.execute(_:)
-                    └─▶ CommandRouter
-                          ├─▶ UIRouter
-                          └─▶ CodeRouter
-                                └─▶ CommitCoordinator.commit(_:)
-```
-
-**Known deliberate exceptions — documented and bounded:**
-
-- **`oracle_experiment_search`** — bypasses `RuntimeOrchestrator` and `VerifiedExecutor` by design. Isolation is provided by git worktree sandboxing. All result payloads carry `execution_context = sandbox` and `committed_to_workspace = false`.
-- **`Doctor.swift` / `SetupWizard.swift`** — tooling-only shell entry points.
-- **`vision-sidecar/`** — optional service boundary; not a committed-state authority.
-
-On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the only component that owns runtime bootstrap and reuse.
+On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the reusable runtime owner behind it.
 
 ---
 
@@ -120,7 +115,7 @@ Full tool list, signatures, and inputs: [ORACLE-MCP.md](ORACLE-MCP.md).
 
 ## Repository Layout
 
-```
+```text
 Sources/
   OracleOS/               runtime, planning, MCP, memory, execution core
   OracleController/       native controller UI

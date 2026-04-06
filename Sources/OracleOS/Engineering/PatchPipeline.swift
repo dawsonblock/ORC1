@@ -2,11 +2,14 @@ import Foundation
 
 // MARK: - PatchPipeline result types
 
-/// A ranked, pre-validated patch ready to be applied.
+/// A ranked candidate patch selected by the pipeline.
+///
+/// Ranking is advisory. The surrounding workflow still decides whether this
+/// candidate should be applied, validated more deeply, or rejected.
 public struct RankedPatch: Sendable {
     /// Target file path relative to the workspace root.
     public let workspaceRelativePath: String
-    /// Replacement content proposed by the strategy.
+    /// Candidate replacement content proposed by the strategy.
     public let proposedContent: String
     /// Number of tests fixed in sandbox validation.
     public let testsFixed: Int
@@ -23,9 +26,13 @@ public struct RankedPatch: Sendable {
 }
 
 /// Outcome of a full `PatchPipeline` run.
+///
+/// This describes candidate selection only. The pipeline itself does not own
+/// workspace mutation or committed-state authority.
 public struct PatchResult: Sendable {
     public enum Outcome: Sendable {
-        /// A patch meeting the quality bar was applied.
+        /// A candidate met the heuristic quality bar and was selected as the
+        /// best apply candidate for a surrounding workflow.
         case applied(RankedPatch)
         /// Candidates were generated and evaluated but none met the quality bar.
         case noViablePatch
@@ -78,7 +85,11 @@ public typealias SandboxEvaluatorFn = @Sendable (
 
 // MARK: - PatchPipeline
 
-/// Unified repair loop implementing the full pipeline from failure to patch apply.
+/// Candidate patch pipeline for bounded repair workflows.
+///
+/// The pipeline combines localization, candidate generation, lightweight
+/// sandbox evaluation, and ranking to select a best candidate patch. It does
+/// not guarantee semantic correctness, applicability, or successful commit.
 ///
 /// Pipeline order (asserted via ``RepairPipeline`` invariants):
 ///
@@ -120,12 +131,12 @@ public struct PatchPipeline: Sendable {
 
     // MARK: - Main entry point
 
-    /// Execute the full repair loop for a build/test failure.
+    /// Execute the candidate-patch pipeline for a build or test failure.
     ///
     /// - Parameters:
     ///   - failureDescription: Raw build or test failure output.
     ///   - snapshot: Repository snapshot for localization and impact analysis.
-    /// - Returns: A ``PatchResult`` describing the outcome.
+    /// - Returns: Advisory pipeline output describing the best available candidate.
     public func run(
         failureDescription: String,
         snapshot: RepositorySnapshot
@@ -155,8 +166,9 @@ public struct PatchPipeline: Sendable {
                 snapshot: snapshot
             )
             for strategy in applicable.prefix(maximumStrategiesPerTarget) {
-                // Generate a minimal synthetic patch stub keyed on strategy kind.
-                // A real harness would splice a real diff here.
+                // Generate a minimal synthetic candidate keyed on strategy kind.
+                // This checkout does not treat the generated content as proof of
+                // semantic correctness or final applicability.
                 let content = syntheticPatch(for: strategy, target: target)
                 patchTriples.append((target: target, strategy: strategy, content: content))
             }
@@ -198,8 +210,8 @@ public struct PatchPipeline: Sendable {
         let sorted = rankedPatches.sorted { $0.rank > $1.rank }
         completedStages.append(.rankFix)
 
-        // Quality bar: at least one test fixed with zero regressions, or
-        // no tests in failure description (purely structural fix).
+        // Quality bar: select the highest-ranked zero-regression candidate.
+        // This is still heuristic selection, not proof that the patch is correct.
         let best = sorted.first(where: { $0.regressions == 0 })
         guard let bestPatch = best else {
             return PatchResult(
@@ -229,9 +241,11 @@ public struct PatchPipeline: Sendable {
 
     // MARK: - Synthetic patch stub
 
-    /// Generates a minimal patch stub string based on strategy kind.
+    /// Generates a minimal synthetic candidate patch stub based on strategy kind.
     ///
-    /// In production this is replaced by an LLM-assisted or AST-diff generator.
+    /// This is intentionally synthetic placeholder output. Stronger generation
+    /// strategies may replace it in other environments, but this function does
+    /// not claim grounded patch synthesis.
     private func syntheticPatch(for strategy: PatchStrategy, target: PatchTarget) -> String {
         switch strategy.kind {
         case .nullGuard:
@@ -254,7 +268,8 @@ public struct PatchPipeline: Sendable {
     /// Lightweight heuristic evaluator.
     ///
     /// Checks for unbalanced braces and obvious type mismatches, then
-    /// estimates `testsFixed` from the presence of defensive patterns.
+    /// estimates `testsFixed` from the presence of defensive patterns. It does
+    /// not guarantee semantic correctness or real-world applicability.
     public static let defaultEvaluator: SandboxEvaluatorFn = { _, content, _ in
         let openBraces = content.filter { $0 == "{" }.count
         let closeBraces = content.filter { $0 == "}" }.count

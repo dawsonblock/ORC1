@@ -1,5 +1,10 @@
 import Foundation
 
+/// Advisory repair helper for bounded code-repair workflows.
+///
+/// This type suggests candidate repair strategies and fallback recommendations.
+/// It does not execute patches, does not persist changes automatically, and does
+/// not replace the verified execution or commit authority path.
 public struct RepairStrategy: Sendable {
     public let description: String
     public let targetPath: String?
@@ -51,6 +56,11 @@ public struct RepairAdviceDiagnostics: Sendable {
     }
 }
 
+/// Uses an LLM when available to suggest repair strategies, then falls back to
+/// deterministic heuristics when the model is unavailable.
+///
+/// Outputs from this advisor are advisory only. Callers must still validate,
+/// rank, and decide whether any candidate should proceed further.
 public final class LLMRepairAdvisor: @unchecked Sendable {
     private let llmClient: LLMClient
 
@@ -84,7 +94,7 @@ public final class LLMRepairAdvisor: @unchecked Sendable {
                 diagnostics: RepairAdviceDiagnostics(
                     llmUsed: true,
                     candidateCount: strategies.count,
-                    notes: ["LLM repair reasoning completed"]
+                    notes: ["LLM advisory completed"]
                 )
             )
         } catch {
@@ -93,7 +103,7 @@ public final class LLMRepairAdvisor: @unchecked Sendable {
                 diagnostics: RepairAdviceDiagnostics(
                     llmUsed: false,
                     candidateCount: faultCandidates.count,
-                    notes: ["LLM unavailable, using deterministic fallback"]
+                    notes: ["LLM unavailable, using deterministic fallback suggestions"]
                 )
             )
         }

@@ -95,4 +95,14 @@ final class MCPToolCoverageTests: XCTestCase {
         let unique = Set(declaredToolNames(in: toolsSource))
         XCTAssertEqual(unique.count, 30, "Product contract requires exactly 30 tools; found \(unique.count)")
     }
+
+    /// The shell guard and the Swift test suite must agree on the exact MCP
+    /// tool count so declaration/dispatch drift fails in both places.
+    func testBoundaryGuardAndSwiftTestsAgreeOnAdvertisedToolCount() throws {
+        let guardSource = try readSource("scripts/mcp_boundary_guard.py")
+        XCTAssertTrue(
+            guardSource.contains("EXPECTED_TOOL_COUNT = 30"),
+            "mcp_boundary_guard.py must enforce the same exact 30-tool contract as the Swift tests"
+        )
+    }
 }

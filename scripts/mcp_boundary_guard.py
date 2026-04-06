@@ -56,14 +56,21 @@ def check_dispatch_structure(content: str) -> list[str]:
     errors = []
     if "public static func handle(_ request: MCPToolRequest)" not in content:
         errors.append(
-            "MCPDispatch.swift missing: public static func handle(_ request: MCPToolRequest)"
+            "MCPDispatch.swift missing: public static func handle("
+            "_ request: MCPToolRequest)"
         )
     if "private static func dispatch(request: MCPToolRequest)" not in content:
         errors.append(
-            "MCPDispatch.swift missing: private static func dispatch(request: MCPToolRequest)"
+            "MCPDispatch.swift missing: private static func "
+            "dispatch(request: MCPToolRequest)"
         )
     if "formatTypedResult" not in content:
         errors.append("MCPDispatch.swift missing: formatTypedResult")
+    if "Unknown tool:" not in content:
+        errors.append(
+            "MCPDispatch.swift missing clear unsupported-tool error "
+            "handling ('Unknown tool:')"
+        )
     return errors
 
 
@@ -89,16 +96,21 @@ def check_tool_coverage(
 
     if not unique_names:
         errors.append(
-            "MCPTools.swift must declare at least one tool via MCPToolName.<property>"
+            "MCPTools.swift must declare at least one tool via "
+            "MCPToolName.<property>"
         )
         return errors
 
     if not unique_dispatched:
-        errors.append("MCPDispatch*.swift must reference at least one MCPToolName.<property>")
+        errors.append(
+            "MCPDispatch*.swift must reference at least one "
+            "MCPToolName.<property>"
+        )
 
     if len(unique_names) != EXPECTED_TOOL_COUNT:
         errors.append(
-            f"Product contract requires exactly {EXPECTED_TOOL_COUNT} unique tools; found {len(unique_names)}"
+            "Product contract requires exactly "
+            f"{EXPECTED_TOOL_COUNT} unique tools; found {len(unique_names)}"
         )
 
     # Duplicate check
@@ -117,7 +129,8 @@ def check_tool_coverage(
 
     if missing:
         errors.append(
-            f"MCPDispatch*.swift is missing case(s) for {len(missing)} tool(s): "
+            "MCPDispatch*.swift is missing case(s) for "
+            f"{len(missing)} tool(s): "
             + ", ".join(missing)
         )
     return errors
@@ -135,15 +148,23 @@ def main() -> int:
     errors += check_tool_coverage(tools_src, dispatch_src)
 
     declared_count = len(dict.fromkeys(extract_tool_names(tools_src)))
-    dispatched_count = len(dict.fromkeys(extract_dispatch_tool_references(dispatch_src)))
+    dispatched_count = len(
+        dict.fromkeys(extract_dispatch_tool_references(dispatch_src))
+    )
     if errors:
+        print(
+            "FAIL: MCP declaration/dispatch drifted. Update tool "
+            "declarations, dispatch, and contract together.",
+            file=sys.stderr,
+        )
         for e in errors:
             print(f"FAIL: {e}", file=sys.stderr)
         return 1
 
     print(
         "OK: MCP boundary valid — "
-        f"{declared_count} tools declared, {dispatched_count} referenced across MCPDispatch*.swift."
+        f"{declared_count} tools declared, {dispatched_count} "
+        "referenced across MCPDispatch*.swift."
     )
     return 0
 

@@ -8,20 +8,19 @@ Executable proof for the boundary claims here lives in `scripts/mcp_boundary_gua
 
 ## Core Spine
 
-Oracle OS has one execution spine:
+Oracle OS has one supported main-path execution spine:
 
-`surface -> RuntimeOrchestrator -> Policy -> VerifiedExecutor -> Critic -> Trace -> runtime-managed graph/memory/recovery update`
+`RuntimeBootstrap -> RuntimeOrchestrator -> MainPlanner -> VerifiedExecutor -> CommandRouter -> UIRouter / CodeRouter -> CommitCoordinator`
 
-This spine covers all main-path execution. The experiment subsystem (`oracle_experiment_search`) is a privileged side path that bypasses this spine by design: it dispatches directly from `MCPDispatch` to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`, without involving `RuntimeOrchestrator` or `VerifiedExecutor`.
+This spine covers supported main-path effects only. The experiment subsystem (`oracle_experiment_search`) is a bounded side path that bypasses this spine by design: it dispatches directly from `MCPDispatch` to `ExperimentManager` → `ParallelRunner` → `WorktreeSandbox`, without involving `RuntimeOrchestrator` or `VerifiedExecutor`.
 
 For the MCP surface, `MCPDispatch` is the public tool entrypoint and `MCPRuntimeHost` is the explicit reusable runtime owner behind it. `MCPRuntimeHost` is the component that calls `RuntimeBootstrap.makeBootstrappedRuntime()`, caches the bootstrapped runtime for the MCP host process, and owns reset semantics.
 
-Surfaces:
+Supported surfaces:
 
 - OracleController via OracleControllerHost (supported macOS operator UI)
-- MCP
-- CLI tooling
-- Recipes (MCP-backed)
+- MCP server
+- `oracle` CLI
 
 ## Dominant Subsystems
 
@@ -117,7 +116,7 @@ Responsibilities:
 - detect fine-grained element-level changes between consecutive observations
 - produce ``ObservationDelta`` describing added, removed, and mutated elements
 - enable delta-driven world model updates instead of full rebuilds
-- reduce observation processing cost during long autonomous sessions
+- reduce observation processing cost during long runtime sessions
 
 Pipeline:
 
@@ -333,7 +332,7 @@ Responsibilities:
 - compare expected traces against replayed traces
 - surface divergences for debugging and regression analysis
 
-Deterministic replay makes debugging autonomous behaviour tractable.
+Deterministic replay makes debugging bounded runtime behaviour tractable.
 Every step records the pre/post state hash, action name, critic outcome,
 and latency.
 
@@ -487,7 +486,8 @@ planner
 The planner should reason about program structure (symbols, call edges,
 test coverage, dependencies) rather than treating a codebase as flat files.
 This layer sits between filesystem observation and planning to provide
-the structural understanding required for autonomous software engineering.
+the structural understanding required for bounded repository analysis and
+repair planning.
 
 ## Module Layout
 
@@ -604,7 +604,7 @@ Only reusable knowledge is eligible for canonical long-term storage.
 - `StateSnapshot` holds `WorldModelSnapshot` (immutable value type)
 - `RuntimeBootstrap.makeBootstrappedRuntime()` is the canonical kernel factory (async — replaces unavailable `makeDefault`)
 - MCP and Controller Host use `RuntimeBootstrap`, not manual coordinator construction
-- `RuntimeOrchestrator` follows four phases: decide → execute → commit → evaluate
+- `RuntimeOrchestrator` follows four phases: decide → execute → evaluate → commit
 - legacy `performAction` bridges and `VerifiedActionExecutor` paths are removed from runtime flow
 - graph promotion blocks experiment and recovery evidence from stable promotion
 - target-bearing OS skills resolve through ranking
@@ -622,4 +622,4 @@ Only reusable knowledge is eligible for canonical long-term storage.
 
 - experiments may gather evidence in isolated worktrees; `replaySelected()` returns the top-ranked `CandidatePatch?`, but experiment results are explicitly marked `executionContext = .sandbox` and `committedToWorkspace = false`, and there is no code path that automatically submits them through `RuntimeOrchestrator` — promotion to the main runtime does not exist yet and must be done manually by the caller if at all
 - recovery remains a first-class tracked mode, but not yet a promotable nominal control path
-- architecture review is advisory-first; its hard-fail behavior is enforced through tests and governance checks rather than autonomous blocking
+- architecture review is advisory-first; its hard-fail behavior is enforced through tests and governance checks rather than automatic blocking

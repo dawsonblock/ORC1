@@ -1,7 +1,10 @@
 import Foundation
 
 /// The single entry point for runtime cycle execution.
-/// Coordinates: decide → execute → commit → evaluate
+/// Coordinates: decide → execute → evaluate → commit.
+///
+/// The orchestrator coordinates runtime flow for supported surfaces, but it does
+/// not replace policy verification, routing, or centralized commit authority.
 public actor RuntimeOrchestrator: IntentAPI {
     private let container: RuntimeContainer
     private let eventStore: any EventStore
@@ -135,6 +138,8 @@ extension RuntimeOrchestrator {
         pendingEvents.append(contentsOf: executionOutcome.events)
         pendingEvents.append(try makeEvaluationEvent(evaluation, intentID: intent.id))
 
+        // Durable mutation remains centralized in CommitCoordinator. The
+        // orchestrator only hands off the event batch for commit.
         let receipt: CommitReceipt
         do {
             receipt = try await container.commitCoordinator.commit(pendingEvents)

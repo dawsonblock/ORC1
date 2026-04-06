@@ -118,9 +118,51 @@ RULES = {
                 "RuntimeBootstrap must assemble exactly one VerifiedExecutor",
             ),
             (
+                "CommitCoordinator(",
+                1,
+                "RuntimeBootstrap must assemble exactly one CommitCoordinator for supported-path mutation authority",
+            ),
+            (
+                "CommandRouter(",
+                1,
+                "RuntimeBootstrap must assemble exactly one CommandRouter for the supported spine",
+            ),
+            (
+                "MainPlanner(",
+                1,
+                "RuntimeBootstrap must assemble exactly one MainPlanner for the supported spine",
+            ),
+            (
+                "RuntimeOrchestrator(container: container)",
+                1,
+                "RuntimeBootstrap must assemble exactly one RuntimeOrchestrator from the canonical container",
+            ),
+            (
                 "RuntimeContainer(",
                 1,
                 "RuntimeBootstrap must assemble exactly one RuntimeContainer",
+            ),
+        ],
+    },
+    "Sources/OracleOS/Runtime/RuntimeOrchestrator.swift": {
+        "forbidden": [
+            (
+                "eventStore.append(",
+                "RuntimeOrchestrator must not append events directly",
+            ),
+        ],
+        "required": [
+            (
+                "container.planner.plan(",
+                "RuntimeOrchestrator must keep planning inside the supported spine",
+            ),
+            (
+                "container.executor.execute(",
+                "RuntimeOrchestrator must keep verified execution inside the supported spine",
+            ),
+            (
+                "container.commitCoordinator.commit(",
+                "RuntimeOrchestrator must keep durable mutation centralized in CommitCoordinator",
             ),
         ],
     },
@@ -324,11 +366,17 @@ if __name__ == "__main__":
 
     if violations:
         print("\nARCHITECTURE VIOLATIONS FOUND\n")
+        print(
+            "Architecture contract drifted: the supported spine must remain "
+            "RuntimeBootstrap -> RuntimeOrchestrator -> MainPlanner -> "
+            "VerifiedExecutor -> CommandRouter -> UIRouter / CodeRouter -> "
+            "CommitCoordinator. Update code and contract together.\n"
+        )
 
         for path, items in violations:
             print(path)
             for item in items:
-                print("  forbidden:", item)
+                print("  issue:", item)
 
         sys.exit(1)
 

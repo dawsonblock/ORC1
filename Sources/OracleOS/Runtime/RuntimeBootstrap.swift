@@ -7,7 +7,8 @@ public enum RuntimeBootstrap {
 
     /// Creates a fully bootstrapped runtime with recovery completed.
     ///
-    /// This is the ONLY authorized way to create the bootstrapped runtime for
+    /// This is the canonical runtime wiring for the supported execution path.
+    /// It is the ONLY authorized way to create the bootstrapped runtime for
     /// main-path surfaces. Current callers:
     ///   - MCPRuntimeHost (oracle mcp → MCPServer → MCPDispatch → MCPRuntimeHost)
     ///   - ControllerRuntimeBridge (OracleController host)
@@ -23,12 +24,19 @@ public enum RuntimeBootstrap {
     public static func makeBootstrappedRuntime(
         configuration: RuntimeConfig = .live()
     ) async throws -> BootstrappedRuntime {
+        #if !os(macOS)
+        preconditionFailure("OracleOS runtime build and test are supported on macOS 14+ only because the runtime depends on Apple accessibility frameworks and the vendored AX layer.")
+        #endif
+
         let container = try makeContainer(configuration: configuration)
 
         // Run recovery BEFORE runtime becomes available
         let recoveryReport = try await container.commitCoordinator.recoverIfNeeded()
         container.recordRecovery(recoveryReport)
 
+        // RuntimeContainer requires non-optional executor and commitCoordinator
+        // inputs at construction time, so the supported authority chain has no
+        // optional fallback or degraded bootstrap mode here.
         let orchestrator = RuntimeOrchestrator(container: container)
 
         return BootstrappedRuntime(
@@ -47,11 +55,15 @@ public enum RuntimeBootstrap {
 
     // MARK: - Internal Assembly
     
-    /// Full container creation with all shared services
+    /// Full container creation with all shared services.
+    /// Core authority-chain services are assembled first; adjunct and
+    /// experimental modules are available in the container but are not all part
+    /// of the guaranteed main-path execution contract.
     private static func makeContainer(configuration: RuntimeConfig) throws -> RuntimeContainer {
         let rootURL = configuration.traceDirectory
 
-        // Create WAL first for crash safety
+        // Main-path authority chain foundations.
+        // Create WAL first for crash safety.
         let wal = try CommitWAL(root: rootURL)
         let eventStore = try FileEventStore(root: rootURL)
 
@@ -62,14 +74,15 @@ public enum RuntimeBootstrap {
             ProjectStateReducer()
         ])
 
-        // Create CommitCoordinator with WAL
+        // CommitCoordinator owns committed runtime state for the supported path.
         let commitCoordinator = CommitCoordinator(
             eventStore: eventStore,
             reducers: [compositeReducer],
             wal: wal
         )
 
-        // Create WorldStateProvider that reads from CommitCoordinator
+        // Preconditions on the supported path read committed state through the
+        // commit coordinator rather than through ad hoc runtime mutation.
         let stateProvider = RuntimeWorldStateProvider { [weak commitCoordinator] in
             await commitCoordinator?.currentState ?? WorldStateModel()
         }
@@ -88,6 +101,8 @@ public enum RuntimeBootstrap {
             repositoryIndexer: repositoryIndexer
         )
 
+        // Approval, routing, verification, and planning remain the canonical
+        // main-path execution chain.
         // Create ApprovalStore before the executor so it can be injected.
         let approvalStore = ApprovalStore(rootDirectory: configuration.approvalsDirectory)
 
@@ -107,14 +122,14 @@ public enum RuntimeBootstrap {
             impactAnalyzer: impactAnalyzer
         )
 
-        // Create shared runtime services ONCE here
+        // Shared adjunct services created once for the live runtime.
         let traceRecorder = TraceRecorder()
         let traceStore = ExperienceStore()
         let artifactWriter = FailureArtifactWriter()
         // approvalStore is already created above and passed to the executor.
         let metricsRecorder = MetricsRecorder()
         
-        // Create shared stateful read-side services (MainActor-dependent)
+        // Shared stateful read-side and analysis services.
         let graphStore = GraphStore()
         let memoryStore = UnifiedMemoryStore(appMemory: StrategyMemory())
         let stateMemoryIndex = StateMemoryIndex()
@@ -125,6 +140,9 @@ public enum RuntimeBootstrap {
             )
         )
         
+        // Optional or experimental modules. These may be present in the
+        // container without being part of the guaranteed main-path authority
+        // chain described in the public contract.
         let stateAbstraction = StateAbstraction()
         let recoveryEngine = RecoveryEngine()
         let architectureEngine = ArchitectureEngine()
@@ -141,6 +159,7 @@ public enum RuntimeBootstrap {
         let criticLoop = CriticLoop()
         let stateAbstractionEngine = StateAbstractionEngine()
         
+        // External adapters and observational helpers.
         let automationHost = AutomationHost.live()
         let browserController = BrowserController()
         let browserPageStateBuilder = BrowserPageStateBuilder(controller: browserController)

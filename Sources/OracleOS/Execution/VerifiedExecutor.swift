@@ -1,7 +1,11 @@
 import Foundation
 
-/// Verified execution layer — the policy-checked gateway for **Tier-2 reversible**
-/// and **Tier-3 destructive** side effects in Oracle-OS.
+/// Verified execution layer — the policy and verification gate for supported
+/// main-path **Tier-2 reversible** and **Tier-3 destructive** side effects.
+///
+/// VerifiedExecutor governs whether a command may execute on the supported path,
+/// but it is not the owner of committed state. Persistent mutation remains
+/// centralized in CommitCoordinator.
 ///
 /// Side-effect taxonomy (three tiers):
 ///   Tier 1 — Read-only: AXScanner, VisionScanner, memory queries.
@@ -76,7 +80,9 @@ public actor VerifiedExecutor {
             break
         }
 
-        // Check preconditions against current world state
+        // Check preconditions against current world state.
+        // The supported bootstrapped runtime always injects a state provider.
+        // Nil is reserved for narrow isolated contexts such as focused tests.
         if let provider = stateProvider {
             let snapshot = await provider.snapshot()
             do {
@@ -150,7 +156,7 @@ public actor VerifiedExecutor {
             return failOutcome(
                 command: command,
                 status: .policyBlocked,
-                reason: policyDecision.reason ?? "Policy rejected"
+                reason: policyDecision.reason ?? "Policy rejected command before execution"
             )
         }
 
@@ -161,7 +167,7 @@ public actor VerifiedExecutor {
                 return failOutcome(
                     command: command,
                     status: .postconditionFailed,
-                    reason: "Postconditions failed"
+                    reason: "Postconditions failed after command execution"
                 )
             }
 

@@ -1,18 +1,25 @@
 # Oracle OS v2 - MCP Agent Instructions
 
-You have Oracle OS, a tool that lets you inspect and operate macOS applications
-through the accessibility tree plus visual perception. Native apps are handled
-AX-first when they expose usable accessibility structure. Web content and
-visually ambiguous surfaces can be grounded from screenshots when AX structure
-is incomplete. Do not assume every element is exposed: coverage depends on app
-accessibility support, current window visibility, and search-depth limits.
+Oracle OS exposes a macOS-local MCP server for inspecting and operating macOS
+applications through the accessibility tree plus optional visual perception.
+The supported MCP host runtime is macOS 14+ only. Linux may run some repo
+analysis or guard scripts, but it is not a supported platform for this MCP
+runtime.
+
+Native apps are handled AX-first when they expose usable accessibility
+structure. Web content and visually ambiguous surfaces can sometimes be
+grounded from screenshots when AX structure is incomplete and the optional
+vision sidecar is running. Do not assume every element is exposed: coverage
+depends on app accessibility support, current window visibility, search-depth
+limits, and whether the optional sidecar is available.
 
 ## Rule 1: Always Check Recipes First
 
 Before doing ANY multi-step task manually, call `oracle_recipes`.
 
 If a recipe exists for what you need, use `oracle_run` with the recipe name
-and parameters. Recipes are tested, reliable, and faster than manual steps.
+and parameters. Recipes are predefined and usually faster than repeating the
+same multi-step flow manually.
 
 ## Rule 2: Orient Before Acting
 
@@ -27,6 +34,7 @@ canonical fused observation snapshot Oracle is using internally.
 ## Rule 3: How to Find Elements
 
 Use `oracle_find` with the most specific identifier available:
+
 - `dom_id` for web apps (most reliable, bypasses depth limits)
 - `identifier` for native apps with developer IDs
 - `query` + `role` for general searches (e.g., query:"Compose", role:"AXButton")
@@ -38,6 +46,7 @@ Use `oracle_element_at` to identify elements from screenshots.
 ## Rule 4: How Focus Works
 
 **Perception tools work from background** (no focus needed):
+
 - oracle_context, oracle_state, oracle_find, oracle_read, oracle_inspect,
   oracle_element_at, oracle_screenshot
 
@@ -47,9 +56,11 @@ an app's windows are closed (not just minimized), screenshot will return an
 error -- you cannot capture what does not exist.
 
 **Click and type try AX-native first** (no focus), then synthetic fallback (auto-focuses):
+
 - oracle_click, oracle_type
 
 **Press, hotkey, scroll need focus** - always pass the `app` parameter:
+
 - oracle_press, oracle_hotkey, oracle_scroll
 
 Focus is restored for click/type wrappers. Press, hotkey, and scroll target the
@@ -58,7 +69,8 @@ frontmost app directly and should be treated as live input.
 ## Rule 5: Key Patterns
 
 ### Navigate Chrome to a URL
-```
+
+```text
 oracle_hotkey keys:["cmd","l"] app:"Chrome"  -> address bar focused
 oracle_type text:"https://example.com"       -> URL entered
 oracle_press key:"return" app:"Chrome"       -> navigate
@@ -66,7 +78,8 @@ oracle_wait condition:"urlContains" value:"example.com" app:"Chrome"
 ```
 
 ### Fill a form
-```
+
+```text
 oracle_click query:"Compose" app:"Chrome"    -> click button
 oracle_type text:"hello@example.com" into:"To" app:"Chrome"
 oracle_press key:"tab" app:"Chrome"          -> move to next field
@@ -74,7 +87,8 @@ oracle_type text:"Subject line" into:"Subject" app:"Chrome"
 ```
 
 ### Wait instead of guessing
-```
+
+```text
 oracle_wait condition:"elementExists" value:"Send" app:"Chrome"
 oracle_wait condition:"urlContains" value:"inbox" timeout:15 app:"Chrome"
 oracle_wait condition:"elementGone" value:"Loading" app:"Chrome"
@@ -82,36 +96,42 @@ oracle_wait condition:"elementGone" value:"Loading" app:"Chrome"
 
 ## Rule 6: Vision Fallback for Web Apps
 
-When `oracle_find` or `oracle_click` can't locate an element (common in web apps
-like Gmail, Slack, etc. where Chrome exposes everything as AXGroup), Oracle OS
-automatically falls back to VLM-based vision grounding if the vision sidecar
-is running.
+When `oracle_find` or other AX-based flows can't locate an element (common in
+web apps like Gmail or Slack where Chrome exposes everything as AXGroup),
+Oracle OS can use VLM-based vision grounding if the optional vision sidecar is
+running. This sidecar-backed behavior is outside the guaranteed main-path
+execution spine.
 
 You can also use vision tools directly:
 
 ### oracle_ground - Find element by visual description
-```
+
+```text
 oracle_ground description:"Compose button" app:"Chrome"
 -> Returns: {x: 86, y: 223, confidence: 0.8, method: "full-screen"}
 ```
 
 For overlapping UI panels (e.g., compose popup over inbox), use crop_box
 to narrow the search area for dramatically better accuracy:
-```
+
+```text
 oracle_ground description:"Send button" app:"Chrome" crop_box:[510, 168, 840, 390]
 -> Returns: {x: 620, y: 350, confidence: 0.95, method: "crop-based"}
 ```
 
 Then click at the returned coordinates:
-```
+
+```text
 oracle_click x:86 y:223 app:"Chrome"
 ```
 
 ### oracle_parse_screen - Experimental full-screen parser
-```
+
+```text
 oracle_parse_screen app:"Chrome"
 -> Returns experimental full-screen parse output from the vision sidecar
 ```
+
 Note: `oracle_parse_screen` is sidecar-backed, but its output is still
 experimental. Use `oracle_find` for AX-based element search when you need the
 most stable runtime behavior, and `oracle_ground` for visual disambiguation.
@@ -119,6 +139,7 @@ most stable runtime behavior, and `oracle_ground` for visual disambiguation.
 ## Rule 7: Handle Failures
 
 If an action fails:
+
 1. Call `oracle_context` to see current state
 2. Call `oracle_screenshot` for visual confirmation
 3. Try `oracle_ground` with a description of what you need to click
@@ -139,12 +160,13 @@ Chrome exposes most web elements as AXGroup -- `oracle_find` may not locate
 buttons or inputs by name. **Always prefer `dom_id` for web apps.**
 
 Pattern:
-```
+
+```text
 oracle_find query:"Send" role:AXButton app:"Chrome"  -> get dom_id from result
 oracle_click dom_id:":oq" app:"Chrome"               -> click by dom_id
 ```
 
-`dom_id` clicks are the MORACLE reliable method for any web app button.
+`dom_id` clicks are usually the most reliable method for web app buttons.
 
 If `oracle_find` returns nothing, use `oracle_ground` with `crop_box` for
 visual grounding.
@@ -157,7 +179,7 @@ then use `oracle_type`.
 Gmail's popup compose window does not reliably accept keyboard input from
 synthetic events. Use URL-based compose instead:
 
-```
+```text
 Navigate to: https://mail.google.com/mail/?view=cm&fs=1&to=EMAIL&su=SUBJECT&body=BODY
 ```
 
@@ -191,12 +213,13 @@ area. It is 10x faster (250ms vs 3s) and much more accurate.
 Web apps need time to react to clicks. Always use `oracle_wait` after clicking
 buttons before proceeding:
 
-```
+```text
 oracle_click query:"Submit" app:"Chrome"
 oracle_wait condition:"elementExists" value:"Success" app:"Chrome"
 ```
 
 Common wait conditions:
+
 - `urlContains` -- wait for navigation
 - `titleContains` -- wait for page title change
 - `elementExists` -- wait for an element to appear
@@ -207,7 +230,7 @@ Common wait conditions:
 ## Tool Reference
 
 | Tool | Purpose | Needs Focus? |
-|------|---------|-------------|
+| --- | --- | --- |
 | oracle_context | Where am I? URL, focused element, actions | No |
 | oracle_state | All running apps and windows | No |
 | oracle_find | Find elements by text, role, DOM id | No |

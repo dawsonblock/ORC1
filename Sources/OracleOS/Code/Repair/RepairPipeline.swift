@@ -1,6 +1,9 @@
 import Foundation
 
-/// The canonical repair pipeline for autonomous code fixes.
+/// The canonical stage model for candidate patch evaluation in repair flows.
+///
+/// This pipeline models ordered repair stages, but it does not by itself claim
+/// autonomous code correction or guaranteed repair success.
 ///
 /// Pipeline stages:
 ///
@@ -25,7 +28,7 @@ import Foundation
 /// - Patch candidates are fed from symbol/root-cause candidates, not just file paths.
 /// - Sandbox validation is mandatory before apply.
 /// - Regression checks run on every accepted patch.
-/// - Candidates are ranked with structural evidence, not just LLM preference.
+/// - Candidates are ranked with structural evidence, not just model preference.
 public enum RepairPipeline {
 
     /// The ordered stages of a repair attempt.
