@@ -34,6 +34,74 @@ struct SafeRuntimeTests {
         #expect(decision.blockedByPolicy == false)
     }
 
+    @Test("Open mode allows risky send actions that are not hard-blocked")
+    func openModeAllowsRiskySendWithoutApproval() {
+        let engine = PolicyEngine(mode: .open)
+        let decision = engine.evaluate(
+            intent: ActionIntent.click(app: "Google Chrome", query: "Send"),
+            context: PolicyEvaluationContext(surface: .controller, toolName: "oracle_click", appName: "Google Chrome")
+        )
+
+        #expect(decision.allowed)
+        #expect(decision.requiresApproval == false)
+        #expect(decision.blockedByPolicy == false)
+        #expect(decision.policyMode == .open)
+    }
+
+    @Test("Adaptive mode blocks irreversible send actions")
+    func adaptiveModeBlocksSend() {
+        let engine = PolicyEngine(mode: .adaptive)
+        let decision = engine.evaluate(
+            intent: ActionIntent.click(app: "Google Chrome", query: "Send"),
+            context: PolicyEvaluationContext(surface: .controller, toolName: "oracle_click", appName: "Google Chrome")
+        )
+
+        #expect(decision.allowed == false)
+        #expect(decision.requiresApproval == false)
+        #expect(decision.blockedByPolicy)
+        #expect(decision.protectedOperation == .send)
+        #expect(decision.policyMode == .adaptive)
+    }
+
+    @Test("Adaptive mode still reviews local workspace writes")
+    func adaptiveModeRequiresApprovalForWorkspaceWrite() {
+        let engine = PolicyEngine(mode: .adaptive)
+        let command = CommandSpec(
+            category: .editFile,
+            executable: "/usr/bin/env",
+            arguments: ["README.md"],
+            workspaceRoot: "/tmp/workspace",
+            workspaceRelativePath: "README.md",
+            summary: "edit README"
+        )
+        let intent = ActionIntent(
+            agentKind: .code,
+            app: "Workspace",
+            action: "edit-file",
+            workspaceRoot: command.workspaceRoot,
+            workspaceRelativePath: command.workspaceRelativePath,
+            codeCommand: command
+        )
+        let decision = engine.evaluate(
+            intent: intent,
+            context: PolicyEvaluationContext(
+                surface: .controller,
+                toolName: "editFile",
+                appName: "Workspace",
+                agentKind: .code,
+                workspaceRoot: command.workspaceRoot,
+                workspaceRelativePath: command.workspaceRelativePath,
+                commandCategory: command.category.rawValue
+            )
+        )
+
+        #expect(decision.allowed == false)
+        #expect(decision.requiresApproval)
+        #expect(decision.blockedByPolicy == false)
+        #expect(decision.protectedOperation == .workspaceWrite)
+        #expect(decision.policyMode == .adaptive)
+    }
+
     @Test("Policy blocks terminal interaction by default")
     func policyBlocksTerminalControl() {
         let engine = PolicyEngine(mode: .confirmRisky)

@@ -9,6 +9,7 @@ struct ControllerStatusBar: View {
         HStack(spacing: 12) {
             statusChip("Host", store.hostConnection.label, tone: hostTone)
             statusChip("Runtime", runtimeValue, tone: runtimeTone)
+            statusChip("Control", controlValue, tone: controlTone)
             statusChip("Monitor", store.autoRefreshEnabled ? "Active" : "Paused", tone: store.autoRefreshEnabled ? .neutral : .warning)
             statusChip("Copilot", copilotValue, tone: copilotTone)
             Spacer()
@@ -111,6 +112,32 @@ struct ControllerStatusBar: View {
         }
     }
 
+    private var controlValue: String {
+        store.missionControl?.health.controlPreset.title
+            ?? store.health?.controlPreset.title
+            ?? store.selectedControlPreset?.title
+            ?? "Loading"
+    }
+
+    private var controlTone: StatusBadge.Tone {
+        let preset = store.missionControl?.health.controlPreset
+            ?? store.health?.controlPreset
+            ?? store.selectedControlPreset
+
+        switch preset {
+        case .fullControl:
+            return .warning
+        case .original:
+            return .good
+        case .less:
+            return .warning
+        case .aiDecides:
+            return .neutral
+        case nil:
+            return .neutral
+        }
+    }
+
     private func statusChip(_ title: String, _ value: String, tone: StatusBadge.Tone) -> some View {
         HStack(spacing: 8) {
             Text(title)
@@ -185,6 +212,8 @@ struct MissionControlInspectorView: View {
             if let missionControl = store.missionControl {
                 KVRow(key: "Provider", value: missionControl.providerStatus.displayName)
                 KVRow(key: "Provider state", value: missionControl.providerStatus.state.rawValue)
+                KVRow(key: "Runtime control", value: missionControl.health.controlPreset.title)
+                KVRow(key: "Policy mode", value: missionControl.health.policyMode)
                 KVRow(key: "Alerts", value: "\(missionControl.alerts.count)")
                 KVRow(key: "Approvals", value: "\(missionControl.approvals.count)")
                 KVRow(key: "Trace sessions", value: "\(missionControl.traceSessions.count)")
@@ -279,6 +308,12 @@ private struct MissionBriefingCard: View {
                     value: "\(missionControl.approvals.count)",
                     detail: missionControl.approvals.isEmpty ? "No blocked risky work" : "Review pending actions",
                     tone: missionControl.approvals.isEmpty ? .good : .warning
+                )
+                MetricTile(
+                    label: "Runtime Control",
+                    value: missionControl.health.controlPreset.title,
+                    detail: missionControl.health.controlPreset.summary,
+                    tone: controlTone(for: missionControl.health.controlPreset)
                 )
                 MetricTile(
                     label: "Alerts",
@@ -382,6 +417,19 @@ private struct MissionBriefingCard: View {
             return .warning
         case .critical:
             return .danger
+        }
+    }
+
+    private func controlTone(for preset: RuntimeControlPreset) -> StatusBadge.Tone {
+        switch preset {
+        case .fullControl:
+            return .warning
+        case .original:
+            return .good
+        case .less:
+            return .warning
+        case .aiDecides:
+            return .neutral
         }
     }
 }

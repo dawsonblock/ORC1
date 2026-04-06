@@ -33,6 +33,7 @@ extension ControllerRuntimeBridge {
                 health: health,
                 diagnostics: diagnostics,
                 approvals: approvals,
+                recentSteps: recentSteps,
                 traces: traces,
                 providerStatus: providerStatus
             ),
@@ -49,6 +50,7 @@ extension ControllerRuntimeBridge {
             recommendedPrompts: recommendedPrompts(
                 health: health,
                 approvals: approvals,
+                recentSteps: recentSteps,
                 traces: traces,
                 providerStatus: providerStatus
             )
@@ -84,6 +86,13 @@ extension ControllerRuntimeBridge {
                 value: readinessValue,
                 detail: readinessDetail,
                 tone: readinessTone
+            ),
+            DashboardKPI(
+                id: "runtime-control",
+                title: "Runtime control",
+                value: health.controlPreset.title,
+                detail: "\(health.controlPreset.summary) Live mode: \(health.policyMode).",
+                tone: runtimeControlTone(for: health.controlPreset)
             ),
             DashboardKPI(
                 id: "verified-success",
@@ -201,6 +210,7 @@ extension ControllerRuntimeBridge {
         health: HealthStatus,
         diagnostics: ControllerDiagnosticsSnapshot,
         approvals: [ApprovalRequestDocument],
+        recentSteps: [TraceStepViewModel],
         traces: [TraceSessionSummary],
         providerStatus: ChatProviderStatus
     ) -> [AlertSummary] {
@@ -235,10 +245,22 @@ extension ControllerRuntimeBridge {
             alerts.append(
                 AlertSummary(
                     id: "approvals-pending",
-                    title: "\(approvals.count) approvals pending",
-                    message: "Risk-gated operations are paused until someone reviews them.",
+                    title: "\(approvals.count) approvals pending in \(health.controlPreset.title)",
+                    message: approvalSummary(for: approvals, health: health),
                     severity: .warning,
                     source: "approvals"
+                )
+            )
+        }
+
+        if let blockedStep = recentSteps.reversed().first(where: { $0.blockedByPolicy }) {
+            alerts.append(
+                AlertSummary(
+                    id: "policy-blocked-\(blockedStep.id)",
+                    title: "\(health.controlPreset.title) blocked a recent action",
+                    message: blockedActionSummary(for: blockedStep, health: health),
+                    severity: .warning,
+                    source: "policy"
                 )
             )
         }
@@ -297,6 +319,7 @@ extension ControllerRuntimeBridge {
     private func recommendedPrompts(
         health: HealthStatus,
         approvals: [ApprovalRequestDocument],
+        recentSteps: [TraceStepViewModel],
         traces: [TraceSessionSummary],
         providerStatus: ChatProviderStatus
     ) -> [String] {
@@ -311,7 +334,11 @@ extension ControllerRuntimeBridge {
         }
 
         if !approvals.isEmpty {
-            prompts.append("Summarize the pending approvals and the safest next step.")
+            prompts.append("Why is \(health.controlPreset.title) reviewing these risky actions right now?")
+        }
+
+        if let blockedStep = recentSteps.reversed().first(where: { $0.blockedByPolicy }) {
+            prompts.append("Why did \(health.controlPreset.title) block \(actionLabel(for: blockedStep))?")
         }
 
         if !traces.isEmpty {
@@ -373,5 +400,68 @@ extension ControllerRuntimeBridge {
         case .unavailable:
             return status.configured ? .warning : .neutral
         }
+    }
+
+    private func runtimeControlTone(for preset: RuntimeControlPreset) -> DashboardTone {
+        switch preset {
+        case .fullControl:
+            return .warning
+        case .original:
+            return .good
+        case .less:
+            return .warning
+        case .aiDecides:
+            return .neutral
+        }
+    }
+
+    private func approvalSummary(for approvals: [ApprovalRequestDocument], health: HealthStatus) -> String {
+        guard let firstApproval = approvals.first else {
+            return "No risky actions are waiting for review."
+        }
+
+        let remainder = approvals.count > 1 ? " \(approvals.count - 1) more action(s) are waiting behind it." : ""
+        return "\(health.controlPreset.title) is reviewing \(firstApproval.displayTitle) because \(lowercasedLeadingSentence(firstApproval.reason)).\(remainder)"
+    }
+
+    private func blockedActionSummary(for step: TraceStepViewModel, health: HealthStatus) -> String {
+        let action = actionLabel(for: step)
+
+        if let protectedOperation = step.protectedOperation {
+            return "\(health.controlPreset.title) blocked \(action) because \(blockedOperationExplanation(for: protectedOperation, preset: health.controlPreset))."
+        }
+
+        return "\(health.controlPreset.title) blocked \(action) because the current policy mode does not allow that action to continue."
+    }
+
+    private func actionLabel(for step: TraceStepViewModel) -> String {
+        if let target = step.actionTarget, !target.isEmpty {
+            return "\(step.actionName.capitalized) \(target)"
+        }
+        return step.actionName.capitalized
+    }
+
+    private func blockedOperationExplanation(for protectedOperation: String, preset: RuntimeControlPreset) -> String {
+        switch preset {
+        case .fullControl, .original:
+            return "the runtime still keeps hard safety blocks on \(protectedOperation.replacingOccurrences(of: "-", with: " ")) operations"
+        case .less:
+            return "this stricter mode blocks risky operations instead of pausing them for approval"
+        case .aiDecides:
+            switch protectedOperation {
+            case "send", "purchase", "delete", "upload-share", "external-network-fetch", "git-push", "destructive-vcs":
+                return "this adaptive mode blocks irreversible or external risky actions outright"
+            default:
+                return "the runtime still keeps hard safety blocks on protected operations"
+            }
+        }
+    }
+
+    private func lowercasedLeadingSentence(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else {
+            return trimmed
+        }
+        return first.lowercased() + trimmed.dropFirst()
     }
 }

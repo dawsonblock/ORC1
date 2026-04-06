@@ -101,6 +101,7 @@ struct ControllerStoreHostLifecycleTests {
     func applyHealthResponseClearsStaleHealthWhenPayloadMissing() {
         let store = ControllerStore()
         store.health = makeHealthStatus(storageWritable: true)
+        store.selectedControlPreset = .aiDecides
 
         let response = ControllerHostResponse(
             requestID: "request-1",
@@ -112,7 +113,49 @@ struct ControllerStoreHostLifecycleTests {
         store.applyHealthResponse(response)
 
         #expect(store.health == nil)
+        #expect(store.selectedControlPreset == nil)
         #expect(store.errorMessage == "Health unavailable")
+    }
+
+    @Test
+    func applyHealthResponseSyncsRuntimeControlPreset() {
+        let store = ControllerStore()
+        let updatedHealth = makeHealthStatus(storageWritable: true, controlPreset: .aiDecides, policyMode: "adaptive")
+
+        let response = ControllerHostResponse(
+            requestID: "request-1",
+            command: .getHealth,
+            health: updatedHealth
+        )
+
+        store.applyHealthResponse(response)
+
+        #expect(store.health == updatedHealth)
+        #expect(store.selectedControlPreset == .aiDecides)
+    }
+
+    @Test
+    func applyBootstrapSyncsRuntimeControlPreset() {
+        let store = ControllerStore()
+        let bootstrap = DashboardBootstrap(
+            session: ControllerSession(
+                id: "session-1",
+                startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                hostProcessID: 42,
+                activeAppName: "Finder",
+                autoRefreshEnabled: true
+            ),
+            snapshot: makeSnapshot(appName: "Finder"),
+            health: makeHealthStatus(storageWritable: true, controlPreset: .fullControl, policyMode: "open"),
+            recipes: [],
+            traceSessions: [],
+            approvals: []
+        )
+
+        store.applyBootstrap(bootstrap)
+
+        #expect(store.selectedControlPreset == .fullControl)
+        #expect(store.health?.policyMode == "open")
     }
 
     @Test
@@ -287,7 +330,11 @@ struct ControllerStoreHostLifecycleTests {
 }
 
 @MainActor
-private func makeHealthStatus(storageWritable: Bool) -> HealthStatus {
+private func makeHealthStatus(
+    storageWritable: Bool,
+    controlPreset: RuntimeControlPreset = .original,
+    policyMode: String = "confirm-risky"
+) -> HealthStatus {
     HealthStatus(
         runtimeVersion: "1.0.0",
         permissions: [],
@@ -313,7 +360,8 @@ private func makeHealthStatus(storageWritable: Bool) -> HealthStatus {
         ],
         approvalBrokerActive: true,
         controllerConnected: true,
-        policyMode: "standard",
+        controlPreset: controlPreset,
+        policyMode: policyMode,
         runningFromAppBundle: false,
         bundledHostAvailable: false,
         bundledVisionBootstrapAvailable: false,
