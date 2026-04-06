@@ -49,13 +49,16 @@ private struct ExperimentSearchPayload: Encodable {
 //   scripts/mcp_boundary_guard.py      – CI shell check
 //   Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift – Swift unit test
 //
-// Architecture note: the public async handle entrypoint is not main-actor bound
-// so timeout enforcement can race actual work. The synchronous dispatch(request:)
-// path still runs on @MainActor. oracle_screenshot remains an explicit read-only
-// special handler, and oracle_experiment_search remains the sole async sandbox
-// exception because ExperimentManager.run() is async throws.
+// Architecture note: the public async handle entrypoint is not main-actor bound.
+// It starts a bounded bootstrap race before the tool-specific timeout race so
+// MCP bootstrap latency cannot sit outside the public timeout contract. The
+// synchronous dispatch(request:) path still runs on @MainActor. oracle_screenshot
+// remains an explicit read-only special handler, and oracle_experiment_search
+// remains the sole async sandbox exception because ExperimentManager.run() is
+// async throws.
 
 public enum MCPDispatch {
+    private static let bootstrapTimeoutSeconds: TimeInterval = 15
     private static let toolTimeoutSeconds: TimeInterval = 60
     @MainActor private static let runtimeHost = MCPRuntimeHost()
 
@@ -75,12 +78,38 @@ public enum MCPDispatch {
     }
 
     public static func handle(_ request: MCPToolRequest) async -> MCPToolResponse {
-        do {
-            _ = try await runtimeHost.runtime(currentWorkspaceRoot: FileManager.default.currentDirectoryPath)
-        } catch { return .error("Bootstrap failed") }
+        let runtimeHost = await MainActor.run { MCPDispatch.runtimeHost }
+        return await handle(
+            request,
+            runtimeHost: runtimeHost,
+            currentWorkspaceRoot: FileManager.default.currentDirectoryPath,
+            bootstrapTimeoutSeconds: bootstrapTimeoutSeconds,
+            defaultToolTimeoutSeconds: toolTimeoutSeconds
+        )
+    }
+
+    static func handle(
+        _ request: MCPToolRequest,
+        runtimeHost: MCPRuntimeHost,
+        currentWorkspaceRoot: String,
+        bootstrapTimeoutSeconds: TimeInterval,
+        defaultToolTimeoutSeconds: TimeInterval
+    ) async -> MCPToolResponse {
+        switch await bootstrapRuntime(
+            using: runtimeHost,
+            currentWorkspaceRoot: currentWorkspaceRoot,
+            timeoutSeconds: bootstrapTimeoutSeconds
+        ) {
+        case .ready:
+            break
+        case .failed(let message):
+            return .error(message)
+        case .timedOut:
+            return .error("Bootstrap timeout")
+        }
 
         let toolName = request.name
-        let actualTimeout = toolName == MCPToolName.experimentSearch ? 600.0 : toolTimeoutSeconds
+        let actualTimeout = toolName == MCPToolName.experimentSearch ? 600.0 : defaultToolTimeoutSeconds
 
         struct RespWrapper: @unchecked Sendable { let payload: MCPToolResponse? }
         let response: RespWrapper
@@ -109,6 +138,44 @@ public enum MCPDispatch {
         } catch { response = RespWrapper(payload: nil) }
 
         return response.payload ?? .error("Timeout")
+    }
+
+    private enum BootstrapStatus: Sendable {
+        case ready
+        case timedOut
+        case failed(String)
+    }
+
+    private static func bootstrapRuntime(
+        using runtimeHost: MCPRuntimeHost,
+        currentWorkspaceRoot: String,
+        timeoutSeconds: TimeInterval
+    ) async -> BootstrapStatus {
+        let bootstrapTask = Task { @MainActor in
+            try await runtimeHost.runtime(currentWorkspaceRoot: currentWorkspaceRoot)
+        }
+
+        let result = await withTaskGroup(of: BootstrapStatus.self) { group in
+            group.addTask {
+                do {
+                    _ = try await bootstrapTask.value
+                    return .ready
+                } catch {
+                    return .failed("Bootstrap failed")
+                }
+            }
+            group.addTask {
+                let duration = max(timeoutSeconds, 0)
+                try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+                return .timedOut
+            }
+            let first = await group.next() ?? .failed("Bootstrap failed")
+            bootstrapTask.cancel()
+            group.cancelAll()
+            return first
+        }
+
+        return result
     }
 
     // MARK: - Special handlers

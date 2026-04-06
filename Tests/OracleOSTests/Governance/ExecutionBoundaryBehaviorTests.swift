@@ -243,18 +243,25 @@ final class ExecutionBoundaryBehaviorTests: XCTestCase {
         XCTAssertEqual(before.notes, after.notes)
     }
 
-    /// PROVES: The stricter product contract and runtime comments keep the
-    /// observational and experimental exception paths explicit.
-    func testProductContractDocumentsReadOnlyBoundarySpecialCases() throws {
+    /// PROVES: The stricter product contract keeps one explicit bounded
+    /// exception table for all documented bypass surfaces.
+    func testProductContractDocumentsExplicitExceptionTable() throws {
         let contractSource = try readSource("docs/PRODUCT_CONTRACT.md")
         let executorSource = try readSource("Sources/OracleOS/Execution/VerifiedExecutor.swift")
         let waitSource = try readSource("Sources/OracleOS/MCP/WaitManager.swift")
         let screenshotSource = try readSource("Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Screenshot.swift")
 
+        XCTAssertTrue(contractSource.contains("| Surface | Main-path status | Mutability | Approval | Reason | Owning file(s) | Proof coverage |"))
+        XCTAssertTrue(contractSource.contains("oracle_experiment_search"))
         XCTAssertTrue(contractSource.contains("oracle_screenshot"))
         XCTAssertTrue(contractSource.contains("oracle_wait"))
         XCTAssertTrue(contractSource.contains("oracle_parse_screen"))
         XCTAssertTrue(contractSource.contains("oracle_ground"))
+        XCTAssertTrue(contractSource.contains("oracle doctor"))
+        XCTAssertTrue(contractSource.contains("oracle setup"))
+        XCTAssertTrue(contractSource.contains("Sources/oracle/Doctor.swift"))
+        XCTAssertTrue(contractSource.contains("Sources/oracle/SetupWizard.swift"))
+        XCTAssertTrue(contractSource.contains("execution_boundary_guard.py"))
         XCTAssertTrue(executorSource.contains("oracle_screenshot"))
         XCTAssertTrue(executorSource.contains("oracle_wait"))
         XCTAssertTrue(executorSource.contains("oracle_parse_screen"))

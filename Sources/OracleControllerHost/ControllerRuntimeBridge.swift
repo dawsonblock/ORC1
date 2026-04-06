@@ -302,7 +302,7 @@ final class ControllerRuntimeBridge {
             runtime: oracleRuntime,
             taskID: sessionID
         )
-        let recipeName = result.recipeRunResult?.recipeName ?? (result.data?[RecipeResultKey.recipe] as? String) ?? "recipe"
+        let recipeName = result.recipeRunResult?.recipeName ?? "recipe"
         let recipe = RecipeStore.loadRecipe(named: recipeName)
         return mapRecipeRunResult(
             recipeName: recipeName,

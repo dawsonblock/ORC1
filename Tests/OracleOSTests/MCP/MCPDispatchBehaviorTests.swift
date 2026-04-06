@@ -55,6 +55,86 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         XCTAssertLessThan(elapsed, 15, "Empty experiment-search validation must not wait for the long async timeout")
     }
 
+    func testBootstrapFailureReturnsExplicitErrorResponse() async {
+        let request = MCPToolRequest(
+            version: "1",
+            name: "oracle_not_a_real_tool",
+            arguments: .object([:])
+        )
+        let runtimeHost = MCPRuntimeHost {
+            throw TestBootstrapError.failed
+        }
+
+        let response = await MCPDispatch.handle(
+            request,
+            runtimeHost: runtimeHost,
+            currentWorkspaceRoot: FileManager.default.currentDirectoryPath,
+            bootstrapTimeoutSeconds: 0.1,
+            defaultToolTimeoutSeconds: 1
+        )
+
+        XCTAssertTrue(response.isError)
+        XCTAssertTrue(response.textPayload.contains("Bootstrap failed"))
+    }
+
+    func testBootstrapTimeoutReturnsExplicitErrorResponse() async {
+        let start = Date()
+        let request = MCPToolRequest(
+            version: "1",
+            name: "oracle_not_a_real_tool",
+            arguments: .object([:])
+        )
+        let runtimeHost = MCPRuntimeHost {
+            try await Task.sleep(nanoseconds: 5_000_000_000)
+            throw TestBootstrapError.failed
+        }
+
+        let response = await MCPDispatch.handle(
+            request,
+            runtimeHost: runtimeHost,
+            currentWorkspaceRoot: FileManager.default.currentDirectoryPath,
+            bootstrapTimeoutSeconds: 0.05,
+            defaultToolTimeoutSeconds: 1
+        )
+        let elapsed = Date().timeIntervalSince(start)
+
+        XCTAssertTrue(response.isError)
+        XCTAssertTrue(response.textPayload.contains("Bootstrap timeout"))
+        XCTAssertLessThan(elapsed, 1, "Bootstrap timeout must fail before the per-tool timeout elapses")
+    }
+
+    func testDispatchReusesBootstrappedRuntimeAcrossSequentialRequests() async throws {
+        var bootstrapCount = 0
+        let request = MCPToolRequest(
+            version: "1",
+            name: "oracle_not_a_real_tool",
+            arguments: .object([:])
+        )
+        let runtimeHost = MCPRuntimeHost {
+            bootstrapCount += 1
+            return try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+
+        let first = await MCPDispatch.handle(
+            request,
+            runtimeHost: runtimeHost,
+            currentWorkspaceRoot: FileManager.default.currentDirectoryPath,
+            bootstrapTimeoutSeconds: 5,
+            defaultToolTimeoutSeconds: 1
+        )
+        let second = await MCPDispatch.handle(
+            request,
+            runtimeHost: runtimeHost,
+            currentWorkspaceRoot: FileManager.default.currentDirectoryPath,
+            bootstrapTimeoutSeconds: 5,
+            defaultToolTimeoutSeconds: 1
+        )
+
+        XCTAssertTrue(first.isError)
+        XCTAssertTrue(second.isError)
+        XCTAssertEqual(bootstrapCount, 1)
+    }
+
     func testRuntimeHostReusesBootstrappedRuntimeUntilReset() async throws {
         var bootstrapCount = 0
         let runtimeHost = MCPRuntimeHost {
@@ -98,6 +178,24 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         let bootstrapped = try await runtimeHost.runtime()
         XCTAssertEqual(bootstrapCount, 2)
         XCTAssertTrue(bootstrapped.container === runtimeHost.existingRuntime?.container)
+    }
+
+    func testBootstrapTimeoutPolicyRemainsExplicitInSource() throws {
+        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let content = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            content.contains("bootstrapTimeoutSeconds"),
+            "MCPDispatch must define an explicit bootstrap timeout budget"
+        )
+        XCTAssertTrue(
+            content.contains("bootstrapRuntime("),
+            "MCPDispatch must separate bootstrap timing from the tool execution race"
+        )
+        XCTAssertTrue(
+            content.contains("Bootstrap timeout"),
+            "MCPDispatch must surface a deterministic bootstrap-timeout error"
+        )
     }
 
     func testExperimentSearchRemainsExplicitAsyncExceptionPath() throws {

@@ -131,6 +131,25 @@ final class ControllerBoundaryTests: XCTestCase {
         XCTAssertFalse(nonCommentWaitCase.contains("VerifiedExecutor"), "Wait case must not reference executor authority")
     }
 
+    /// Controller host mapping must consume typed ToolResult views instead of
+    /// re-probing legacy data dictionaries for action or recipe fields.
+    func test_controller_runtime_bridge_avoids_legacy_toolresult_fallback_probes() throws {
+        let bridgeFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
+        let mappingFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift")
+
+        let bridgeContent = try String(contentsOf: bridgeFile)
+        let mappingContent = try String(contentsOf: mappingFile)
+
+        XCTAssertFalse(
+            mappingContent.contains("result.data?[ActionResultKey.method]"),
+            "ControllerRuntimeBridge+Mapping must use result.actionResult.method instead of re-reading legacy data"
+        )
+        XCTAssertFalse(
+            bridgeContent.contains("result.data?[RecipeResultKey.recipe]"),
+            "ControllerRuntimeBridge must use result.recipeRunResult.recipeName instead of re-reading legacy data"
+        )
+    }
+
     /// Controller source files must not commit events directly.
     func test_controller_host_does_not_commit_events_directly() {
         let controllerFiles = swiftFiles(under: "Sources/OracleControllerHost")

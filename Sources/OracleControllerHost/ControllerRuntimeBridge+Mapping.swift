@@ -24,7 +24,7 @@ extension ControllerRuntimeBridge {
             message: actionResult?.message ?? result.error ?? result.suggestion,
             failureClass: actionResult?.failureClass,
             verificationStatus: actionResult?.verificationStatus?.rawValue,
-            method: actionResult?.method ?? (result.data?[ActionResultKey.method] as? String),
+            method: actionResult?.method,
             elapsedMs: actionResult?.elapsedMs ?? 0,
             resultingObservation: map(observation),
             approvalRequestID: actionResult?.approvalRequestID,

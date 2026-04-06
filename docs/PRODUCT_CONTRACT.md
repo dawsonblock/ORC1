@@ -38,21 +38,17 @@ Surface code is a consumer of this spine, not a mutator of it.
 
 ## Bounded Exceptions
 
-The following are documented exceptions and are **not** part of the guaranteed main-path execution contract:
+The following exception surfaces are documented and are **not** part of the guaranteed main-path execution contract. Adding a new bypass requires updating this table, the owning code comments, and the relevant tests or guards.
 
-### Main-path execution exceptions
-
-- `oracle_experiment_search` dispatches to the experiment subsystem by design and does not go through `RuntimeOrchestrator` or `VerifiedExecutor`; its result payloads explicitly advertise `execution_context = sandbox` and `committed_to_workspace = false`
-- `Sources/oracle/Doctor.swift` and `Sources/oracle/SetupWizard.swift` are tooling-only shell exceptions
-
-### Read-only observational special cases
-
-- `oracle_screenshot` is served directly by `AXScanner.screenshot(...)`; it captures observation payloads only, does not route through `RuntimeOrchestrator` or `VerifiedExecutor`, and does not commit runtime state
-- `oracle_wait` is a host-local polling check handled by `WaitManager.waitFor(...)`; it does not route through `VerifiedExecutor` and does not commit runtime state
-
-### Optional experimental perception edges
-
-- `oracle_parse_screen` and `oracle_ground` route through `VisionScanner` and the optional `vision-sidecar/`; they are read-only experimental perception tools and are outside committed-state authority
+| Surface | Main-path status | Mutability | Approval | Reason | Owning file(s) | Proof coverage |
+| --- | --- | --- | --- | --- | --- | --- |
+| `oracle_screenshot` | Explicit read-only exception | Read-only observation | Not required | Direct AX screenshot capture; no committed runtime state | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Screenshot.swift` | `MCPDispatchBehaviorTests`, `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
+| `oracle_wait` | Explicit read-only exception | Read-only observation | Not required | Host-local polling check; no committed runtime state | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/MCP/WaitManager.swift` | `MCPDispatchBehaviorTests`, `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
+| `oracle_parse_screen` | Explicit perception exception | Read-only observation | Not required | Optional experimental sidecar-backed perception | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/WorldModel/Perception/Vision/VisionScanner.swift` | `MCPDispatchBehaviorTests`, `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
+| `oracle_ground` | Explicit perception exception | Read-only observation | Not required | Optional experimental sidecar-backed grounding | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/WorldModel/Perception/Vision/VisionScanner.swift` | `MCPDispatchBehaviorTests`, `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
+| `oracle_experiment_search` | Explicit async exception | Sandboxed candidate execution | Not part of main-path approval; result must remain sandbox-only | Runs worktree-scoped experiments without committing the main workspace | `Sources/OracleOS/MCP/MCPDispatch.swift`, `Sources/OracleOS/Execution/Experiments/ExperimentManager.swift` | `MCPDispatchBehaviorTests`, `ExperimentResultIsolationTests`, `execution_boundary_guard.py` |
+| `oracle doctor` | Explicit CLI tooling exception | Tooling shell and diagnostics | Not applicable | Standalone diagnostic utility outside `RuntimeBootstrap` | `Sources/oracle/Doctor.swift` | `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
+| `oracle setup` | Explicit CLI tooling exception | Tooling shell and setup | Not applicable | Standalone setup utility outside `RuntimeBootstrap` | `Sources/oracle/SetupWizard.swift` | `ExecutionBoundaryBehaviorTests`, `execution_boundary_guard.py` |
 
 ## Unsupported Assumptions
 
