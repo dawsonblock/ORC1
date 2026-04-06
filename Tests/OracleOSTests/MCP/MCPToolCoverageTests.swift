@@ -1,4 +1,5 @@
 import XCTest
+@testable import OracleOS
 
 /// MCPToolCoverageTests — verifies that every tool declared in MCPTools.swift
 /// has a matching case in MCPDispatch.swift.
@@ -104,5 +105,37 @@ final class MCPToolCoverageTests: XCTestCase {
             guardSource.contains("EXPECTED_TOOL_COUNT = 30"),
             "mcp_boundary_guard.py must enforce the same exact 30-tool contract as the Swift tests"
         )
+    }
+
+    @MainActor
+    func testOptionalVisionAndAdvisoryToolsRemainExplicitlyBoundedInDescriptions() throws {
+        let definitions = MCPTools.definitions()
+
+        func description(for name: String) throws -> String {
+            guard let description = definitions
+                .first(where: { ($0["name"] as? String) == name })?["description"] as? String
+            else {
+                throw XCTSkip("Missing MCP tool definition for \(name)")
+            }
+            return description.lowercased()
+        }
+
+        let parseScreen = try description(for: MCPToolName.parseScreen)
+        XCTAssertTrue(parseScreen.contains("experimental"))
+        XCTAssertTrue(parseScreen.contains("sidecar"))
+
+        let ground = try description(for: MCPToolName.ground)
+        XCTAssertTrue(ground.contains("optional"))
+        XCTAssertTrue(ground.contains("experimental"))
+        XCTAssertTrue(ground.contains("vision sidecar"))
+
+        let architectureReview = try description(for: MCPToolName.architectureReview)
+        XCTAssertTrue(architectureReview.contains("advisory"))
+
+        let candidateReview = try description(for: MCPToolName.candidateReview)
+        XCTAssertTrue(candidateReview.contains("advisory"))
+
+        let workflowMine = try description(for: MCPToolName.workflowMine)
+        XCTAssertTrue(workflowMine.contains("caller review"))
     }
 }

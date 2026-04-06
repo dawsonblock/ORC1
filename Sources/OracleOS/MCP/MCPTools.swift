@@ -291,7 +291,7 @@ public enum MCPTools {
         ),
         tool(
             name: MCPToolName.ground,
-            description: "Find precise screen coordinates for a described UI element using vision (VLM). Use when oracle_find can't locate the element or returns AXGroup elements. Pass a text description of what to click. Requires the vision sidecar to be running.",
+            description: "Optional experimental visual grounding via the vision sidecar. Finds precise screen coordinates for a described UI element using vision (VLM). Use when oracle_find can't locate the element or returns AXGroup elements. Pass a text description of what to click.",
             properties: [
                 "description": prop("string", "What to find (e.g. 'Compose button', 'Send button', 'search field')."),
                 "app": prop("string", "Screenshot specific app window."),
@@ -354,7 +354,7 @@ public enum MCPTools {
     private static let architecture: [[String: Any]] = [
         tool(
             name: MCPToolName.architectureReview,
-            description: "Review planned changes for architectural risks and potential invariant violations before executing them. Returns structured findings, heuristic risk scores, and refactoring suggestions.",
+            description: "Advisory review of planned changes for architectural risks and potential invariant violations before executing them. Returns structured findings, heuristic risk scores, and refactoring suggestions.",
             properties: [
                 "goal_description": prop("string", "A summary of what the change is trying to achieve."),
                 "candidate_paths": propArray("string", "List of workspace relative paths that are expected to be changed."),
@@ -363,7 +363,7 @@ public enum MCPTools {
         ),
         tool(
             name: MCPToolName.candidateReview,
-            description: "Deep architecture review of a specific code patch candidate. Identifies heuristic problems like touching wrong boundaries or expanding patch radii.",
+            description: "Advisory deep architecture review of a specific code patch candidate. Identifies heuristic problems like touching wrong boundaries or expanding patch radii.",
             properties: [
                 "goal_description": prop("string", "A summary of what the patch is trying to achieve."),
                 "candidate": prop("object", "Candidate patch object with 'title', 'summary', 'workspace_relative_path', and 'content' (the complete new file string)."),
@@ -379,7 +379,7 @@ public enum MCPTools {
     private static let workflows: [[String: Any]] = [
         tool(
             name: MCPToolName.workflowMine,
-            description: "Mine candidate workflows from recent telemetry and traces. Returns synthesized workflow suggestions that still require caller review.",
+            description: "Mine candidate workflows from recent telemetry and traces. Returns synthesized workflow suggestions that still require caller review before reuse or promotion.",
             properties: [
                 "goal_pattern": prop("string", "The goal or pattern to search for in traces."),
                 "limit": prop("integer", "Maximum number of recent events to analyze (default: 1000).")

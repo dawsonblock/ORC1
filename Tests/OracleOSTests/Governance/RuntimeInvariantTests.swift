@@ -159,4 +159,27 @@ final class RuntimeInvariantTests: XCTestCase {
         }
     }
 
+    func test_controller_release_workflow_literal_trigger_paths_exist() throws {
+        let workflow = try read(".github/workflows/controller-release.yml")
+        let literalPaths = workflow
+            .components(separatedBy: .newlines)
+            .compactMap { line -> String? in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- \"") && trimmed.hasSuffix("\"") else { return nil }
+                let path = String(trimmed.dropFirst(3).dropLast(1))
+                guard !path.contains("*") else { return nil }
+                return path
+            }
+
+        let missing = literalPaths.filter { path in
+            let fullPath = repositoryRoot().appendingPathComponent(path)
+            return !FileManager.default.fileExists(atPath: fullPath.path)
+        }
+
+        XCTAssertTrue(
+            missing.isEmpty,
+            "controller-release.yml trigger paths must reference real repo files: \(missing)"
+        )
+    }
+
 }

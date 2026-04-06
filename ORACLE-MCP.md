@@ -132,9 +132,11 @@ oracle_parse_screen app:"Chrome"
 -> Returns experimental full-screen parse output from the vision sidecar
 ```
 
-Note: `oracle_parse_screen` is sidecar-backed, but its output is still
-experimental. Use `oracle_find` for AX-based element search when you need the
-most stable runtime behavior, and `oracle_ground` for visual disambiguation.
+Note: `oracle_parse_screen` and `oracle_ground` are optional sidecar-backed
+vision paths outside the guaranteed main-path execution spine.
+`oracle_parse_screen` remains the more experimental surface. Use `oracle_find`
+for AX-based element search when you need the most stable runtime behavior,
+and `oracle_ground` for bounded visual disambiguation when AX is insufficient.
 
 ## Rule 7: Handle Failures
 
@@ -251,14 +253,14 @@ Common wait conditions:
 | oracle_recipe_show | View recipe details | No |
 | oracle_recipe_save | Save new recipe | No |
 | oracle_recipe_delete | Delete recipe | No |
-| oracle_parse_screen | Experimental full-screen parsing via the vision sidecar | No |
-| oracle_ground | Find element coordinates via VLM | No |
+| oracle_parse_screen | Experimental full-screen parsing via the optional vision sidecar | No |
+| oracle_ground | Optional experimental visual grounding via the vision sidecar | No |
 | oracle_memory_query | Query project memory (architecture, risks, patterns) | No |
 | oracle_memory_draft | Draft a new project memory record | No |
 | oracle_experiment_search | Run bounded parallel patch experiments | No |
-| oracle_architecture_review | Review planned changes for invariants/risks | No |
-| oracle_candidate_review | Deep architecture review of a patch candidate | No |
-| oracle_workflow_mine | Synthesize reusable workflows from telemetry | No |
+| oracle_architecture_review | Advisory review of planned changes for invariants/risks | No |
+| oracle_candidate_review | Advisory deep review of a patch candidate | No |
+| oracle_workflow_mine | Mine synthesized workflow suggestions that still require caller review | No |
 | oracle_workflow_list | List synthesized workflows | No |
 | oracle_workflow_execute | Execute a synthesized workflow | No |
 

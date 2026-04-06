@@ -124,7 +124,7 @@ Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-
 
 Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the CI artifact.
 
-Repo-owned workflow roles are intentionally narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is supplemental enforcement, and `.github/workflows/controller-release.yml` is release automation. Security scanners such as CodeQL, Codacy, and Frogbot are supplemental signals and are not part of the product-certification contract.
+Repo-owned workflow roles are intentionally narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is supplemental enforcement, and `.github/workflows/controller-release.yml` validates unsigned controller build/package outputs on PRs and pushes while handling signed/notarized release packaging on version tags. Security scanners such as CodeQL, Codacy, and Frogbot are supplemental signals and are not part of the product-certification contract.
 
 Direct `swift build` and `swift test` remain useful local commands, but archived repair notes, milestone docs, checked-in diagnostics, and ad hoc command output are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified through the supported verifier path.
 
