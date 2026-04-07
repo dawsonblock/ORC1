@@ -4,6 +4,20 @@ import Foundation
 import OracleControllerShared
 
 extension ControllerStore {
+    func shouldIgnore(_ error: any Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+
+        if let hostError = error as? HostClientError,
+           hostError == .requestCancelled
+        {
+            return true
+        }
+
+        return false
+    }
+
     func present(_ error: any Error) {
         if let hostError = error as? HostClientError,
            let status = hostError.connectionStatus
@@ -60,6 +74,7 @@ extension ControllerStore {
         case .approvalsChanged:
             if let approvals = event.approvals {
                 approvalQueue = approvals
+                syncApprovalRows(with: approvals)
             }
 
         case .missionControlChanged:
@@ -130,6 +145,7 @@ extension ControllerStore {
         inlineMessage = recipeRun.summaryText
         if let approvals {
             approvalQueue = approvals
+            syncApprovalRows(with: approvals)
         }
     }
 
@@ -225,11 +241,13 @@ extension ControllerStore {
     func applyApprovalsResponse(_ response: ControllerHostResponse, fallback: String = "Approval list unavailable") {
         guard let approvals = response.approvals else {
             approvalQueue = []
+            syncApprovalRows(with: [])
             errorMessage = response.errorMessage ?? fallback
             return
         }
 
         approvalQueue = approvals
+        syncApprovalRows(with: approvals)
     }
 
     func applyMissionControlResponse(_ response: ControllerHostResponse, fallback: String = "Mission Control snapshot unavailable") {
@@ -288,6 +306,7 @@ extension ControllerStore {
         recipes = bootstrap.recipes
         traceSessions = bootstrap.traceSessions
         approvalQueue = bootstrap.approvals
+        syncApprovalRows(with: bootstrap.approvals)
         missionControl = bootstrap.missionControl
         chatConversation = bootstrap.chatConversation
         chatProviderStatus = bootstrap.chatProviderStatus ?? bootstrap.missionControl?.providerStatus
@@ -306,7 +325,18 @@ extension ControllerStore {
 
     func apply(snapshot: ControlSnapshot) {
         self.snapshot = snapshot
-        selectedElementID = snapshot.observation.focusedElementID ?? selectedElementID
+        let elementIDs = Set(snapshot.observation.elements.map(\.id))
+
+        if let selectedElementID, elementIDs.contains(selectedElementID) {
+            self.selectedElementID = selectedElementID
+        } else if let focusedElementID = snapshot.observation.focusedElementID,
+                  elementIDs.contains(focusedElementID)
+        {
+            selectedElementID = focusedElementID
+        } else {
+            selectedElementID = snapshot.observation.elements.first?.id
+        }
+
         actionComposer.hydrate(from: snapshot)
     }
 
@@ -396,6 +426,51 @@ extension ControllerStore {
             self.latestRecipeRun = latestRecipeRun.rejectedApprovalResult()
             inlineMessage = "Recipe approval was rejected."
         }
+    }
+
+    func markApprovalActionPending(_ action: ApprovalResolutionAction, approval: ApprovalRequestDocument) {
+        approvalResolutionTasks[approval.id]?.cancel()
+        approvalResolutionTasks.removeValue(forKey: approval.id)
+        recentApprovalResolutions.removeAll { $0.approval.id == approval.id }
+        pendingApprovalActions[approval.id] = action
+    }
+
+    func markApprovalActionResolved(_ action: ApprovalResolutionAction, approval: ApprovalRequestDocument) {
+        pendingApprovalActions.removeValue(forKey: approval.id)
+        approvalResolutionTasks[approval.id]?.cancel()
+        approvalResolutionTasks.removeValue(forKey: approval.id)
+        recentApprovalResolutions.removeAll { $0.approval.id == approval.id }
+        recentApprovalResolutions.insert(
+            RecentApprovalResolution(approval: approval, action: action, resolvedAt: Date()),
+            at: 0
+        )
+        approvalResolutionTasks[approval.id] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.clearResolvedApprovalRow(id: approval.id)
+        }
+    }
+
+    func clearApprovalActionState(for approvalID: String) {
+        pendingApprovalActions.removeValue(forKey: approvalID)
+    }
+
+    func clearResolvedApprovalRow(id: String) {
+        recentApprovalResolutions.removeAll { $0.approval.id == id }
+        approvalResolutionTasks[id]?.cancel()
+        approvalResolutionTasks.removeValue(forKey: id)
+    }
+
+    func syncApprovalRows(with approvals: [ApprovalRequestDocument]) {
+        let activeIDs = Set(approvals.map(\.id))
+        pendingApprovalActions = pendingApprovalActions.filter { activeIDs.contains($0.key) }
+
+        let restoredIDs = Set(recentApprovalResolutions.map(\.approval.id)).intersection(activeIDs)
+        for id in restoredIDs {
+            approvalResolutionTasks[id]?.cancel()
+            approvalResolutionTasks.removeValue(forKey: id)
+        }
+        recentApprovalResolutions.removeAll { activeIDs.contains($0.approval.id) }
     }
 
     func syncSelectionAfterRecipeRefresh() {

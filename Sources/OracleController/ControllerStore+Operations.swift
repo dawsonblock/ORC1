@@ -52,8 +52,37 @@ extension ControllerStore {
             let response = try await send(.init(command: .getDiagnostics))
             applyDiagnosticsResponse(response)
         } catch {
+            if shouldIgnore(error) {
+                return
+            }
             present(error)
         }
+    }
+
+    func scheduleRefreshForSelectedSection(_ section: WorkspaceSection) {
+        sectionRefreshTask?.cancel()
+        sectionRefreshTask = nil
+
+        switch section {
+        case .diagnostics:
+            sectionRefreshTask = Task { [weak self] in
+                await self?.loadDiagnostics()
+            }
+
+        case .missionControl:
+            guard missionControl == nil else { return }
+            sectionRefreshTask = Task { [weak self] in
+                await self?.refreshMissionControl()
+            }
+
+        case .control, .recipes, .traces, .health, .settings:
+            break
+        }
+    }
+
+    func cancelSectionRefreshWork() {
+        sectionRefreshTask?.cancel()
+        sectionRefreshTask = nil
     }
 
     func updateMonitoring(previousValue: Bool? = nil) async {
@@ -113,12 +142,20 @@ extension ControllerStore {
     }
 
     func approveApprovalRequest(_ approval: ApprovalRequestDocument) async {
+        guard pendingApprovalActions[approval.id] == nil else {
+            return
+        }
+
+        markApprovalActionPending(.approve, approval: approval)
+
         do {
             let response = try await send(.init(command: .approveApprovalRequest, approvalRequestID: approval.id))
             guard requireAcknowledged(response, fallback: "Approval request could not be approved") else {
+                clearApprovalActionState(for: approval.id)
                 return
             }
             applyApprovalsResponse(response, fallback: "Approval state unavailable after approval")
+            markApprovalActionResolved(.approve, approval: approval)
             if let pendingAction = currentActionResult,
                pendingAction.approvalStatus == "pending",
                pendingAction.approvalRequestID == approval.id
@@ -133,19 +170,35 @@ extension ControllerStore {
                 await resumeRecipeRun(resumeToken: resumeToken, approvalRequestID: approval.id)
             }
         } catch {
+            clearApprovalActionState(for: approval.id)
+            if shouldIgnore(error) {
+                return
+            }
             present(error)
         }
     }
 
     func rejectApprovalRequest(_ approval: ApprovalRequestDocument) async {
+        guard pendingApprovalActions[approval.id] == nil else {
+            return
+        }
+
+        markApprovalActionPending(.reject, approval: approval)
+
         do {
             let response = try await send(.init(command: .rejectApprovalRequest, approvalRequestID: approval.id))
             guard requireAcknowledged(response, fallback: "Approval request could not be rejected") else {
+                clearApprovalActionState(for: approval.id)
                 return
             }
             applyApprovalsResponse(response, fallback: "Approval state unavailable after rejection")
+            markApprovalActionResolved(.reject, approval: approval)
             markRejectedApproval(approval)
         } catch {
+            clearApprovalActionState(for: approval.id)
+            if shouldIgnore(error) {
+                return
+            }
             present(error)
         }
     }

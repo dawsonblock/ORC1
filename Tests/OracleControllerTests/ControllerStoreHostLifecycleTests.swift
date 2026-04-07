@@ -179,6 +179,17 @@ struct ControllerStoreHostLifecycleTests {
     }
 
     @Test
+    func applySnapshotFallsBackToFocusedElementWhenSelectionDisappears() {
+        let store = ControllerStore()
+        store.selectedElementID = "stale-element"
+
+        store.apply(snapshot: makeSnapshot(appName: "Finder"))
+
+        #expect(store.selectedElementID == "finder-window")
+        #expect(store.selectedElement?.id == "finder-window")
+    }
+
+    @Test
     func applyDiagnosticsResponseClearsSelectionsWhenPayloadMissing() {
         let store = ControllerStore()
         store.diagnostics = makeDiagnosticsSnapshot()
@@ -283,6 +294,54 @@ struct ControllerStoreHostLifecycleTests {
 
         #expect(store.approvalQueue.isEmpty)
         #expect(store.errorMessage == "Approvals unavailable")
+    }
+
+    @Test
+    func approvalRowsTrackSubmittingAndResolvedState() {
+        let store = ControllerStore()
+        let approval = makeApprovalRequest(id: "approval-1")
+        store.approvalQueue = [approval]
+
+        store.markApprovalActionPending(.approve, approval: approval)
+
+        #expect(store.approvalRows.first?.phase == .submitting(.approve))
+
+        store.applyApprovalsResponse(
+            ControllerHostResponse(
+                requestID: "request-1",
+                command: .approveApprovalRequest,
+                approvals: []
+            )
+        )
+        store.markApprovalActionResolved(.approve, approval: approval)
+
+        #expect(store.approvalRows.first?.phase == .resolved(.approve))
+    }
+
+    @Test
+    func clearChatConversationDoesNothingWhileResponseIsStreaming() {
+        let store = ControllerStore()
+        store.chatConversation = ChatConversation(
+            id: "conversation-1",
+            title: "Copilot",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            messages: [
+                ChatMessage(
+                    id: "assistant-1",
+                    role: .assistant,
+                    content: "",
+                    createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+                    isStreaming: true
+                )
+            ]
+        )
+        store.chatInput = "keep this"
+
+        store.clearChatConversation()
+
+        #expect(store.chatConversation?.id == "conversation-1")
+        #expect(store.chatInput == "keep this")
     }
 
     @Test

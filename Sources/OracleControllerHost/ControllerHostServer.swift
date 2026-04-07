@@ -554,8 +554,8 @@ actor ControllerHostServer {
         }
 
         chatTask = Task {
-            let finalText: String
             do {
+                let finalText: String
                 if providerStatus.state == .ready {
                     finalText = try await ControllerCopilot.complete(
                         conversation: conversation,
@@ -579,23 +579,51 @@ actor ControllerHostServer {
                 } else {
                     finalText = ControllerCopilot.setupGuidance(for: providerStatus)
                 }
-            } catch {
-                finalText = "Copilot response failed: \(error.localizedDescription)"
-            }
 
-            let completedConversation = self.completeChatMessage(
-                messageID: assistantMessageID,
-                content: finalText,
-                citations: ControllerCopilot.citations(for: prompt, missionControl: missionControl),
-                draftActions: ControllerCopilot.drafts(for: missionControl)
-            )
-            await output.send(event: ControllerHostEvent(
-                kind: .chatMessageCompleted,
-                chatConversation: completedConversation,
-                chatProviderStatus: providerStatus,
-                chatMessageID: assistantMessageID
-            ))
+                guard !Task.isCancelled else {
+                    return
+                }
+
+                let completedConversation = self.completeChatMessage(
+                    messageID: assistantMessageID,
+                    content: finalText,
+                    citations: ControllerCopilot.citations(for: prompt, missionControl: missionControl),
+                    draftActions: ControllerCopilot.drafts(for: missionControl)
+                )
+                await output.send(event: ControllerHostEvent(
+                    kind: .chatMessageCompleted,
+                    chatConversation: completedConversation,
+                    chatProviderStatus: providerStatus,
+                    chatMessageID: assistantMessageID
+                ))
+            } catch {
+                if shouldIgnoreChatCancellation(error) || Task.isCancelled {
+                    return
+                }
+
+                let completedConversation = self.completeChatMessage(
+                    messageID: assistantMessageID,
+                    content: "Copilot response failed: \(error.localizedDescription)",
+                    citations: ControllerCopilot.citations(for: prompt, missionControl: missionControl),
+                    draftActions: ControllerCopilot.drafts(for: missionControl)
+                )
+                await output.send(event: ControllerHostEvent(
+                    kind: .chatMessageCompleted,
+                    chatConversation: completedConversation,
+                    chatProviderStatus: providerStatus,
+                    chatMessageID: assistantMessageID
+                ))
+            }
         }
+    }
+
+    private func shouldIgnoreChatCancellation(_ error: any Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
     }
 
     private func appendChatDelta(messageID: String, delta: String) -> ChatConversation? {

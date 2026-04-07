@@ -43,6 +43,9 @@ extension ControllerStore {
             let response = try await send(.init(command: .refreshMissionControl, appName: currentMonitorApp))
             applyMissionControlResponse(response)
         } catch {
+            if shouldIgnore(error) {
+                return
+            }
             present(error)
         }
     }
@@ -66,7 +69,11 @@ extension ControllerStore {
     }
 
     func sendChatMessage() async {
-        guard let prompt = chatInput.nilIfBlank else { return }
+        guard !isChatStreaming,
+              let prompt = chatInput.nilIfBlank
+        else {
+            return
+        }
         let conversationID = chatConversation?.id
         chatInput = ""
 
@@ -102,6 +109,10 @@ extension ControllerStore {
     }
 
     func cancelChatMessage() async {
+        guard isChatStreaming else {
+            return
+        }
+
         do {
             let response = try await send(
                 .init(
@@ -125,6 +136,9 @@ extension ControllerStore {
     }
 
     func clearChatConversation() {
+        guard !isChatStreaming else {
+            return
+        }
         chatConversation = ChatConversation(id: UUID().uuidString, title: "Copilot")
         chatInput = ""
     }

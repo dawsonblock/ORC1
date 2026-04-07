@@ -46,6 +46,50 @@ enum RecipeEditorMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum ApprovalResolutionAction: String, Equatable {
+    case approve
+    case reject
+
+    var pendingLabel: String {
+        switch self {
+        case .approve:
+            return "Approving"
+        case .reject:
+            return "Rejecting"
+        }
+    }
+
+    var resolvedLabel: String {
+        switch self {
+        case .approve:
+            return "Approved"
+        case .reject:
+            return "Rejected"
+        }
+    }
+}
+
+enum ApprovalRowPhase: Equatable {
+    case pending
+    case submitting(ApprovalResolutionAction)
+    case resolved(ApprovalResolutionAction)
+}
+
+struct ApprovalRow: Identifiable, Equatable {
+    let approval: ApprovalRequestDocument
+    let phase: ApprovalRowPhase
+
+    var id: String { approval.id }
+}
+
+struct RecentApprovalResolution: Identifiable, Equatable {
+    let approval: ApprovalRequestDocument
+    let action: ApprovalResolutionAction
+    let resolvedAt: Date
+
+    var id: String { approval.id }
+}
+
 struct ActionComposer {
     var kind: ActionKind = .focus
     var appName = ""
@@ -184,6 +228,10 @@ final class ControllerStore {
     let productEnvironmentManager = ProductEnvironmentManager()
     var diagnosticsRefreshTask: Task<Void, Never>?
     var missionControlRefreshTask: Task<Void, Never>?
+    var sectionRefreshTask: Task<Void, Never>?
+    var pendingApprovalActions: [String: ApprovalResolutionAction] = [:]
+    var recentApprovalResolutions: [RecentApprovalResolution] = []
+    var approvalResolutionTasks: [String: Task<Void, Never>] = [:]
 
     var filteredElements: [ElementSnapshot] {
         let elements = snapshot?.observation.elements ?? []
@@ -212,13 +260,30 @@ final class ControllerStore {
         return traceSessions.filter { $0.id.lowercased().contains(query) }
     }
 
+    var approvalRows: [ApprovalRow] {
+        let activeApprovalIDs = Set(approvalQueue.map(\.id))
+        let liveRows = approvalQueue.map { approval in
+            ApprovalRow(approval: approval, phase: approvalRowPhase(for: approval.id))
+        }
+        let recentRows = recentApprovalResolutions
+            .filter { !activeApprovalIDs.contains($0.approval.id) }
+            .map { resolution in
+                ApprovalRow(approval: resolution.approval, phase: .resolved(resolution.action))
+            }
+        return liveRows + recentRows
+    }
+
     var selectedElement: ElementSnapshot? {
-        if let selectedElementID {
-            return snapshot?.observation.elements.first(where: { $0.id == selectedElementID })
+        if let selectedElementID,
+           let selected = snapshot?.observation.elements.first(where: { $0.id == selectedElementID })
+        {
+            return selected
         }
 
-        if let focusedElementID = snapshot?.observation.focusedElementID {
-            return snapshot?.observation.elements.first(where: { $0.id == focusedElementID })
+        if let focusedElementID = snapshot?.observation.focusedElementID,
+           let focused = snapshot?.observation.elements.first(where: { $0.id == focusedElementID })
+        {
+            return focused
         }
 
         return snapshot?.observation.elements.first
@@ -255,6 +320,16 @@ final class ControllerStore {
     var selectedArchitectureFindingDiagnostics: ControllerArchitectureFindingDiagnostics? {
         guard let selectedArchitectureFindingID else { return diagnostics?.architectureFindings.first }
         return diagnostics?.architectureFindings.first(where: { $0.id == selectedArchitectureFindingID })
+    }
+
+    private func approvalRowPhase(for approvalID: String) -> ApprovalRowPhase {
+        if let pendingAction = pendingApprovalActions[approvalID] {
+            return .submitting(pendingAction)
+        }
+        if let resolution = recentApprovalResolutions.first(where: { $0.approval.id == approvalID }) {
+            return .resolved(resolution.action)
+        }
+        return .pending
     }
 
     init() {

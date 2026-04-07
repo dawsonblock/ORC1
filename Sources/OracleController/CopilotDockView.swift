@@ -38,6 +38,7 @@ struct CopilotDockView<Inspector: View>: View {
                                 .background(ControllerTheme.panelRaised, in: Circle())
                         }
                         .buttonStyle(.plain)
+                        .disabled(store.isChatStreaming)
                         .help("Clear chat history")
                     }
 
@@ -79,10 +80,10 @@ struct CopilotDockView<Inspector: View>: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Suggested prompts")
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            ChipRow(values: prompts) { prompt in
+                            ChipRow(values: prompts, action: store.isChatStreaming ? nil : { prompt in
                                 store.chatInput = prompt
                                 Task { await store.sendChatMessage() }
-                            }
+                            })
                         }
                     }
 
@@ -99,7 +100,11 @@ struct CopilotDockView<Inspector: View>: View {
                                         .stroke(ControllerTheme.borderStrong.opacity(0.4), lineWidth: 1)
                                 )
                                 .focused($isInputFocused)
+                                .submitLabel(store.isChatStreaming ? .done : .send)
                                 .onSubmit {
+                                    guard !store.isChatStreaming else {
+                                        return
+                                    }
                                     Task { 
                                         await store.sendChatMessage() 
                                         isInputFocused = true

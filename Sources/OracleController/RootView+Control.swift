@@ -403,8 +403,8 @@ struct ApprovalQueueCard: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Approvals", subtitle: "Pending runtime approval requests") {
-            if store.approvalQueue.isEmpty {
+        PanelCard("Approvals", subtitle: "Pending runtime approval requests with transient decision feedback") {
+            if store.approvalRows.isEmpty {
                 EmptyStateView(
                     systemImage: "checkmark.shield",
                     title: "No Pending Approvals",
@@ -413,7 +413,8 @@ struct ApprovalQueueCard: View {
                 .frame(height: 180)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(store.approvalQueue) { approval in
+                    ForEach(store.approvalRows) { row in
+                        let approval = row.approval
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -424,6 +425,9 @@ struct ApprovalQueueCard: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
+                                if row.phase != .pending {
+                                    StatusBadge(label: phaseLabel(for: row.phase), tone: phaseTone(for: row.phase))
+                                }
                                 StatusBadge(label: approval.riskLevel.uppercased(), tone: .warning)
                             }
                             HStack {
@@ -434,15 +438,32 @@ struct ApprovalQueueCard: View {
                                 }
                             }
                             HStack {
-                                Button("Approve") {
-                                    Task { await store.approveApprovalRequest(approval) }
-                                }
-                                .buttonStyle(ControllerPrimaryButtonStyle())
+                                switch row.phase {
+                                case .pending:
+                                    Button("Approve") {
+                                        Task { await store.approveApprovalRequest(approval) }
+                                    }
+                                    .buttonStyle(ControllerPrimaryButtonStyle())
 
-                                Button("Reject", role: .destructive) {
-                                    Task { await store.rejectApprovalRequest(approval) }
+                                    Button("Reject", role: .destructive) {
+                                        Task { await store.rejectApprovalRequest(approval) }
+                                    }
+                                    .buttonStyle(ControllerSecondaryButtonStyle())
+
+                                case .submitting:
+                                    HStack(spacing: 8) {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                        Text("Decision in flight")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(ControllerTheme.muted)
+                                    }
+
+                                case .resolved(let action):
+                                    Label(action.resolvedLabel, systemImage: action == .approve ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(action == .approve ? ControllerTheme.success : ControllerTheme.warning)
                                 }
-                                .buttonStyle(ControllerSecondaryButtonStyle())
 
                                 Spacer()
 
@@ -452,10 +473,45 @@ struct ApprovalQueueCard: View {
                             }
                         }
                         .padding(12)
-                        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(backgroundFill(for: row.phase), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
+        }
+    }
+
+    private func phaseLabel(for phase: ApprovalRowPhase) -> String {
+        switch phase {
+        case .pending:
+            return "Pending"
+        case .submitting(let action):
+            return action.pendingLabel
+        case .resolved(let action):
+            return action.resolvedLabel
+        }
+    }
+
+    private func phaseTone(for phase: ApprovalRowPhase) -> StatusBadge.Tone {
+        switch phase {
+        case .pending:
+            return .warning
+        case .submitting:
+            return .neutral
+        case .resolved(let action):
+            return action == .approve ? .good : .danger
+        }
+    }
+
+    private func backgroundFill(for phase: ApprovalRowPhase) -> Color {
+        switch phase {
+        case .pending:
+            return ControllerTheme.warning.opacity(0.08)
+        case .submitting:
+            return ControllerTheme.panelRaised.opacity(0.94)
+        case .resolved(let action):
+            return action == .approve
+                ? ControllerTheme.success.opacity(0.08)
+                : ControllerTheme.warning.opacity(0.1)
         }
     }
 }

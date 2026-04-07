@@ -109,13 +109,10 @@ struct RootView: View {
             }
         }
         .onChange(of: store.selectedSection) { _, section in
-            Task {
-                if section == .diagnostics {
-                    await store.loadDiagnostics()
-                } else if section == .missionControl, store.missionControl == nil {
-                    await store.refreshMissionControl()
-                }
-            }
+            store.scheduleRefreshForSelectedSection(section)
+        }
+        .onDisappear {
+            store.cancelSectionRefreshWork()
         }
     }
 
