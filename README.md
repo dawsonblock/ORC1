@@ -43,6 +43,8 @@ The supported main-path execution spine is:
 
 `RuntimeBootstrap -> RuntimeOrchestrator -> MainPlanner -> VerifiedExecutor -> CommandRouter -> UIRouter / CodeRouter -> CommitCoordinator`
 
+On the live runtime path, `RuntimeOrchestrator` plans from committed state and, when a workspace root is available from intent metadata or committed state, builds an explicit `PlannerContext` with a workspace-scoped repository snapshot plus a bounded set of advisory project-memory candidates. Edit-capable code actions still fail closed when no workspace root can be resolved.
+
 ---
 
 ## Documented Exceptions
@@ -96,6 +98,7 @@ The controller's readiness contract: Accessibility and Screen Recording permissi
 `oracle mcp` launches the MCP surface. `oracle dashboard` prints a non-interactive terminal dashboard snapshot.
 
 On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the reusable runtime owner behind it.
+`MCPRuntimeHost` still performs eager workspace binding for compatibility with the memory tools, but live planning now resolves workspace context inside `RuntimeOrchestrator` per intent.
 
 ---
 

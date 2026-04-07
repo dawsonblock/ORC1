@@ -5,6 +5,7 @@ import Foundation
 public final class UnifiedMemoryStore: @unchecked Sendable {
     public let appMemory: StrategyMemory
     private var projectMemory: ProjectMemoryStore?
+    private var currentWorkspaceRoot: String?
     
     public var projectStore: ProjectMemoryStore? {
         projectMemory
@@ -21,14 +22,53 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
     
     /// Binds the store to a specific project root, enabling ProjectMemory access.
     public func setWorkspaceRoot(_ root: String) {
-        do {
-            self.projectMemory = try ProjectMemoryStore(
-                projectRootURL: URL(fileURLWithPath: root, isDirectory: true)
-            )
-        } catch {
-            // Log error
-            print("Failed to initialize ProjectMemoryStore at \(root): \(error)")
+        let normalizedRoot = root.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedRoot.isEmpty else {
+            projectMemory = nil
+            currentWorkspaceRoot = nil
+            return
         }
+
+        if currentWorkspaceRoot == normalizedRoot, projectMemory != nil {
+            return
+        }
+
+        do {
+            let store = try ProjectMemoryStore(
+                projectRootURL: URL(fileURLWithPath: normalizedRoot, isDirectory: true)
+            )
+            self.projectMemory = store
+            self.currentWorkspaceRoot = normalizedRoot
+        } catch {
+            self.projectMemory = nil
+            self.currentWorkspaceRoot = nil
+            // Log error
+            print("Failed to initialize ProjectMemoryStore at \(normalizedRoot): \(error)")
+        }
+    }
+
+    public func plannerMemoryCandidates(
+        goalDescription: String,
+        repositorySnapshot: RepositorySnapshot,
+        limit: Int = 5
+    ) -> [MemoryCandidate] {
+        guard let store = projectMemory else {
+            return []
+        }
+
+        let signals = ProjectMemoryQuery.planningSignals(
+            goalDescription: goalDescription,
+            snapshot: repositorySnapshot,
+            store: store,
+            limit: limit
+        )
+        let records = signals.architectureDecisions
+            + signals.knownGoodPatterns
+            + signals.rejectedApproaches
+            + signals.risks
+            + signals.openProblems
+
+        return Array(records.map(memoryCandidate(from:)).prefix(limit))
     }
     
     /// Core query API that computes memory influence based on current context.
@@ -139,6 +179,29 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
             )
         }
         return ProjectMemoryPlanningSignals()
+    }
+
+    private func memoryCandidate(from record: ProjectMemoryRecord) -> MemoryCandidate {
+        MemoryCandidate(
+            content: "\(record.title): \(record.summary)",
+            confidence: plannerMemoryConfidence(for: record.kind),
+            source: record.path
+        )
+    }
+
+    private func plannerMemoryConfidence(for kind: ProjectMemoryKind) -> Double {
+        switch kind {
+        case .architectureDecision:
+            return 0.85
+        case .knownGoodPattern:
+            return 0.8
+        case .rejectedApproach:
+            return 0.75
+        case .risk:
+            return 0.72
+        case .openProblem:
+            return 0.7
+        }
     }
 
     // MARK: - AppMemory Recording Delegates

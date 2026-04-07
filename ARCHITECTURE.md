@@ -55,6 +55,7 @@ Primary files:
 Responsibilities:
 
 - route task/surface context
+- build planner context from committed state plus optional workspace-scoped repository context
 - evaluate policy
 - call verified execution
 - emit typed `DomainEvent` through `CommitCoordinator`
@@ -67,7 +68,11 @@ Responsibilities:
 that call this async factory to obtain a fully-wired `BootstrappedRuntime` with
 recovery already completed.
 
+On the live code path, `RuntimeOrchestrator` builds an explicit `PlannerContext` from the committed snapshot first, then enriches that context with a workspace-scoped `RepositorySnapshot` and at most five advisory `MemoryCandidate` values when a workspace root can be resolved from intent metadata or committed state. The memory influence remains bounded and advisory. Edit-capable planning still fails closed without a workspace root.
+
 For the desktop surface, `OracleControllerHost` is a helper adapter only. It boots one runtime per app launch and forwards typed requests from the UI. It does not own planning, execution, or commit authority independently of `OracleOS`.
+
+`MCPRuntimeHost` still eagerly binds `UnifiedMemoryStore` to the current workspace for compatibility with the explicit memory MCP tools, but that eager bind is no longer the canonical planner-context activation path.
 
 The live controller/runtime result seam is typed internally. `RuntimeExecutionDriver` populates typed `ToolResult` payload views (`actionResult`, `traceResult`, `codeExecutionResult`, `recipeRunResult`) and `ControllerRuntimeBridge+Mapping` consumes those typed views directly. Legacy nested dictionaries remain compatibility/export transport only.
 

@@ -39,6 +39,7 @@
 
 ```text
 RuntimeOrchestrator.submitIntent(_:)
+  → build PlannerContext from committed state (+ workspace snapshot and bounded advisory memory when available)
   → MainPlanner / planner chain
   → VerifiedExecutor.execute(_:)
   → PolicyEngine.validate()
@@ -55,7 +56,7 @@ RuntimeOrchestrator.submitIntent(_:)
 
 **Desktop wait exception:** The controller's Wait action is observational and currently calls `WaitManager.waitFor(...)` in the host. It does not pass through `VerifiedExecutor` because it does not commit side effects.
 
-**Behavioral proof:** The main runtime spine is now exercised behaviorally in `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift`, which boots a live runtime, submits an intent through `RuntimeOrchestrator.submitIntent(_:)`, and asserts commit-visible state notes. Approval-gate behavior is also exercised through the live `VerifiedExecutor` path in `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift`. Typed `.code` reads and searches now preserve their typed policy classification during policy evaluation, so the proof path stays on the repository-action route instead of degrading into blocked arbitrary-shell handling.
+**Behavioral proof:** The main runtime spine is now exercised behaviorally in `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift`, which boots a live runtime, submits an intent through `RuntimeOrchestrator.submitIntent(_:)`, and asserts commit-visible state notes. Approval-gate behavior is also exercised through the live `VerifiedExecutor` path in `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift`. `Tests/OracleOSTests/Runtime/RuntimePlannerContextInjectionTests.swift` proves that the live planner path can inject a workspace-scoped repository snapshot, surface bounded advisory project memory, fail closed on edit demotion without a workspace root, and fall back to the committed repository root when intent metadata is absent. Typed `.code` reads and searches now preserve their typed policy classification during policy evaluation, so the proof path stays on the repository-action route instead of degrading into blocked arbitrary-shell handling.
 
 **Approval flow end-to-end:** The approval token is threaded from the MCP tool call (`approvalRequestID` param) → `executeThroughRuntime(approvalToken:)` → `RuntimeExecutionDriver` → intent metadata → `RuntimeOrchestrator` → `CommandMetadata.approvalToken` → `VerifiedExecutor`. Approval receipts are **action-fingerprint-bound**: `PolicyRules.commandFingerprint(_:)` computes a SHA256 of the serialised command payload; this fingerprint is stored in `ApprovalRequest` and checked by `ApprovalStore.consumeApprovedReceipt` — a different command submitted with the same token is rejected. Consumption is single-use (file deletion in `ApprovalStore`). Responses carry `approvalRequestID` and `approvalStatus` back to the caller.
 

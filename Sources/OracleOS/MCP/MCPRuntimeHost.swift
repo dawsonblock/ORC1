@@ -15,6 +15,9 @@ final class MCPRuntimeHost {
         self.bootstrap = bootstrap
     }
 
+    /// Compatibility convenience for MCP surfaces that still expect eager
+    /// project-memory binding. The shared runtime planner path now resolves
+    /// workspace roots per intent inside RuntimeOrchestrator.
     func runtime(currentWorkspaceRoot: String) async throws -> BootstrappedRuntime {
         let runtime = try await runtime()
         runtime.container.memoryStore.setWorkspaceRoot(currentWorkspaceRoot)

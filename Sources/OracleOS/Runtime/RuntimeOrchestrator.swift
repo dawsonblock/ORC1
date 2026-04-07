@@ -7,9 +7,13 @@ import Foundation
 /// not replace policy verification, routing, or centralized commit authority.
 public actor RuntimeOrchestrator: IntentAPI {
     private let execution: RuntimeExecutionServices
+    private let repositoryIndexer: RepositoryIndexer
+    private let memoryStore: UnifiedMemoryStore
 
     public init(container: RuntimeContainer) {
         self.execution = container.execution
+        self.repositoryIndexer = self.execution.repositoryIndexer
+        self.memoryStore = container.knowledge.memoryStore
     }
 
     private func evaluate(_ outcome: ExecutionOutcome) async -> EvaluationResult {
@@ -76,6 +80,52 @@ public actor RuntimeOrchestrator: IntentAPI {
             )
         )
     }
+
+    private func resolvedWorkspaceRoot(intent: Intent, state: WorldStateModel) -> String? {
+        func normalized(_ value: String?) -> String? {
+            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                return nil
+            }
+            return trimmed
+        }
+
+        return normalized(intent.metadata["workspacePath"])
+            ?? normalized(intent.metadata["workspaceRoot"])
+            ?? normalized(state.snapshot.repositoryRoot)
+    }
+
+    private func plannerMemories(
+        objective: String,
+        repositorySnapshot: RepositorySnapshot?
+    ) -> [MemoryCandidate] {
+        guard let repositorySnapshot else {
+            return []
+        }
+        guard memoryStore.projectStore != nil else {
+            return []
+        }
+        return memoryStore.plannerMemoryCandidates(
+            goalDescription: objective,
+            repositorySnapshot: repositorySnapshot,
+            limit: 5
+        )
+    }
+
+    private func buildPlannerContext(
+        for intent: Intent,
+        state: WorldStateModel
+    ) -> PlannerContext {
+        guard let root = resolvedWorkspaceRoot(intent: intent, state: state) else {
+            return PlannerContext(state: state)
+        }
+
+        memoryStore.setWorkspaceRoot(root)
+        let snapshot = repositoryIndexer.indexIfNeeded(
+            workspaceRoot: URL(fileURLWithPath: root, isDirectory: true)
+        )
+        let memories = plannerMemories(objective: intent.objective, repositorySnapshot: snapshot)
+        return PlannerContext(state: state, memories: memories, repositorySnapshot: snapshot)
+    }
 }
 
 extension RuntimeOrchestrator {
@@ -87,7 +137,8 @@ extension RuntimeOrchestrator {
         let command: Command
         do {
             let state = WorldStateModel(snapshot: await execution.commitCoordinator.snapshot())
-            let plannedCommand = try await execution.planner.plan(intent: intent, state: state)
+            let plannerContext = buildPlannerContext(for: intent, state: state)
+            let plannedCommand = try await execution.planner.plan(intent: intent, context: plannerContext)
             pendingEvents.append(try makePlanEvent(intentID: intent.id, command: plannedCommand))
 
             // Thread approval token from intent metadata into command metadata so

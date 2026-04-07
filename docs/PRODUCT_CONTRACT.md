@@ -55,6 +55,8 @@ RuntimeBootstrap
 
 Surface code is a consumer of this spine, not a mutator of it.
 
+On the live runtime path, `RuntimeOrchestrator` plans from committed state first and builds an explicit `PlannerContext` with a workspace-scoped repository snapshot plus a bounded advisory memory set when a workspace root is available from intent metadata or committed state. Edit-capable code actions remain fail closed when no workspace root can be resolved.
+
 ## Bounded Exceptions
 
 The following exception surfaces are documented and are **not** part of the guaranteed main-path execution contract. Adding a new bypass requires updating this table, the owning code comments, and the relevant tests or guards.
@@ -116,7 +118,7 @@ The controller's Wait action is not a side-effecting runtime action. It is an ob
 
 ### 3. The main runtime spine is stable for main-path effects
 
-Behavioral proof for the main path is no longer only source-scan based. `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift` submits a live intent through `RuntimeOrchestrator.submitIntent(_:)` and asserts commit-visible state, while `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift` exercises the live approval gate in `VerifiedExecutor`. Supported `.code` repository actions also preserve typed policy classification during policy evaluation, so `readFile` and `searchRepository` stay on the typed code path instead of being treated as arbitrary shell execution.
+Behavioral proof for the main path is no longer only source-scan based. `Tests/OracleOSTests/Runtime/RuntimeKernelBootstrapTests.swift` submits a live intent through `RuntimeOrchestrator.submitIntent(_:)` and asserts commit-visible state, while `Tests/OracleOSTests/Governance/ExecutionBoundaryBehaviorTests.swift` exercises the live approval gate in `VerifiedExecutor`. `Tests/OracleOSTests/Runtime/RuntimePlannerContextInjectionTests.swift` proves that the live planner path can inject a workspace-scoped repository snapshot, surface bounded advisory project memory, fail closed on edit demotion without a workspace root, and fall back to the committed repository root when intent metadata is absent. Supported `.code` repository actions also preserve typed policy classification during policy evaluation, so `readFile` and `searchRepository` stay on the typed code path instead of being treated as arbitrary shell execution.
 
 ### 4. Side effects follow a three-tier taxonomy
 

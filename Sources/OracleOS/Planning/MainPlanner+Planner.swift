@@ -17,6 +17,102 @@ extension MainPlanner: Planner {
         }
     }
 
+    private func resolvedWorkspacePath(intent: Intent, context: PlannerContext) -> String? {
+        func normalized(_ value: String?) -> String? {
+            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                return nil
+            }
+            return trimmed
+        }
+
+        return normalized(intent.metadata["workspacePath"])
+            ?? normalized(intent.metadata["workspaceRoot"])
+            ?? normalized(context.repositorySnapshot?.workspaceRoot)
+    }
+
+    private func preferredModuleHint(from memories: [MemoryCandidate]) -> String? {
+        func normalized(_ value: String?) -> String? {
+            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                return nil
+            }
+            return trimmed
+        }
+
+        let separators = CharacterSet.whitespacesAndNewlines.union(
+            CharacterSet(charactersIn: ",:;()[]{}")
+        )
+
+        for memory in memories {
+            let tokens = memory.content.components(separatedBy: separators)
+            if let pathLikeToken = tokens.first(where: {
+                $0.contains("/")
+                    || $0.hasSuffix(".swift")
+                    || $0.hasSuffix(".md")
+                    || $0.hasSuffix(".bc")
+                    || $0.hasSuffix(".json")
+            }), let hint = normalized(pathLikeToken) {
+                return hint
+            }
+        }
+
+        for memory in memories {
+            let basename = URL(fileURLWithPath: memory.source)
+                .deletingPathExtension()
+                .lastPathComponent
+                .replacingOccurrences(of: "-", with: " ")
+                .replacingOccurrences(of: "_", with: " ")
+            if let hint = normalized(basename) {
+                return hint
+            }
+        }
+
+        for memory in memories {
+            let prefix = memory.content
+                .split(separator: ":", maxSplits: 1, omittingEmptySubsequences: true)
+                .first
+                .map(String.init)
+            if let hint = normalized(prefix) {
+                return hint
+            }
+        }
+
+        return nil
+    }
+
+    private func memoryNotes(from memories: [MemoryCandidate]) -> [String] {
+        guard !memories.isEmpty else {
+            return []
+        }
+
+        func sanitized(_ value: String) -> String {
+            value.lowercased()
+                .replacingOccurrences(
+                    of: "[^a-z0-9._/-]+",
+                    with: "-",
+                    options: .regularExpression
+                )
+                .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        }
+
+        var notes = ["memory-count=\(memories.count)"]
+        if let hint = preferredModuleHint(from: memories) {
+            let token = sanitized(hint)
+            if !token.isEmpty {
+                notes.append("memory-hint=\(token)")
+            }
+        }
+        for source in memories.prefix(2).map(\.source) {
+            let token = sanitized(URL(fileURLWithPath: source).deletingPathExtension().lastPathComponent)
+            if !token.isEmpty {
+                let note = "memory-source=\(token)"
+                if !notes.contains(note) {
+                    notes.append(note)
+                }
+            }
+        }
+        return notes
+    }
+
     // MARK: - Domain Planners
 
     private func planUIIntent(_ intent: Intent, context: PlannerContext) async throws -> Command {
@@ -79,72 +175,113 @@ extension MainPlanner: Planner {
         }
 
         let objective = intent.objective.lowercased()
-        let metadata = CommandMetadata(intentID: intent.id, source: "planner.code")
+        let workspacePath = resolvedWorkspacePath(intent: intent, context: context)
+        let moduleHint = preferredModuleHint(from: context.memories)
+        let memoryTraceTags = memoryNotes(from: context.memories)
+        let baseQuery = intent.metadata["query"] ?? intent.objective
+        let searchQuery = moduleHint.map { "\($0) \(baseQuery)" } ?? baseQuery
+        let hintedPath = moduleHint.flatMap { hint -> String? in
+            let trimmed = hint.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed.contains("/") || trimmed.contains(".") else {
+                return nil
+            }
+            return trimmed
+        }
 
         if objective.contains("search") || objective.contains("find") || objective.contains("query") {
             return Command(
                 type: CommandType.code,
-                payload: .code(CodeAction(name: "searchRepository", query: intent.objective)),
-                metadata: metadata
+                payload: .code(CodeAction(name: "searchRepository", query: searchQuery, workspacePath: workspacePath)),
+                metadata: CommandMetadata(
+                    intentID: intent.id,
+                    source: "planner.code",
+                    traceTags: memoryTraceTags + (moduleHint == nil ? [] : ["memory-hint-applied"])
+                )
             )
         }
 
         if objective.contains("read") || objective.contains("open") || objective.contains("view") {
-            let path = intent.metadata["filePath"] ?? intent.objective
+            let path = intent.metadata["filePath"] ?? hintedPath ?? intent.objective
             return Command(
                 type: CommandType.code,
-                payload: .code(CodeAction(name: "readFile", filePath: path)),
-                metadata: metadata
+                payload: .code(CodeAction(name: "readFile", filePath: path, workspacePath: workspacePath)),
+                metadata: CommandMetadata(
+                    intentID: intent.id,
+                    source: "planner.code",
+                    traceTags: memoryTraceTags + (hintedPath == nil || intent.metadata["filePath"] != nil ? [] : ["memory-hint-applied"])
+                )
             )
         }
 
         if objective.contains("edit") || objective.contains("modify") || objective.contains("patch") {
             let path = intent.metadata["filePath"] ?? ""
             let patch = intent.metadata["patch"] ?? intent.objective
-            guard let workspacePath = intent.metadata["workspacePath"]
-                ?? context.repositorySnapshot?.workspaceRoot
-            else {
+            guard let workspacePath else {
                 // Cannot construct a FileMutationSpec without a workspace root.
                 // Fall back to a read-only code command so the pipeline fails cleanly.
                 return Command(
                     type: CommandType.code,
                     payload: .code(CodeAction(name: "readFile", filePath: path)),
-                    metadata: metadata
+                    metadata: CommandMetadata(
+                        intentID: intent.id,
+                        source: "planner.code",
+                        traceTags: memoryTraceTags + ["fail-closed", "missing-workspace-root", "edit-demoted-to-read"]
+                    )
                 )
             }
             return Command(
                 type: CommandType.code,
                 payload: .file(FileMutationSpec(path: path, operation: .write, content: patch, workspaceRoot: workspacePath)),
-                metadata: metadata
+                metadata: CommandMetadata(
+                    intentID: intent.id,
+                    source: "planner.code",
+                    traceTags: memoryTraceTags
+                )
             )
         }
 
         if objective.contains("build") || objective.contains("compile") {
-            let workspacePath = intent.metadata["workspacePath"]
-                ?? context.repositorySnapshot?.workspaceRoot
-                ?? FileManager.default.currentDirectoryPath
+            let workspacePath = workspacePath ?? FileManager.default.currentDirectoryPath
             let spec = BuildSpec(
                 workspaceRoot: workspacePath,
                 configuration: intent.metadata["configuration"] ?? "Debug"
             )
-            return Command(type: CommandType.code, payload: .build(spec), metadata: metadata)
+            return Command(
+                type: CommandType.code,
+                payload: .build(spec),
+                metadata: CommandMetadata(
+                    intentID: intent.id,
+                    source: "planner.code",
+                    traceTags: memoryTraceTags
+                )
+            )
         }
 
         if objective.contains("test") || objective.contains("run test") {
-            let workspacePath = intent.metadata["workspacePath"]
-                ?? context.repositorySnapshot?.workspaceRoot
-                ?? FileManager.default.currentDirectoryPath
+            let workspacePath = workspacePath ?? FileManager.default.currentDirectoryPath
             let spec = TestSpec(
                 workspaceRoot: workspacePath,
                 filter: intent.metadata["filter"]
             )
-            return Command(type: CommandType.code, payload: .test(spec), metadata: metadata)
+            return Command(
+                type: CommandType.code,
+                payload: .test(spec),
+                metadata: CommandMetadata(
+                    intentID: intent.id,
+                    source: "planner.code",
+                    traceTags: memoryTraceTags
+                )
+            )
         }
 
         return Command(
             type: CommandType.code,
-            payload: .code(CodeAction(name: "searchRepository", query: intent.objective)),
-            metadata: metadata
+            payload: .code(CodeAction(name: "searchRepository", query: searchQuery, workspacePath: workspacePath)),
+            metadata: CommandMetadata(
+                intentID: intent.id,
+                source: "planner.code",
+                traceTags: memoryTraceTags + (moduleHint == nil ? [] : ["memory-hint-applied"])
+            )
         )
     }
 

@@ -10,6 +10,7 @@ public protocol Planner: Sendable {
 }
 
 public extension Planner {
+    /// Compatibility overload. The live runtime path should prefer the explicit PlannerContext variant.
     func plan(
         intent: Intent,
         state: WorldStateModel,

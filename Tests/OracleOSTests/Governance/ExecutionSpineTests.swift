@@ -54,6 +54,14 @@ struct ExecutionSpineTests {
             "RuntimeOrchestrator should depend on the bundled execution core instead of the whole container"
         )
         #expect(
+            content.contains("buildPlannerContext("),
+            "RuntimeOrchestrator should build explicit planner context before planning"
+        )
+        #expect(
+            content.contains("execution.planner.plan(intent: intent, context: plannerContext)"),
+            "RuntimeOrchestrator should invoke the planner with explicit PlannerContext on the live path"
+        )
+        #expect(
             !content.contains("_legacyContext"),
             "RuntimeOrchestrator should not retain deprecated legacy context storage"
         )

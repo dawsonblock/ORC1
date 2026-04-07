@@ -50,3 +50,9 @@ public struct Intent: Sendable, Codable {
         self.metadata = metadata
     }
 }
+
+public extension Intent {
+    var workspaceRoot: String? {
+        metadata["workspacePath"] ?? metadata["workspaceRoot"]
+    }
+}
