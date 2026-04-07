@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public final class DefaultProcessAdapter: ProcessAdapter {
     private let policyEngine: PolicyEngine
@@ -120,11 +121,23 @@ public final class DefaultProcessAdapter: ProcessAdapter {
         
         // Concurrent pipe draining using dispatch queues
         // IMPORTANT: Pipes must be drained WHILE process runs to prevent buffer deadlock
-        // CONCURRENCY INVARIANT: Each DrainResult is written from exactly one
-        // queue and read only after group.wait() joins those queue writes.
-        final class DrainResult: @unchecked Sendable {
-            var data: Data = Data()
-            var truncated: Bool = false
+        // CONCURRENCY INVARIANT: Each DrainResult is owned by one draining
+        // queue, serialized by `state`, and read on the caller thread only
+        // after group.wait() joins both queue writes.
+        final class DrainResult: Sendable {
+            private let state = OSAllocatedUnfairLock(initialState: (data: Data(), truncated: false))
+
+            func store(_ result: (data: Data, truncated: Bool)) {
+                state.withLock { current in
+                    current = result
+                }
+            }
+
+            func load() -> (data: Data, truncated: Bool) {
+                state.withLock { current in
+                    current
+                }
+            }
         }
         let stdoutRes = DrainResult()
         let stderrRes = DrainResult()
@@ -138,17 +151,13 @@ public final class DefaultProcessAdapter: ProcessAdapter {
 
         group.enter()
         stdoutQueue.async {
-            let res = self.drainPipeSync(stdout, maxBytes: maxBytes)
-            stdoutRes.data = res.data
-            stdoutRes.truncated = res.truncated
+            stdoutRes.store(self.drainPipeSync(stdout, maxBytes: maxBytes))
             group.leave()
         }
         
         group.enter()
         stderrQueue.async {
-            let res = self.drainPipeSync(stderr, maxBytes: maxBytes)
-            stderrRes.data = res.data
-            stderrRes.truncated = res.truncated
+            stderrRes.store(self.drainPipeSync(stderr, maxBytes: maxBytes))
             group.leave()
         }
         
@@ -158,16 +167,18 @@ public final class DefaultProcessAdapter: ProcessAdapter {
         process.waitUntilExit()
 
         let durationMs = Date().timeIntervalSince(start) * 1000.0
+        let stdoutDrain = stdoutRes.load()
+        let stderrDrain = stderrRes.load()
 
         return ProcessResult(
             exitCode: process.terminationStatus,
-            stdout: String(data: stdoutRes.data, encoding: .utf8) ?? "",
-            stderr: String(data: stderrRes.data, encoding: .utf8) ?? "",
+            stdout: String(data: stdoutDrain.data, encoding: .utf8) ?? "",
+            stderr: String(data: stderrDrain.data, encoding: .utf8) ?? "",
             durationMs: durationMs,
             timedOut: false,
             terminationReason: .exit,
-            stdoutTruncated: stdoutRes.truncated,
-            stderrTruncated: stderrRes.truncated
+            stdoutTruncated: stdoutDrain.truncated,
+            stderrTruncated: stderrDrain.truncated
         )
     }
     

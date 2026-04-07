@@ -112,10 +112,10 @@ public struct RuntimeDiagnosticsAdapters: @unchecked Sendable {
 /// CONCURRENCY INVARIANT: RuntimeContainer is `@MainActor`-confined.
 /// The only mutable stored property is `recoveryReport`, which is written on
 /// `@MainActor` during bootstrap recovery before shared surface traffic begins.
-/// `@unchecked Sendable` is safe only because bootstrapped handles may cross
-/// async seams while all access remains on `@MainActor`.
+/// Bootstrapped handles may cross async seams, but every read and write still
+/// stays on `@MainActor`; `recoveryReport` is the only mutable stored property.
 @MainActor
-public final class RuntimeContainer: @unchecked Sendable {
+public final class RuntimeContainer: Sendable {
     // MARK: - Bundled live-path services
     public let execution: RuntimeExecutionServices
     public let tracing: RuntimeTracingServices
@@ -268,9 +268,9 @@ public struct RecoveryReport: Sendable, Equatable {
 /// Bundle returned by RuntimeBootstrap containing all runtime components.
 /// This is the authoritative handle passed between surfaces. RuntimeContext is not used.
 /// CONCURRENCY INVARIANT: Immutable wrapper passed across async boundaries.
-/// `container` remains `@MainActor`-confined, and this struct exposes no
-/// mutation path of its own after initialization.
-public struct BootstrappedRuntime: @unchecked Sendable {
+/// `container` remains `@MainActor`-confined, `orchestrator` is an actor, and
+/// this struct exposes no mutation path of its own after initialization.
+public struct BootstrappedRuntime: Sendable {
     public let container: RuntimeContainer
     public let orchestrator: RuntimeOrchestrator
     public let recoveryReport: RecoveryReport

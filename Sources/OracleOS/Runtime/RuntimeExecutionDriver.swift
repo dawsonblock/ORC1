@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Translates legacy ActionIntent into the canonical Intent model and submits via IntentAPI.
 ///
@@ -12,27 +13,26 @@ import Foundation
 @MainActor
 public final class RuntimeExecutionDriver: AgentExecutionDriver {
     /// CONCURRENCY INVARIANT: Single-use handoff box shared between one detached
-    /// submission task and one waiting caller. `lock` serializes the only write
-    /// and the final read of `result`; the box is discarded after the semaphore
-    /// join and must not grow additional mutation paths.
-    private final class SubmissionState: @unchecked Sendable {
-        private let lock = NSLock()
-        private var result: ToolResult
+    /// submission task and one waiting caller. `result` is serialized by a
+    /// mutex, the box is discarded after the semaphore join, and it must not
+    /// grow additional mutation or escape paths.
+    private final class SubmissionState: Sendable {
+        private let result: OSAllocatedUnfairLock<ToolResult>
 
         init(result: ToolResult) {
-            self.result = result
+            self.result = OSAllocatedUnfairLock(initialState: result)
         }
 
         func store(_ newResult: ToolResult) {
-            lock.lock()
-            defer { lock.unlock() }
-            result = newResult
+            result.withLock { current in
+                current = newResult
+            }
         }
 
         func load() -> ToolResult {
-            lock.lock()
-            defer { lock.unlock() }
-            return result
+            result.withLock { current in
+                current
+            }
         }
     }
 

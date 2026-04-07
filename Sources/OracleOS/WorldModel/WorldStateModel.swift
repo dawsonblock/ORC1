@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// A persistent internal model of the agent's environment that is updated
 /// incrementally rather than rebuilt from scratch each loop iteration.
@@ -21,22 +22,25 @@ import Foundation
 /// 3. **Committed world state** — the model's ``snapshot``, the **ONLY**
 ///    layer that planners should read from when making decisions.
 ///
-/// CONCURRENCY INVARIANT: `current` and `history` are accessed only while
-/// holding `lock`. Do not add direct field access or new mutation paths that
-/// bypass this lock-based confinement.
-public final class WorldStateModel: @unchecked Sendable {
-    private let lock = NSLock()
-    private var current: WorldModelSnapshot
-    private var history: [WorldModelSnapshot] = []
+/// CONCURRENCY INVARIANT: `storage` serializes every read and write of
+/// `current` and `history`. `snapshot` and `recentHistory` return value copies,
+/// and no callback or observer escapes while the mutex is held.
+public final class WorldStateModel: Sendable {
+    private struct Storage: Sendable {
+        var current: WorldModelSnapshot
+        var history: [WorldModelSnapshot] = []
+    }
+
+    private let storage: OSAllocatedUnfairLock<Storage>
     private let maxHistory: Int
 
     public init(maxHistory: Int = 20) {
-        self.current = WorldModelSnapshot()
+        self.storage = OSAllocatedUnfairLock(initialState: Storage(current: WorldModelSnapshot()))
         self.maxHistory = maxHistory
     }
 
     public init(snapshot: WorldModelSnapshot, maxHistory: Int = 20) {
-        self.current = snapshot
+        self.storage = OSAllocatedUnfairLock(initialState: Storage(current: snapshot))
         self.maxHistory = maxHistory
     }
 
@@ -44,9 +48,9 @@ public final class WorldStateModel: @unchecked Sendable {
     ///
     /// This is the only layer that downstream decision-making should depend on.
     public var snapshot: WorldModelSnapshot {
-        lock.lock()
-        defer { lock.unlock() }
-        return current
+        storage.withLock { state in
+            state.current
+        }
     }
 
     /// Apply a diff produced by ``StateDiffEngine`` to advance the model.
@@ -55,41 +59,41 @@ public final class WorldStateModel: @unchecked Sendable {
     /// All world-model mutations flow through delta-based diffs so that history
     /// is preserved and change auditing remains possible.
     public func apply(diff: StateDiff) {
-        lock.lock()
-        defer { lock.unlock() }
-        history.append(current)
-        if history.count > maxHistory {
-            history.removeFirst()
+        storage.withLock { state in
+            state.history.append(state.current)
+            if state.history.count > maxHistory {
+                state.history.removeFirst()
+            }
+            state.current = StateUpdater.apply(diff: diff, to: state.current)
         }
-        current = StateUpdater.apply(diff: diff, to: current)
     }
 
     /// Replace the model entirely from a fresh ``WorldState`` observation.
     public func reset(from worldState: WorldState) {
-        lock.lock()
-        defer { lock.unlock() }
-        history.append(current)
-        if history.count > maxHistory {
-            history.removeFirst()
+        storage.withLock { state in
+            state.history.append(state.current)
+            if state.history.count > maxHistory {
+                state.history.removeFirst()
+            }
+            state.current = WorldModelSnapshot(from: worldState)
         }
-        current = WorldModelSnapshot(from: worldState)
     }
     
-    public func update(_ transform: (WorldModelSnapshot) -> WorldModelSnapshot) {
-        lock.lock()
-        defer { lock.unlock() }
-        history.append(current)
-        if history.count > maxHistory {
-            history.removeFirst()
+    public func update(_ transform: @Sendable (WorldModelSnapshot) -> WorldModelSnapshot) {
+        storage.withLock { state in
+            state.history.append(state.current)
+            if state.history.count > maxHistory {
+                state.history.removeFirst()
+            }
+            state.current = transform(state.current)
         }
-        current = transform(current)
     }
 
     /// Returns the N most recent snapshots in chronological order (oldest first).
     public func recentHistory(limit: Int = 5) -> [WorldModelSnapshot] {
-        lock.lock()
-        defer { lock.unlock() }
-        return Array(history.suffix(limit))
+        storage.withLock { state in
+            Array(state.history.suffix(limit))
+        }
     }
 }
 
