@@ -447,7 +447,7 @@ extension ControllerStore {
         approvalResolutionTasks[approval.id] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled else { return }
-            await self?.clearResolvedApprovalRow(id: approval.id)
+            self?.clearResolvedApprovalRow(id: approval.id)
         }
     }
 

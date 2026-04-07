@@ -140,7 +140,7 @@ Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-
 
 The verifier runs `scripts/cli_contract_guard.py` alongside the existing boundary guards so the documented CLI command list, the `main.swift` switch, and the printed usage output cannot silently drift apart.
 
-Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the CI artifact.
+Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the `canonical-verify-evidence` CI artifact.
 
 Repo-owned workflow roles are intentionally narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is supplemental enforcement, and `.github/workflows/controller-release.yml` validates unsigned controller build/package outputs on PRs and pushes while handling signed/notarized release packaging on version tags. Security scanners such as CodeQL, Codacy, and Frogbot are supplemental signals and are not part of the product-certification contract.
 

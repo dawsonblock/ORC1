@@ -2,7 +2,7 @@
 """
 Oracle OS Vision Sidecar — HTTP server for VLM grounding and element detection.
 
-Runs on localhost:9876. Oracle OS v2 (Swift) calls this when the AX tree
+Runs on localhost:9876. Oracle OS (Swift) calls this when the AX tree
 can't find what the agent needs (web apps, dynamic content, etc.).
 
 Architecture:

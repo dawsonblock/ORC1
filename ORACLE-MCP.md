@@ -1,4 +1,4 @@
-# Oracle OS v2 - MCP Agent Instructions
+# Oracle OS - MCP Agent Instructions
 
 Oracle OS exposes a macOS-local MCP server for inspecting and operating macOS
 applications through the accessibility tree plus optional visual perception.

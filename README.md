@@ -159,7 +159,7 @@ python3 scripts/architecture_guard.py
 python3 scripts/execution_boundary_guard.py
 ```
 
-`bash scripts/verify-build.sh` is the canonical local proof path. It runs the guard scripts, a release build, non-interactive `oracle` CLI smokes, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the shared proof artifact.
+`bash scripts/verify-build.sh` is the canonical local proof path. It runs the guard scripts, a release build, non-interactive `oracle` CLI smokes, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the `canonical-verify-evidence` artifact.
 It also records the verification environment in `local/verify/latest/environment.txt`.
 
 ---

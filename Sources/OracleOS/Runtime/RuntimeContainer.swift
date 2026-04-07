@@ -109,9 +109,11 @@ public struct RuntimeDiagnosticsAdapters: @unchecked Sendable {
 /// The authoritative runtime container.
 /// All stateful runtime services must be created here once and shared.
 /// Do NOT create competing instances of these services elsewhere.
-/// CONCURRENCY INVARIANT: RuntimeContainer is confined to the main actor.
-/// `@unchecked Sendable` exists only so bootstrapped runtime handles can cross
-/// async seams while access stays on `@MainActor`.
+/// CONCURRENCY INVARIANT: RuntimeContainer is `@MainActor`-confined.
+/// The only mutable stored property is `recoveryReport`, which is written on
+/// `@MainActor` during bootstrap recovery before shared surface traffic begins.
+/// `@unchecked Sendable` is safe only because bootstrapped handles may cross
+/// async seams while all access remains on `@MainActor`.
 @MainActor
 public final class RuntimeContainer: @unchecked Sendable {
     // MARK: - Bundled live-path services
@@ -265,9 +267,9 @@ public struct RecoveryReport: Sendable, Equatable {
 
 /// Bundle returned by RuntimeBootstrap containing all runtime components.
 /// This is the authoritative handle passed between surfaces. RuntimeContext is not used.
-/// CONCURRENCY INVARIANT: The bundle is immutable after initialization.
-/// `container` remains `@MainActor`-confined even though the handle may be
-/// passed across async boundaries.
+/// CONCURRENCY INVARIANT: Immutable wrapper passed across async boundaries.
+/// `container` remains `@MainActor`-confined, and this struct exposes no
+/// mutation path of its own after initialization.
 public struct BootstrappedRuntime: @unchecked Sendable {
     public let container: RuntimeContainer
     public let orchestrator: RuntimeOrchestrator

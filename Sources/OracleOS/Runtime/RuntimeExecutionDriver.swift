@@ -11,9 +11,10 @@ import Foundation
 /// All execution is mediated by IntentAPI (implemented by RuntimeOrchestrator).
 @MainActor
 public final class RuntimeExecutionDriver: AgentExecutionDriver {
-    /// CONCURRENCY INVARIANT: This box is shared between the detached submission
-    /// task and the waiting caller. All reads and writes of `result` are
-    /// serialized by `lock`; do not access the backing storage directly.
+    /// CONCURRENCY INVARIANT: Single-use handoff box shared between one detached
+    /// submission task and one waiting caller. `lock` serializes the only write
+    /// and the final read of `result`; the box is discarded after the semaphore
+    /// join and must not grow additional mutation paths.
     private final class SubmissionState: @unchecked Sendable {
         private let lock = NSLock()
         private var result: ToolResult
