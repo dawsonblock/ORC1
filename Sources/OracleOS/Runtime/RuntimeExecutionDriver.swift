@@ -12,6 +12,18 @@ import os
 /// All execution is mediated by IntentAPI (implemented by RuntimeOrchestrator).
 @MainActor
 public final class RuntimeExecutionDriver: AgentExecutionDriver {
+    private struct RuntimeExecutionPayload: Encodable {
+        let summary: String
+        let cycleID: String
+        let snapshotID: String?
+
+        enum CodingKeys: String, CodingKey {
+            case summary
+            case cycleID
+            case snapshotID = "snapshot_id"
+        }
+    }
+
     /// CONCURRENCY INVARIANT: Single-use handoff box shared between one detached
     /// submission task and one waiting caller. `result` is serialized by a
     /// mutex, the box is discarded after the semaphore join, and it must not
@@ -230,13 +242,15 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             intentID: response.intentID.uuidString
         )
 
-        var data: [String: Any] = [
+        let payload = RuntimeExecutionPayload(
+            summary: response.summary,
+            cycleID: response.cycleID.uuidString,
+            snapshotID: response.snapshotID?.uuidString
+        )
+        let data = mcpLegacyJSONObject(from: payload) ?? [
             "summary": response.summary,
             "cycleID": response.cycleID.uuidString,
         ]
-        if let snapshotID = response.snapshotID {
-            data["snapshot_id"] = snapshotID.uuidString
-        }
 
         return ToolResult(
             success: success,

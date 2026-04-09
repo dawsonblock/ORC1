@@ -71,6 +71,8 @@ public final class ExperimentManager: @unchecked Sendable {
                 id: result.id,
                 experimentID: result.experimentID,
                 candidate: result.candidate,
+                executionContext: .sandbox,
+                committedToWorkspace: false,
                 sandboxPath: result.sandboxPath,
                 commandResults: result.commandResults,
                 diffSummary: result.diffSummary,
@@ -78,7 +80,8 @@ public final class ExperimentManager: @unchecked Sendable {
                 architectureFindings: result.architectureFindings,
                 refactorProposalID: result.refactorProposalID,
                 selected: result.candidate.id == selectedID,
-                promptDiagnostics: promptDiagnostics
+                promptDiagnostics: promptDiagnostics,
+                sandboxMetadata: result.sandboxMetadata
             )
         }
         try persistResults(finalized, spec: spec, experimentsRoot: experimentsRoot)

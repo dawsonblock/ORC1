@@ -18,6 +18,8 @@ struct ExperimentResultIsolationTests {
         #expect(decoded.executionContext == .sandbox)
         #expect(decoded.committedToWorkspace == false)
         #expect(decoded.selected == true)
+        #expect(decoded.sandboxMetadata?.resolvedSandboxRoot == "/tmp/oracle/experiments/exp-1/candidate-1")
+        #expect(decoded.sandboxMetadata?.cleanup.succeeded == true)
     }
 
     @Test("Diagnostics keep sandbox context separate from committed runtime state")
@@ -66,7 +68,22 @@ struct ExperimentResultIsolationTests {
             ],
             diffSummary: "1 file changed",
             architectureRiskScore: 0.1,
-            selected: selected
+            selected: selected,
+            sandboxMetadata: SandboxExecutionMetadata(
+                canonicalWorkspaceRoot: "/tmp/oracle/workspace",
+                resolvedSandboxRoot: "/tmp/oracle/experiments/exp-1/candidate-1",
+                candidateRelativePath: "Sources/Example.swift",
+                attemptedPaths: [
+                    "Sources/Example.swift",
+                    "/tmp/oracle/experiments/exp-1/candidate-1/Sources/Example.swift",
+                ],
+                commandsRun: ["swift test"],
+                cleanup: SandboxCleanupOutcome(
+                    succeeded: true,
+                    removedWorktree: true,
+                    removedBranch: true
+                )
+            )
         )
     }
 }

@@ -100,6 +100,8 @@ The controller's readiness contract: Accessibility and Screen Recording permissi
 On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the reusable runtime owner behind it.
 `MCPRuntimeHost` still performs eager workspace binding for compatibility with the memory tools, but live planning now resolves workspace context inside `RuntimeOrchestrator` per intent.
 
+MCP boundary contract in this checkout: raw JSON-RPC transport is accepted only at the outer `MCPDispatch.handle(_ params: [String: Any])` seam. After decode, MCP request and category payload handling uses typed models (`JSONValue`, typed request extractors, and `Encodable` response payloads) before a single legacy export conversion at the boundary.
+
 ---
 
 ## MCP Surface

@@ -4,6 +4,34 @@ public enum ExperimentExecutionContext: String, Codable, Sendable, Equatable {
     case sandbox
 }
 
+public struct SandboxCleanupOutcome: Codable, Sendable, Equatable {
+    public let succeeded: Bool
+    public let removedWorktree: Bool
+    public let removedBranch: Bool
+    public let message: String?
+
+    public init(
+        succeeded: Bool,
+        removedWorktree: Bool,
+        removedBranch: Bool,
+        message: String? = nil
+    ) {
+        self.succeeded = succeeded
+        self.removedWorktree = removedWorktree
+        self.removedBranch = removedBranch
+        self.message = message
+    }
+}
+
+public struct SandboxExecutionMetadata: Codable, Sendable, Equatable {
+    public let canonicalWorkspaceRoot: String
+    public let resolvedSandboxRoot: String
+    public let candidateRelativePath: String
+    public let attemptedPaths: [String]
+    public let commandsRun: [String]
+    public let cleanup: SandboxCleanupOutcome
+}
+
 public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let experimentID: String
@@ -18,6 +46,7 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
     public let refactorProposalID: String?
     public let selected: Bool
     public let promptDiagnostics: PromptDiagnostics?
+    public let sandboxMetadata: SandboxExecutionMetadata?
 
     public init(
         id: String = UUID().uuidString,
@@ -32,7 +61,8 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
         architectureFindings: [ArchitectureFinding] = [],
         refactorProposalID: String? = nil,
         selected: Bool = false,
-        promptDiagnostics: PromptDiagnostics? = nil
+        promptDiagnostics: PromptDiagnostics? = nil,
+        sandboxMetadata: SandboxExecutionMetadata? = nil
     ) {
         self.id = id
         self.experimentID = experimentID
@@ -47,6 +77,7 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
         self.refactorProposalID = refactorProposalID
         self.selected = selected
         self.promptDiagnostics = promptDiagnostics
+        self.sandboxMetadata = sandboxMetadata
     }
 
     public var succeeded: Bool {
@@ -71,7 +102,8 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
             architectureFindings: architectureFindings,
             refactorProposalID: refactorProposalID,
             selected: selected,
-            promptDiagnostics: promptDiagnostics
+            promptDiagnostics: promptDiagnostics,
+            sandboxMetadata: sandboxMetadata
         )
     }
 }

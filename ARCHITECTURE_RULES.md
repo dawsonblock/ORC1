@@ -170,6 +170,43 @@ average steps, recovery count, wrong-target rate, patch success rate,
 regression rate) are tracked by `MetricsRecorder`. Merges that degrade
 core metrics are blocked until the regression is understood.
 
+### R13 — Typed MCP after decode
+
+`MCPDispatch.handle(_ params: [String: Any])` is the only supported raw MCP request seam.
+After decode to `MCPToolRequest`, internal dispatch and category handlers must use
+typed values (`JSONValue`, typed request extractors, `Encodable` payloads).
+Do not introduce new internal `[String: Any]` transport in the normal MCP path.
+
+### R14 — Single MCP legacy export seam
+
+MCP category payloads must serialize through one shared typed export helper.
+Do not add ad hoc dictionary assembly for workflow, memory, recipes, architecture,
+or other typed MCP category responses.
+
+### R15 — Experiment path isolation
+
+`oracle_experiment_search` remains a bounded exception path:
+
+- It is not part of the supported main execution spine.
+- It must not mutate committed runtime state through `CommitCoordinator`.
+- It must not use approval-store promotion as a backdoor into the main path.
+- It must execute in sandbox worktrees with explicit containment checks and cleanup evidence.
+
+### R16 — Process spawning boundary
+
+Inside `Sources/OracleOS/`, raw `Process()` construction remains confined to
+`DefaultProcessAdapter` and `DefaultProcessAdapter+Daemon`.
+Do not introduce new process spawning points in runtime code.
+CLI setup/doctor paths are explicit tooling exceptions and must remain outside
+the bootstrapped runtime authority chain.
+
+### R17 — Typed controller bridge truth
+
+`ControllerRuntimeBridge` must consume typed `ToolResult` payload views
+(`actionResult`, `traceResult`, `codeExecutionResult`, `recipeRunResult`) for
+core truth. Legacy dictionary probing is compatibility-only and must not be
+used to infer authoritative execution outcomes.
+
 ---
 
 ## Module Ownership
@@ -208,6 +245,7 @@ Governance test suites (all in `Tests/OracleOSTests/Governance/`):
 - `LayerImportRulesTests` — R3 import enforcement
 - `RuntimeInvariantTests` — Runtime sequence invariants
 - `StateMutationTests` — Committed state write authority
+- `HardeningProofTests` — R13, R14, R15, R17 seam and typed-boundary assertions
 
 ---
 

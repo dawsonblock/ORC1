@@ -10,6 +10,20 @@
 
 import Foundation
 
+/// Shared export seam for MCP typed payloads.
+///
+/// This is the single helper used to convert internal `Encodable` payloads into
+/// legacy dictionary transport at the outer compatibility boundary.
+func mcpLegacyJSONObject<T: Encodable>(from value: T) -> [String: Any]? {
+    let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
+    guard let data = try? encoder.encode(value),
+          let object = try? JSONSerialization.jsonObject(with: data),
+          let dictionary = object as? [String: Any] else {
+        return nil
+    }
+    return dictionary
+}
+
 // MARK: - JSONValue
 
 /// Closed, Sendable, Codable value type for dynamic MCP arguments and results.
@@ -201,11 +215,6 @@ public struct MCPToolRequest: Sendable, Codable {
         guard case .array(let arr) = arguments[key] else { return nil }
         return arr.compactMap { $0.stringValue }
     }
-    public func object(_ key: String) -> [String: Any]? {
-        guard case .object(let obj) = arguments[key] else { return nil }
-        return obj.mapValues { $0.toFoundation() }
-    }
-
     public func array(_ key: String) -> [JSONValue]? {
         arguments[key]?.arrayValue
     }
