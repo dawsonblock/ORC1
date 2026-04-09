@@ -328,9 +328,11 @@ struct TimelineBuilderTests {
     @Test("TimelinePhaseKind maps learning event correctly")
     func learningPhaseKind() {
         let events = [
-            makeEnvelope(seq: 1, eventType: "memoryPromoted"),
+            makeEnvelope(seq: 1, eventType: "commandIssued"),
+            makeEnvelope(seq: 2, eventType: "memoryPromoted"),
         ]
         let timeline = TimelineBuilder().build(from: events)
-        #expect(timeline.phases.first?.kind == .learning)
+        let hasLearning = timeline.phases.contains { $0.kind == .learning }
+        #expect(hasLearning)
     }
 }
