@@ -79,9 +79,10 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
 
     public func apply(_ candidate: CandidatePatch) throws {
         let relativePath = candidate.workspaceRelativePath
+        let pathComponents = relativePath.split(separator: "/")
         guard !relativePath.hasPrefix("/"),
-              !relativePath.contains(".."),
-              !relativePath.contains("\\") else {
+              !relativePath.contains("\\"),
+              !pathComponents.contains(where: { $0 == "." || $0 == ".." }) else {
             throw SandboxError.invalidRelativePath(relativePath)
         }
         let candidateURL = URL(fileURLWithPath: sandboxPath, isDirectory: true)
