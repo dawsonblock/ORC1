@@ -266,10 +266,10 @@ struct TimelineBuilderTests {
         #expect(timeline.duration == nil)
     }
 
-    @Test("Duration is nil for single event")
+    @Test("Duration is zero for single event")
     func durationNilForSingleEvent() {
         let timeline = TimelineBuilder().build(from: [makeEnvelope(seq: 1, eventType: "start")])
-        #expect(timeline.duration == nil)
+        #expect(timeline.duration == 0)
     }
 
     @Test("Duration computed from first and last event timestamps")
