@@ -181,8 +181,8 @@ struct ToolSchemasTests {
         #expect(schema.id == spec.id)
     }
 
-    @Test("Unknown command returns default schema with no required arguments")
-    func unknownCommandDefaultSchema() {
+    @Test("Command with no specialized mapping returns default schema")
+    func defaultSchemaFallbackForUnmappedCommand() {
         let spec = ToolCommandSpec(family: .menu, name: "select")
         let schema = ToolSchemas.schema(for: spec)
         #expect(schema.id == spec.id)

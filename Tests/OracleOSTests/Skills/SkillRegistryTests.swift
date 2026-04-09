@@ -19,7 +19,7 @@ struct SkillResolutionErrorTests {
         #expect(error.failureClass == .elementAmbiguous)
     }
 
-    @Test("noCandidate errors with different labels are equal when labels match")
+    @Test("noCandidate errors are equal when labels match; not equal when labels differ")
     func noCandidateEquality() {
         let a = SkillResolutionError.noCandidate("x")
         let b = SkillResolutionError.noCandidate("x")
