@@ -27,7 +27,7 @@ private struct ExperimentSearchResultSummary: Encodable {
     let canonicalWorkspaceRoot: String?
     let candidatePaths: [String]?
     let executedCommands: [String]?
-    let cleanupOutcome: ExperimentCleanupOutcome?
+    let cleanupOutcome: SandboxCleanupOutcome?
     let commitCoordinatorMutation: Bool?
     let approvalStorePromotion: Bool?
     let liveRuntimeStateMutation: Bool?

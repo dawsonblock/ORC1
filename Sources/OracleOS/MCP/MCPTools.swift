@@ -108,14 +108,6 @@ public enum MCPTools {
     @MainActor
     private static var allDefinitions: [MCPToolDefinition] {
         perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
-        let typed = perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
-        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
-        guard let data = try? encoder.encode(typed),
-              let object = try? JSONSerialization.jsonObject(with: data),
-              let list = object as? [[String: Any]] else {
-            return []
-        }
-        return list
     }
 
     // MARK: - Perception Tools (7)

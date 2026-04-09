@@ -24,7 +24,7 @@ struct ExperimentSandboxEvidenceTests {
                 canonicalWorkspaceRoot: "/tmp/oracle/workspace",
                 candidatePaths: ["Sources/Example.swift"],
                 executedCommands: ["swift test"],
-                cleanupOutcome: ExperimentCleanupOutcome(worktreeRemoved: true, branchDeleted: true)
+                cleanupOutcome: SandboxCleanupOutcome(succeeded: true, removedWorktree: true, removedBranch: true)
             )
         )
 
@@ -35,6 +35,6 @@ struct ExperimentSandboxEvidenceTests {
         #expect(decoded.sandboxEvidence?.approvalStorePromotion == false)
         #expect(decoded.sandboxEvidence?.liveRuntimeStateMutation == false)
         #expect(decoded.sandboxEvidence?.workspaceWritebackOutsideSandbox == false)
-        #expect(decoded.sandboxEvidence?.cleanupOutcome.worktreeRemoved == true)
+        #expect(decoded.sandboxEvidence?.cleanupOutcome.removedWorktree == true)
     }
 }

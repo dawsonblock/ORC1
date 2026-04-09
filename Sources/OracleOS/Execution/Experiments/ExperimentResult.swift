@@ -4,54 +4,6 @@ public enum ExperimentExecutionContext: String, Codable, Sendable, Equatable {
     case sandbox
 }
 
-public struct ExperimentCleanupOutcome: Codable, Sendable, Equatable {
-    public let worktreeRemoved: Bool
-    public let branchDeleted: Bool
-    public let errors: [String]
-
-    public init(
-        worktreeRemoved: Bool,
-        branchDeleted: Bool,
-        errors: [String] = []
-    ) {
-        self.worktreeRemoved = worktreeRemoved
-        self.branchDeleted = branchDeleted
-        self.errors = errors
-    }
-}
-
-public struct ExperimentSandboxEvidence: Codable, Sendable, Equatable {
-    public let resolvedSandboxRoot: String
-    public let canonicalWorkspaceRoot: String
-    public let candidatePaths: [String]
-    public let executedCommands: [String]
-    public let cleanupOutcome: ExperimentCleanupOutcome
-    public let commitCoordinatorMutation: Bool
-    public let approvalStorePromotion: Bool
-    public let liveRuntimeStateMutation: Bool
-    public let workspaceWritebackOutsideSandbox: Bool
-
-    public init(
-        resolvedSandboxRoot: String,
-        canonicalWorkspaceRoot: String,
-        candidatePaths: [String],
-        executedCommands: [String],
-        cleanupOutcome: ExperimentCleanupOutcome,
-        commitCoordinatorMutation: Bool = false,
-        approvalStorePromotion: Bool = false,
-        liveRuntimeStateMutation: Bool = false,
-        workspaceWritebackOutsideSandbox: Bool = false
-    ) {
-        self.resolvedSandboxRoot = resolvedSandboxRoot
-        self.canonicalWorkspaceRoot = canonicalWorkspaceRoot
-        self.candidatePaths = candidatePaths
-        self.executedCommands = executedCommands
-        self.cleanupOutcome = cleanupOutcome
-        self.commitCoordinatorMutation = commitCoordinatorMutation
-        self.approvalStorePromotion = approvalStorePromotion
-        self.liveRuntimeStateMutation = liveRuntimeStateMutation
-        self.workspaceWritebackOutsideSandbox = workspaceWritebackOutsideSandbox
-    }
 public struct SandboxCleanupOutcome: Codable, Sendable, Equatable {
     public let succeeded: Bool
     public let removedWorktree: Bool
@@ -68,6 +20,40 @@ public struct SandboxCleanupOutcome: Codable, Sendable, Equatable {
         self.removedWorktree = removedWorktree
         self.removedBranch = removedBranch
         self.message = message
+    }
+}
+
+public struct ExperimentSandboxEvidence: Codable, Sendable, Equatable {
+    public let resolvedSandboxRoot: String
+    public let canonicalWorkspaceRoot: String
+    public let candidatePaths: [String]
+    public let executedCommands: [String]
+    public let cleanupOutcome: SandboxCleanupOutcome
+    public let commitCoordinatorMutation: Bool
+    public let approvalStorePromotion: Bool
+    public let liveRuntimeStateMutation: Bool
+    public let workspaceWritebackOutsideSandbox: Bool
+
+    public init(
+        resolvedSandboxRoot: String,
+        canonicalWorkspaceRoot: String,
+        candidatePaths: [String],
+        executedCommands: [String],
+        cleanupOutcome: SandboxCleanupOutcome,
+        commitCoordinatorMutation: Bool = false,
+        approvalStorePromotion: Bool = false,
+        liveRuntimeStateMutation: Bool = false,
+        workspaceWritebackOutsideSandbox: Bool = false
+    ) {
+        self.resolvedSandboxRoot = resolvedSandboxRoot
+        self.canonicalWorkspaceRoot = canonicalWorkspaceRoot
+        self.candidatePaths = candidatePaths
+        self.executedCommands = executedCommands
+        self.cleanupOutcome = cleanupOutcome
+        self.commitCoordinatorMutation = commitCoordinatorMutation
+        self.approvalStorePromotion = approvalStorePromotion
+        self.liveRuntimeStateMutation = liveRuntimeStateMutation
+        self.workspaceWritebackOutsideSandbox = workspaceWritebackOutsideSandbox
     }
 }
 
@@ -111,7 +97,7 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
         refactorProposalID: String? = nil,
         selected: Bool = false,
         promptDiagnostics: PromptDiagnostics? = nil,
-        sandboxEvidence: ExperimentSandboxEvidence? = nil
+        sandboxEvidence: ExperimentSandboxEvidence? = nil,
         sandboxMetadata: SandboxExecutionMetadata? = nil
     ) {
         self.id = id
@@ -154,7 +140,7 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
             refactorProposalID: refactorProposalID,
             selected: selected,
             promptDiagnostics: promptDiagnostics,
-            sandboxEvidence: sandboxEvidence
+            sandboxEvidence: sandboxEvidence,
             sandboxMetadata: sandboxMetadata
         )
     }
