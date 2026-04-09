@@ -45,6 +45,8 @@ The supported main-path execution spine is:
 
 On the live runtime path, `RuntimeOrchestrator` plans from committed state and, when a workspace root is available from intent metadata or committed state, builds an explicit `PlannerContext` with a workspace-scoped repository snapshot plus a bounded set of advisory project-memory candidates. Edit-capable code actions still fail closed when no workspace root can be resolved.
 
+On the MCP surface, raw JSON-RPC dictionaries stop at the outer seam. After decode into `MCPToolRequest`, normal MCP dispatch uses typed `JSONValue` arguments, typed category payload structs, and one shared export path back to the wire shape.
+
 ---
 
 ## Documented Exceptions
@@ -54,6 +56,8 @@ These are bounded exceptions and are **not** part of the guaranteed main-path ex
 - `oracle_experiment_search`
 - `oracle doctor` and `oracle setup`
 - optional experimental read-only perception via `vision-sidecar/`
+
+`oracle_experiment_search` now reports explicit sandbox evidence (canonical roots, executed commands, cleanup outcome) and remains isolated from live runtime commits or approval-driven promotion into the main path.
 
 ---
 

@@ -58,7 +58,7 @@ extension ControllerRuntimeBridge {
         }
 
         return RecipeRunResultDocument(
-            recipeName: recipeName,
+            recipeName: recipeRunResult?.recipeName ?? recipeName,
             success: result.success,
             stepsCompleted: recipeRunResult?.stepsCompleted ?? 0,
             totalSteps: recipeRunResult?.totalSteps ?? totalStepsFallback,

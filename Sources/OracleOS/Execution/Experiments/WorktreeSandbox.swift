@@ -60,6 +60,11 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         adapter: any ProcessAdapter
     ) throws -> WorktreeSandbox {
         try FileManager.default.createDirectory(at: experimentsRoot, withIntermediateDirectories: true)
+        let canonicalWorkspaceRoot = canonicalResolvedDirectoryRoot(workspaceRoot.path)
+        let canonicalExperimentsRoot = canonicalResolvedDirectoryRoot(experimentsRoot.path)
+        guard canonicalExperimentsRoot.path != canonicalWorkspaceRoot.path else {
+            throw SandboxError.containmentViolation(path: canonicalExperimentsRoot.path, sandboxRoot: canonicalWorkspaceRoot.path)
+        }
         let sandboxPath = experimentsRoot
             .appendingPathComponent(experimentID, isDirectory: true)
             .appendingPathComponent(candidateID, isDirectory: true)
@@ -79,13 +84,15 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
 
     public func apply(_ candidate: CandidatePatch) throws {
         let relativePath = candidate.workspaceRelativePath
-        // Enforce sandbox containment — uses the shared canonicalScopeRoot helper (WorkspaceRunner.swift).
-        // Reject absolute paths and traversal sequences before canonicalisation.
-        guard !relativePath.hasPrefix("/"), !relativePath.contains("../") else {
+        guard !relativePath.hasPrefix("/"),
+              !relativePath.split(separator: "/").contains("..") else {
             throw SandboxError.invalidRelativePath(relativePath)
         }
-        let (sandboxURL, sandboxPrefix) = canonicalScopeRoot(sandboxPath)
-        let resolvedURL = sandboxURL.appendingPathComponent(relativePath).standardizedFileURL
+        let (sandboxURL, sandboxPrefix) = canonicalResolvedScopeRoot(sandboxPath)
+        let resolvedURL = sandboxURL
+            .appendingPathComponent(relativePath)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
         guard resolvedURL.path.hasPrefix(sandboxPrefix) else {
             throw SandboxError.containmentViolation(path: relativePath, sandboxRoot: sandboxPath)
         }
@@ -97,10 +104,54 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         (try? runGitOutput(arguments: ["diff", "--stat"], workspaceRoot: URL(fileURLWithPath: sandboxPath, isDirectory: true), adapter: adapter)) ?? ""
     }
 
-    public func cleanup(using adapter: any ProcessAdapter) {
-        try? runGit(arguments: ["worktree", "remove", "--force", sandboxPath], workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true), adapter: adapter)
-        try? runGit(arguments: ["branch", "-D", branchName], workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true), adapter: adapter)
+    public func cleanup(using adapter: any ProcessAdapter) -> ExperimentCleanupOutcome {
+        var errors: [String] = []
+        let workspaceRootURL = URL(fileURLWithPath: workspaceRoot, isDirectory: true)
+
+        let worktreeRemoved: Bool
+        do {
+            try runGit(arguments: ["worktree", "remove", "--force", sandboxPath], workspaceRoot: workspaceRootURL, adapter: adapter)
+            worktreeRemoved = true
+        } catch {
+            worktreeRemoved = false
+            errors.append("worktree remove failed: \(error.localizedDescription)")
+        }
+
+        let branchDeleted: Bool
+        do {
+            try runGit(arguments: ["branch", "-D", branchName], workspaceRoot: workspaceRootURL, adapter: adapter)
+            branchDeleted = true
+        } catch {
+            branchDeleted = false
+            errors.append("branch delete failed: \(error.localizedDescription)")
+        }
+
+        return ExperimentCleanupOutcome(
+            worktreeRemoved: worktreeRemoved,
+            branchDeleted: branchDeleted,
+            errors: errors
+        )
     }
+
+    public var resolvedSandboxRoot: String {
+        canonicalResolvedDirectoryRoot(sandboxPath).path
+    }
+
+    public var canonicalWorkspaceRoot: String {
+        canonicalResolvedDirectoryRoot(workspaceRoot).path
+    }
+}
+
+private func canonicalResolvedScopeRoot(_ path: String) -> (url: URL, prefix: String) {
+    let url = canonicalResolvedDirectoryRoot(path)
+    let prefix = url.path.hasSuffix("/") ? url.path : url.path + "/"
+    return (url, prefix)
+}
+
+private func canonicalResolvedDirectoryRoot(_ path: String) -> URL {
+    URL(fileURLWithPath: path, isDirectory: true)
+        .resolvingSymlinksInPath()
+        .standardizedFileURL
 }
 
 private func runGit(arguments: [String], workspaceRoot: URL, adapter: any ProcessAdapter) throws {

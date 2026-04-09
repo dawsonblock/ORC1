@@ -100,6 +100,26 @@ struct WorktreeSandboxContainmentTests {
         #expect(outsideContents == "original")
     }
 
+    @Test("Symlink escape is rejected by canonical containment")
+    func symlinkEscapeRejected() throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("oracle-sandbox-symlink-\(UUID().uuidString)", isDirectory: true)
+        let sandboxRoot = tmpDir.appendingPathComponent("sandbox", isDirectory: true)
+        let outsideRoot = tmpDir.appendingPathComponent("outside", isDirectory: true)
+        let linkRoot = sandboxRoot.appendingPathComponent("linked", isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: linkRoot, withDestinationURL: outsideRoot)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let sandbox = makeSandbox(root: sandboxRoot)
+        let patch = makePatch(path: "linked/escape.swift")
+
+        #expect(throws: SandboxError.self) {
+            try sandbox.apply(patch)
+        }
+    }
+
     // MARK: - Happy path (real temp directory)
 
     @Test("Valid relative path writes file inside sandbox")

@@ -4,12 +4,12 @@ import Foundation
 //
 // Covers: oracle_memory_query, oracle_memory_draft
 
-private struct MemoryQueryPayload: Encodable {
+struct MemoryQueryPayload: Encodable {
     let records: [MemoryRecordSummary]
     let count: Int
 }
 
-private struct MemoryRecordSummary: Encodable {
+struct MemoryRecordSummary: Encodable {
     let id: String
     let kind: String
     let title: String
@@ -31,7 +31,7 @@ private struct MemoryRecordSummary: Encodable {
     }
 }
 
-private struct MemoryDraftPayload: Encodable {
+struct MemoryDraftPayload: Encodable {
     let drafted: String
     let kind: String
 }

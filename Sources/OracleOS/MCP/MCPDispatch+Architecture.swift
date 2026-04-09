@@ -4,7 +4,7 @@ import Foundation
 //
 // Covers: oracle_architecture_review, oracle_candidate_review
 
-private struct ArchitectureReviewPayload: Encodable {
+struct ArchitectureReviewPayload: Encodable {
     let triggered: Bool
     let riskScore: Double
     let affectedModules: [String]
@@ -20,7 +20,7 @@ private struct ArchitectureReviewPayload: Encodable {
     }
 }
 
-private struct ArchitectureFindingPayload: Encodable {
+struct ArchitectureFindingPayload: Encodable {
     let title: String
     let summary: String
     let severity: String
@@ -38,7 +38,7 @@ private struct ArchitectureFindingPayload: Encodable {
     }
 }
 
-private struct RefactorProposalPayload: Encodable {
+struct RefactorProposalPayload: Encodable {
     let id: String
     let title: String
     let summary: String

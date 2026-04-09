@@ -23,6 +23,15 @@ private struct ExperimentSearchResultSummary: Encodable {
     let architectureRisk: Double
     let diffSummary: String
     let commandResults: [ExperimentCommandResultSummary]
+    let resolvedSandboxRoot: String?
+    let canonicalWorkspaceRoot: String?
+    let candidatePaths: [String]?
+    let executedCommands: [String]?
+    let cleanupOutcome: ExperimentCleanupOutcome?
+    let commitCoordinatorMutation: Bool?
+    let approvalStorePromotion: Bool?
+    let liveRuntimeStateMutation: Bool?
+    let workspaceWritebackOutsideSandbox: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -35,6 +44,15 @@ private struct ExperimentSearchResultSummary: Encodable {
         case architectureRisk = "architecture_risk"
         case diffSummary = "diff_summary"
         case commandResults = "command_results"
+        case resolvedSandboxRoot = "resolved_sandbox_root"
+        case canonicalWorkspaceRoot = "canonical_workspace_root"
+        case candidatePaths = "candidate_paths"
+        case executedCommands = "executed_commands"
+        case cleanupOutcome = "cleanup_outcome"
+        case commitCoordinatorMutation = "commit_coordinator_mutation"
+        case approvalStorePromotion = "approval_store_promotion"
+        case liveRuntimeStateMutation = "live_runtime_state_mutation"
+        case workspaceWritebackOutsideSandbox = "workspace_writeback_outside_sandbox"
     }
 }
 
@@ -223,8 +241,8 @@ public enum MCPDispatch {
             goalDescription: goalDescription,
             workspaceRoot: FileManager.default.currentDirectoryPath,
             candidates: patches,
-            buildCommand: makeCommandSpec(request.strings("build_command"), category: .build),
-            testCommand: makeCommandSpec(request.strings("test_command"), category: .test)
+            buildCommand: makeExperimentCommandRequest(request.strings("build_command"), category: .build),
+            testCommand: makeExperimentCommandRequest(request.strings("test_command"), category: .test)
         )
         do {
             let results = try await bootstrapped.container.experimentManager.run(spec: spec)
@@ -246,7 +264,16 @@ public enum MCPDispatch {
                                 exitCode: Int(commandResult.exitCode),
                                 summary: commandResult.summary
                             )
-                        }
+                        },
+                        resolvedSandboxRoot: result.sandboxEvidence?.resolvedSandboxRoot,
+                        canonicalWorkspaceRoot: result.sandboxEvidence?.canonicalWorkspaceRoot,
+                        candidatePaths: result.sandboxEvidence?.candidatePaths,
+                        executedCommands: result.sandboxEvidence?.executedCommands,
+                        cleanupOutcome: result.sandboxEvidence?.cleanupOutcome,
+                        commitCoordinatorMutation: result.sandboxEvidence?.commitCoordinatorMutation,
+                        approvalStorePromotion: result.sandboxEvidence?.approvalStorePromotion,
+                        liveRuntimeStateMutation: result.sandboxEvidence?.liveRuntimeStateMutation,
+                        workspaceWritebackOutsideSandbox: result.sandboxEvidence?.workspaceWritebackOutsideSandbox
                     )
                 },
                 count: results.count
@@ -260,16 +287,21 @@ public enum MCPDispatch {
         }
     }
 
-    private static func makeCommandSpec(_ args: [String]?, category: CodeCommandCategory) -> CommandSpec? {
+    private static func makeExperimentCommandRequest(
+        _ args: [String]?,
+        category: CodeCommandCategory
+    ) -> ExperimentCommandRequest? {
         guard let args, !args.isEmpty else { return nil }
-        return CommandSpec(
+        let executable = args[0]
+        let allowlist: Set<String> = category == .build
+            ? ["/usr/bin/swift", "swift", "/usr/bin/xcodebuild", "xcodebuild"]
+            : ["/usr/bin/swift", "swift", "/usr/bin/xcodebuild", "xcodebuild"]
+        guard allowlist.contains(executable) else { return nil }
+        return ExperimentCommandRequest(
             category: category,
-            executable: args[0],
+            executable: executable,
             arguments: Array(args.dropFirst()),
-            workspaceRoot: FileManager.default.currentDirectoryPath,
-            summary: args.joined(separator: " "),
-            mutatesWorkspace: false,
-            touchesNetwork: false
+            summary: args.joined(separator: " ")
         )
     }
 

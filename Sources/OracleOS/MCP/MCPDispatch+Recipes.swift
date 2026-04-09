@@ -5,23 +5,23 @@ import Foundation
 // Covers: oracle_recipes, oracle_run, oracle_recipe_show,
 //         oracle_recipe_save, oracle_recipe_delete
 
-private struct RecipeSummaryPayload: Encodable {
+struct RecipeSummaryPayload: Encodable {
     let recipes: [RecipeSummary]
     let count: Int
 }
 
-private struct RecipeSummary: Encodable {
+struct RecipeSummary: Encodable {
     let name: String
     let description: String
     let parameters: [String]?
 }
 
-private struct RecipeShowPayload: Encodable {
+struct RecipeShowPayload: Encodable {
     let name: String
     let recipe: String
 }
 
-private struct RecipeSavePayload: Encodable {
+struct RecipeSavePayload: Encodable {
     let saved: String
 }
 

@@ -136,10 +136,8 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                     codeExecutionResult: codeExecutionResult
                 ))
             } catch {
-                submissionState.store(ToolResult(
-                    success: false,
-                    data: ["summary": "Intent submission failed"],
-                    error: error.localizedDescription,
+                let envelope = RuntimeResultEnvelope(
+                    summary: "Intent submission failed",
                     actionResult: ActionResult(
                         success: false,
                         verified: false,
@@ -149,7 +147,10 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
                         executedThroughExecutor: false
                     ),
                     codeExecutionResult: codeExecutionResult
-                ))
+                )
+                submissionState.store(
+                    envelope.toolResult(success: false, error: error.localizedDescription)
+                )
             }
             semaphore.signal()
         }
@@ -171,20 +172,20 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         }()
 
         if timedOut {
-            return ToolResult(
-                success: false,
-                data: ["summary": "Intent submission timed out"],
-                error: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
+            let message = "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s"
+            let envelope = RuntimeResultEnvelope(
+                summary: "Intent submission timed out",
                 actionResult: ActionResult(
                     success: false,
                     verified: false,
-                    message: "Intent submission timed out after \(Int(Self.submissionTimeoutSeconds))s",
+                    message: message,
                     method: "intent-api",
                     failureClass: "intent_submission_timeout",
                     executedThroughExecutor: false
                 ),
                 codeExecutionResult: codeExecutionResult
             )
+            return envelope.toolResult(success: false, error: message)
         }
 
         return submissionState.load()
@@ -230,22 +231,14 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             intentID: response.intentID.uuidString
         )
 
-        var data: [String: Any] = [
-            "summary": response.summary,
-            "cycleID": response.cycleID.uuidString,
-        ]
-        if let snapshotID = response.snapshotID {
-            data["snapshot_id"] = snapshotID.uuidString
-        }
-
-        return ToolResult(
-            success: success,
-            data: data,
-            error: response.outcome == .failed ? response.summary : nil,
+        let envelope = RuntimeResultEnvelope(
+            summary: response.summary,
+            snapshotID: response.snapshotID?.uuidString,
             actionResult: actionResult,
             traceResult: traceResult,
             codeExecutionResult: codeExecutionResult
         )
+        return envelope.toolResult(success: success, error: response.outcome == .failed ? response.summary : nil)
     }
 
     nonisolated private static func makeCodeExecutionResult(from intent: ActionIntent) -> CodeExecutionResult? {

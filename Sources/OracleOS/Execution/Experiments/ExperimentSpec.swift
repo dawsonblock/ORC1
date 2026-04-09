@@ -1,12 +1,43 @@
 import Foundation
 
+public struct ExperimentCommandRequest: Codable, Sendable, Equatable {
+    public let category: CodeCommandCategory
+    public let executable: String
+    public let arguments: [String]
+    public let summary: String
+
+    public init(
+        category: CodeCommandCategory,
+        executable: String,
+        arguments: [String],
+        summary: String
+    ) {
+        self.category = category
+        self.executable = executable
+        self.arguments = arguments
+        self.summary = summary
+    }
+
+    public func materializedForSandbox(workspaceRoot: String) -> CommandSpec {
+        CommandSpec(
+            category: category,
+            executable: executable,
+            arguments: arguments,
+            workspaceRoot: workspaceRoot,
+            summary: summary,
+            mutatesWorkspace: false,
+            touchesNetwork: false
+        )
+    }
+}
+
 public struct ExperimentSpec: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let goalDescription: String
     public let workspaceRoot: String
     public let candidates: [CandidatePatch]
-    public let buildCommand: CommandSpec?
-    public let testCommand: CommandSpec?
+    public let buildCommand: ExperimentCommandRequest?
+    public let testCommand: ExperimentCommandRequest?
     public let promptDiagnostics: PromptDiagnostics?
 
     public init(
@@ -14,8 +45,8 @@ public struct ExperimentSpec: Codable, Sendable, Equatable, Identifiable {
         goalDescription: String,
         workspaceRoot: String,
         candidates: [CandidatePatch],
-        buildCommand: CommandSpec? = nil,
-        testCommand: CommandSpec? = nil,
+        buildCommand: ExperimentCommandRequest? = nil,
+        testCommand: ExperimentCommandRequest? = nil,
         promptDiagnostics: PromptDiagnostics? = nil
     ) {
         self.id = id

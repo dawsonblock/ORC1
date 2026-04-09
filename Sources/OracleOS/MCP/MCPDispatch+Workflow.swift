@@ -4,17 +4,17 @@ import Foundation
 //
 // Covers: oracle_workflow_list, oracle_workflow_mine, oracle_workflow_execute
 
-private struct WorkflowSummaryPayload: Encodable {
+struct WorkflowSummaryPayload: Encodable {
     let workflows: [WorkflowSummary]
     let count: Int
 }
 
-private struct WorkflowMinePayload: Encodable {
+struct WorkflowMinePayload: Encodable {
     let synthesized: Int
     let workflows: [WorkflowSummary]
 }
 
-private struct WorkflowExecutePayload: Encodable {
+struct WorkflowExecutePayload: Encodable {
     let workflowID: String
     let goalPattern: String
     let stepCount: Int
@@ -30,7 +30,7 @@ private struct WorkflowExecutePayload: Encodable {
     }
 }
 
-private struct WorkflowSummary: Encodable {
+struct WorkflowSummary: Encodable {
     let id: String
     let goalPattern: String
     let successRate: Double
@@ -48,7 +48,7 @@ private struct WorkflowSummary: Encodable {
     }
 }
 
-private struct WorkflowStepSummary: Encodable {
+struct WorkflowStepSummary: Encodable {
     let step: Int
     let agentKind: String
     let skill: String
