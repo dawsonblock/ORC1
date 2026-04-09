@@ -247,10 +247,11 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
             cycleID: response.cycleID.uuidString,
             snapshotID: response.snapshotID?.uuidString
         )
-        let data = mcpLegacyJSONObject(from: payload) ?? [
-            "summary": response.summary,
-            "cycleID": response.cycleID.uuidString,
-        ]
+        let data = mcpLegacyJSONObject(from: payload) ?? {
+            var d: [String: Any] = ["summary": response.summary, "cycleID": response.cycleID.uuidString]
+            if let snapshotID = response.snapshotID { d["snapshot_id"] = snapshotID.uuidString }
+            return d
+        }()
 
         return ToolResult(
             success: success,
