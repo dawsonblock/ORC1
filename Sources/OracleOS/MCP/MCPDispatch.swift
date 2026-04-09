@@ -23,6 +23,7 @@ private struct ExperimentSearchResultSummary: Encodable {
     let architectureRisk: Double
     let diffSummary: String
     let commandResults: [ExperimentCommandResultSummary]
+    let sandboxMetadata: SandboxExecutionMetadata?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -35,6 +36,7 @@ private struct ExperimentSearchResultSummary: Encodable {
         case architectureRisk = "architecture_risk"
         case diffSummary = "diff_summary"
         case commandResults = "command_results"
+        case sandboxMetadata = "sandbox_metadata"
     }
 }
 
@@ -246,12 +248,13 @@ public enum MCPDispatch {
                                 exitCode: Int(commandResult.exitCode),
                                 summary: commandResult.summary
                             )
-                        }
+                        },
+                        sandboxMetadata: result.sandboxMetadata
                     )
                 },
                 count: results.count
             )
-            guard let data = legacyDict(for: payload) else {
+            guard let data = mcpLegacyJSONObject(from: payload) else {
                 return .error("Failed to serialize experiment search results")
             }
             return formatTypedResult(
@@ -277,16 +280,6 @@ public enum MCPDispatch {
             mutatesWorkspace: false,
             touchesNetwork: false
         )
-    }
-
-    private static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
-        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
-        guard let data = try? encoder.encode(value),
-              let object = try? JSONSerialization.jsonObject(with: data),
-              let dictionary = object as? [String: Any] else {
-            return nil
-        }
-        return dictionary
     }
 
     // MARK: - Result formatting

@@ -18,6 +18,8 @@ This spine covers supported main-path effects only. The experiment subsystem (`o
 
 For the MCP surface, `MCPDispatch` is the public tool entrypoint and `MCPRuntimeHost` is the explicit reusable runtime owner behind it. `MCPRuntimeHost` is the component that calls `RuntimeBootstrap.makeBootstrappedRuntime()`, caches the bootstrapped runtime for the MCP host process, and owns reset semantics.
 
+MCP transport shape is intentionally split: `MCPDispatch.handle(_ params: [String: Any])` is the legacy JSON-RPC adapter seam, while normal MCP internals run on typed request and payload models (`JSONValue`, typed extractors, `Encodable` category payloads) and export once at the compatibility seam.
+
 Supported surfaces:
 
 - OracleController via OracleControllerHost (supported macOS operator UI)
@@ -229,7 +231,9 @@ This is the execution truth boundary. Every main-path side effect must flow thro
 ``VerifiedExecutor``. The experiment subsystem (`oracle_experiment_search`) is explicitly
 exempt: it runs candidate patches in isolated git worktrees dispatched directly from
 `MCPDispatch`, without involving `VerifiedExecutor` or `RuntimeOrchestrator`. The isolation
-guarantee for experiments comes from the worktree boundary, not policy approval.
+guarantee for experiments comes from the worktree boundary, explicit canonical containment checks,
+and sandbox execution metadata (resolved roots, attempted paths, command list, cleanup outcome),
+not policy approval.
 ``VerifiedExecutor`` returns ``ExecutionOutcome`` with events and artifacts;
 ``CommitCoordinator`` is the only entity that writes committed state, returning
 ``CommitReceipt`` as immutable proof of the commit.

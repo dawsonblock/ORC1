@@ -41,19 +41,74 @@ public enum MCPToolName {
     public static let workflowExecute    = "oracle_workflow_execute"
 }
 
+public struct MCPToolDefinition: Encodable, Sendable {
+    public let name: String
+    public let description: String
+    public let inputSchema: MCPToolInputSchema
+
+    public init(name: String, description: String, inputSchema: MCPToolInputSchema) {
+        self.name = name
+        self.description = description
+        self.inputSchema = inputSchema
+    }
+}
+
+public struct MCPToolInputSchema: Encodable, Sendable {
+    public let type: String
+    public let properties: [String: MCPPropertySchema]
+    public let required: [String]?
+
+    public init(
+        type: String = "object",
+        properties: [String: MCPPropertySchema],
+        required: [String]? = nil
+    ) {
+        self.type = type
+        self.properties = properties
+        self.required = required
+    }
+}
+
+public struct MCPPropertySchema: Encodable, Sendable {
+    public let type: String
+    public let description: String
+    public let items: MCPPropertyItemsSchema?
+
+    public init(type: String, description: String, items: MCPPropertyItemsSchema? = nil) {
+        self.type = type
+        self.description = description
+        self.items = items
+    }
+}
+
+public struct MCPPropertyItemsSchema: Encodable, Sendable {
+    public let type: String
+
+    public init(type: String) {
+        self.type = type
+    }
+}
+
 /// Tool definitions for the MCP server.
 public enum MCPTools {
 
     /// All tool definitions as MCP-compatible dictionaries.
     @MainActor
     public static func definitions() -> [[String: Any]] {
-        perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
+        let typed = perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
+        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
+        guard let data = try? encoder.encode(typed),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let list = object as? [[String: Any]] else {
+            return []
+        }
+        return list
     }
 
     // MARK: - Perception Tools (7)
 
     @MainActor
-    private static let perception: [[String: Any]] = [
+    private static let perception: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.context,
             description: "Get orientation for an app. Returns summary fields plus a canonical fused observation snapshot with element source and confidence metadata. Call this before acting on any app.",
@@ -123,7 +178,7 @@ public enum MCPTools {
     // MARK: - Action Tools (7)
 
     @MainActor
-    private static let actions: [[String: Any]] = [
+    private static let actions: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.click,
             description: "Click an element. Tries AX-native first, falls back to synthetic click. Risky actions may return pending approval instead of executing immediately.",
@@ -216,7 +271,7 @@ public enum MCPTools {
     // MARK: - Wait Tool (1)
 
     @MainActor
-    private static let wait: [[String: Any]] = [
+    private static let wait: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.wait,
             description: "Wait for a condition instead of using fixed delays. Polls until condition is met or timeout.",
@@ -234,7 +289,7 @@ public enum MCPTools {
     // MARK: - Recipe Tools (5)
 
     @MainActor
-    private static let recipes: [[String: Any]] = [
+    private static let recipes: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.recipes,
             description: "List all installed recipes with descriptions and parameters. ALWAYS check this first before doing multi-step tasks manually.",
@@ -280,7 +335,7 @@ public enum MCPTools {
     // MARK: - Vision Tools (2)
 
     @MainActor
-    private static let vision: [[String: Any]] = [
+    private static let vision: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.parseScreen,
             description: "Experimental full-screen vision parsing via the sidecar. The tool is available, but its schema and reliability are still being hardened. Prefer oracle_find for stable AX queries and oracle_ground for precise visual grounding.",
@@ -304,7 +359,7 @@ public enum MCPTools {
     // MARK: - Project Memory Tools (2)
 
     @MainActor
-    private static let projectMemory: [[String: Any]] = [
+    private static let projectMemory: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.memoryQuery,
             description: "Query the project memory store for past architecture decisions, known patterns, open problems, and risks.",
@@ -334,7 +389,7 @@ public enum MCPTools {
     // MARK: - Experiment Tools (1)
 
     @MainActor
-    private static let experiments: [[String: Any]] = [
+    private static let experiments: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.experimentSearch,
             description: "Run a bounded parallel experiment search. Evaluates multiple candidate file patches in isolated worktrees and returns advisory rankings plus build or test summaries for each candidate. Results are sandbox-only and do not commit to the workspace.",
@@ -351,7 +406,7 @@ public enum MCPTools {
     // MARK: - Architecture Tools (2)
 
     @MainActor
-    private static let architecture: [[String: Any]] = [
+    private static let architecture: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.architectureReview,
             description: "Advisory review of planned changes for architectural risks and potential invariant violations before executing them. Returns structured findings, heuristic risk scores, and refactoring suggestions.",
@@ -376,7 +431,7 @@ public enum MCPTools {
     // MARK: - Workflow Tools (3)
 
     @MainActor
-    private static let workflows: [[String: Any]] = [
+    private static let workflows: [MCPToolDefinition] = [
         tool(
             name: MCPToolName.workflowMine,
             description: "Mine candidate workflows from recent telemetry and traces. Returns synthesized workflow suggestions that still require caller review before reuse or promotion.",
@@ -408,28 +463,24 @@ public enum MCPTools {
     private static func tool(
         name: String,
         description: String,
-        properties: [String: [String: Any]],
+        properties: [String: MCPPropertySchema],
         required: [String] = []
-    ) -> [String: Any] {
-        var schema: [String: Any] = [
-            "type": "object",
-            "properties": properties,
-        ]
-        if !required.isEmpty {
-            schema["required"] = required
-        }
-        return [
-            "name": name,
-            "description": description,
-            "inputSchema": schema,
-        ]
+    ) -> MCPToolDefinition {
+        MCPToolDefinition(
+            name: name,
+            description: description,
+            inputSchema: MCPToolInputSchema(
+                properties: properties,
+                required: required.isEmpty ? nil : required
+            )
+        )
     }
 
-    private static func prop(_ type: String, _ description: String) -> [String: Any] {
-        ["type": type, "description": description]
+    private static func prop(_ type: String, _ description: String) -> MCPPropertySchema {
+        MCPPropertySchema(type: type, description: description)
     }
 
-    private static func propArray(_ itemType: String, _ description: String) -> [String: Any] {
-        ["type": "array", "items": ["type": itemType], "description": description]
+    private static func propArray(_ itemType: String, _ description: String) -> MCPPropertySchema {
+        MCPPropertySchema(type: "array", description: description, items: MCPPropertyItemsSchema(type: itemType))
     }
 }

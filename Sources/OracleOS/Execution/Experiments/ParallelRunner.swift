@@ -35,71 +35,95 @@ public final class ParallelRunner: @unchecked Sendable {
                         experimentsRoot: experimentsRoot,
                         adapter: workspaceRunner.processAdapter
                     )
-                    defer { sandbox.cleanup(using: workspaceRunner.processAdapter) }
-                    try sandbox.apply(candidate)
+                    do {
+                        try sandbox.apply(candidate)
 
-                    var results: [CommandResult] = []
-                    let buildTool = BuildToolDetector.detect(at: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true))
-                    let buildCommand = spec.buildCommand.map {
-                        CommandSpec(
-                            category: $0.category,
-                            executable: $0.executable,
-                            arguments: $0.arguments,
-                            workspaceRoot: sandbox.sandboxPath,
-                            workspaceRelativePath: $0.workspaceRelativePath,
-                            summary: $0.summary,
-                            mutatesWorkspace: $0.mutatesWorkspace,
-                            touchesNetwork: $0.touchesNetwork
+                        var results: [CommandResult] = []
+                        var executedCommands: [String] = []
+                        let buildTool = BuildToolDetector.detect(at: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true))
+                        let buildCommand = spec.buildCommand.map {
+                            CommandSpec(
+                                category: $0.category,
+                                executable: $0.executable,
+                                arguments: $0.arguments,
+                                workspaceRoot: sandbox.sandboxPath,
+                                workspaceRelativePath: $0.workspaceRelativePath,
+                                summary: $0.summary,
+                                mutatesWorkspace: $0.mutatesWorkspace,
+                                touchesNetwork: $0.touchesNetwork
+                            )
+                        } ?? BuildToolDetector.defaultBuildCommand(
+                            for: buildTool,
+                            workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
                         )
-                    } ?? BuildToolDetector.defaultBuildCommand(
-                        for: buildTool,
-                        workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
-                    )
-                    let testCommand = spec.testCommand.map {
-                        CommandSpec(
-                            category: $0.category,
-                            executable: $0.executable,
-                            arguments: $0.arguments,
-                            workspaceRoot: sandbox.sandboxPath,
-                            workspaceRelativePath: $0.workspaceRelativePath,
-                            summary: $0.summary,
-                            mutatesWorkspace: $0.mutatesWorkspace,
-                            touchesNetwork: $0.touchesNetwork
+                        let testCommand = spec.testCommand.map {
+                            CommandSpec(
+                                category: $0.category,
+                                executable: $0.executable,
+                                arguments: $0.arguments,
+                                workspaceRoot: sandbox.sandboxPath,
+                                workspaceRelativePath: $0.workspaceRelativePath,
+                                summary: $0.summary,
+                                mutatesWorkspace: $0.mutatesWorkspace,
+                                touchesNetwork: $0.touchesNetwork
+                            )
+                        } ?? BuildToolDetector.defaultTestCommand(
+                            for: buildTool,
+                            workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
                         )
-                    } ?? BuildToolDetector.defaultTestCommand(
-                        for: buildTool,
-                        workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
-                    )
 
-                    if let buildCommand {
-                        results.append(try await workspaceRunner.execute(spec: buildCommand))
+                        if let buildCommand {
+                            executedCommands.append(serialize(command: buildCommand))
+                            results.append(try await workspaceRunner.execute(spec: buildCommand))
+                        }
+                        if results.allSatisfy(\.succeeded), let testCommand {
+                            executedCommands.append(serialize(command: testCommand))
+                            results.append(try await workspaceRunner.execute(spec: testCommand))
+                        }
+
+                        let diffSummary = sandbox.diffSummary(using: workspaceRunner.processAdapter)
+                        let candidateSnapshot = repositoryIndexer.indexIfNeeded(
+                            workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
+                        )
+                        let architectureReview = architectureEngine.reviewCandidatePatch(
+                            goalDescription: spec.goalDescription,
+                            snapshot: candidateSnapshot,
+                            candidate: candidate,
+                            diffSummary: diffSummary
+                        )
+                        let effectiveArchitectureRisk = max(architectureRiskScore, architectureReview.riskScore)
+                        let cleanupOutcome = sandbox.cleanupOutcome(using: workspaceRunner.processAdapter)
+
+                        let sandboxMetadata = SandboxExecutionMetadata(
+                            canonicalWorkspaceRoot: sandbox.canonicalWorkspaceRootPath(),
+                            resolvedSandboxRoot: sandbox.canonicalSandboxRootPath(),
+                            candidateRelativePath: candidate.workspaceRelativePath,
+                            attemptedPaths: [
+                                candidate.workspaceRelativePath,
+                                URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
+                                    .appendingPathComponent(candidate.workspaceRelativePath)
+                                    .standardizedFileURL
+                                    .path,
+                            ],
+                            commandsRun: executedCommands,
+                            cleanup: cleanupOutcome
+                        )
+
+                        return ExperimentResult(
+                            experimentID: spec.id,
+                            candidate: candidate,
+                            sandboxPath: sandbox.sandboxPath,
+                            commandResults: results,
+                            diffSummary: diffSummary,
+                            architectureRiskScore: effectiveArchitectureRisk,
+                            architectureFindings: architectureReview.findings,
+                            refactorProposalID: architectureReview.refactorProposal?.id,
+                            sandboxMetadata: sandboxMetadata
+                        )
+                    } catch {
+                        _ = sandbox.cleanupOutcome(using: workspaceRunner.processAdapter)
+                        throw error
                     }
-                    if results.allSatisfy(\.succeeded), let testCommand {
-                        results.append(try await workspaceRunner.execute(spec: testCommand))
-                    }
-
-                    let diffSummary = sandbox.diffSummary(using: workspaceRunner.processAdapter)
-                    let candidateSnapshot = repositoryIndexer.indexIfNeeded(
-                        workspaceRoot: URL(fileURLWithPath: sandbox.sandboxPath, isDirectory: true)
-                    )
-                    let architectureReview = architectureEngine.reviewCandidatePatch(
-                        goalDescription: spec.goalDescription,
-                        snapshot: candidateSnapshot,
-                        candidate: candidate,
-                        diffSummary: diffSummary
-                    )
-                    let effectiveArchitectureRisk = max(architectureRiskScore, architectureReview.riskScore)
-
-                    return ExperimentResult(
-                        experimentID: spec.id,
-                        candidate: candidate,
-                        sandboxPath: sandbox.sandboxPath,
-                        commandResults: results,
-                        diffSummary: diffSummary,
-                        architectureRiskScore: effectiveArchitectureRisk,
-                        architectureFindings: architectureReview.findings,
-                        refactorProposalID: architectureReview.refactorProposal?.id
-                    )
                 }
             }
 
@@ -109,5 +133,10 @@ public final class ParallelRunner: @unchecked Sendable {
             }
             return collected
         }
+    }
+
+    private func serialize(command: CommandSpec) -> String {
+        let parts = [command.executable] + command.arguments
+        return parts.joined(separator: " ")
     }
 }
