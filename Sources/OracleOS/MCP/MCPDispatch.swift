@@ -251,13 +251,7 @@ public enum MCPDispatch {
                 },
                 count: results.count
             )
-            guard let data = legacyDict(for: payload) else {
-                return .error("Failed to serialize experiment search results")
-            }
-            return formatTypedResult(
-                ToolResult(success: true, data: data),
-                toolName: MCPToolName.experimentSearch
-            )
+            return exportTypedResponse(payload, toolName: MCPToolName.experimentSearch)
         } catch {
             return formatTypedResult(
                 ToolResult(success: false, error: "Experiment search failed: \(error)"),
@@ -279,7 +273,7 @@ public enum MCPDispatch {
         )
     }
 
-    private static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
+    static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
         let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
         guard let data = try? encoder.encode(value),
               let object = try? JSONSerialization.jsonObject(with: data),
@@ -287,6 +281,23 @@ public enum MCPDispatch {
             return nil
         }
         return dictionary
+    }
+
+    static func typedResult<T: Encodable>(
+        _ payload: T,
+        suggestion: String? = nil
+    ) -> ToolResult {
+        guard let data = legacyDict(for: payload) else {
+            return ToolResult(success: false, error: "Failed to serialize \(T.self)")
+        }
+        return ToolResult(success: true, data: data, suggestion: suggestion)
+    }
+
+    private static func exportTypedResponse<T: Encodable>(
+        _ payload: T,
+        toolName: String
+    ) -> MCPToolResponse {
+        formatTypedResult(typedResult(payload), toolName: toolName)
     }
 
     // MARK: - Result formatting
@@ -324,18 +335,18 @@ public enum MCPDispatch {
             return AXScanner.findElements(
                 query: request.string("query"),
                 role: request.string("role"),
-                domId: nil,
-                domClass: nil,
-                identifier: nil,
+                domId: request.string("dom_id"),
+                domClass: request.string("dom_class"),
+                identifier: request.string("identifier"),
                 appName: request.string("app"),
-                depth: nil
+                depth: request.int("depth")
             )
 
         case MCPToolName.read:
             return AXScanner.readContent(
                 appName: request.string("app"),
                 query: request.string("query"),
-                depth: nil
+                depth: request.int("depth")
             )
 
         case MCPToolName.inspect:
@@ -359,14 +370,15 @@ public enum MCPDispatch {
                 Actions.click(
                     query: request.string("query"),
                     role: request.string("role"),
-                    domId: nil,
+                    domId: request.string("dom_id"),
                     appName: request.string("app"),
                     x: request.double("x"),
                     y: request.double("y"),
-                    button: nil,
-                    count: nil,
+                    button: request.string("button"),
+                    count: request.int("count"),
                     runtime: runtime,
                     surface: .mcp,
+                    approvalRequestID: request.string("approval_request_id"),
                     toolName: tool
                 )
             }
@@ -376,11 +388,12 @@ public enum MCPDispatch {
                 Actions.typeText(
                     text: request.string("text") ?? "",
                     into: request.string("into"),
-                    domId: nil,
+                    domId: request.string("dom_id"),
                     appName: request.string("app"),
                     clear: request.bool("clear") ?? false,
                     runtime: runtime,
                     surface: .mcp,
+                    approvalRequestID: request.string("approval_request_id"),
                     toolName: tool
                 )
             }
@@ -393,14 +406,20 @@ public enum MCPDispatch {
                 key: key,
                 modifiers: request.strings("modifiers"),
                 appName: request.string("app"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         case MCPToolName.hotkey:
             guard let keys = request.strings("keys"), !keys.isEmpty else {
                 return ToolResult(success: false, error: "keys array is required for oracle_hotkey")
             }
-            return Actions.hotkey(keys: keys, appName: request.string("app"), runtime: runtime)
+            return Actions.hotkey(
+                keys: keys,
+                appName: request.string("app"),
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
+            )
 
         case MCPToolName.scroll:
             guard let direction = request.string("direction") else {
@@ -412,7 +431,8 @@ public enum MCPDispatch {
                 appName: request.string("app"),
                 x: request.double("x"),
                 y: request.double("y"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         case MCPToolName.focus:
@@ -422,7 +442,8 @@ public enum MCPDispatch {
             return Actions.focusApp(
                 appName: appName,
                 windowTitle: request.string("window"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         case MCPToolName.window:
@@ -437,7 +458,8 @@ public enum MCPDispatch {
                 y: request.double("y"),
                 width: request.double("width"),
                 height: request.double("height"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         // MARK: Wait (read-only host-local polling)

@@ -4,6 +4,56 @@ import Foundation
 //
 // Covers: oracle_architecture_review, oracle_candidate_review
 
+private struct ArchitectureReviewPayload: Encodable {
+    let triggered: Bool
+    let riskScore: Double
+    let affectedModules: [String]
+    let findings: [ArchitectureFindingPayload]
+    let refactorProposal: RefactorProposalPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case triggered
+        case riskScore = "risk_score"
+        case affectedModules = "affected_modules"
+        case findings
+        case refactorProposal = "refactor_proposal"
+    }
+}
+
+private struct ArchitectureFindingPayload: Encodable {
+    let title: String
+    let summary: String
+    let severity: String
+    let riskScore: Double
+    let affectedModules: [String]
+    let evidence: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case summary
+        case severity
+        case riskScore = "risk_score"
+        case affectedModules = "affected_modules"
+        case evidence
+    }
+}
+
+private struct RefactorProposalPayload: Encodable {
+    let id: String
+    let title: String
+    let summary: String
+    let steps: [String]
+    let riskScore: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case summary
+        case steps
+        case riskScore = "risk_score"
+    }
+}
+
 extension MCPDispatch {
     @MainActor
     static func dispatchArchitecture(
@@ -24,7 +74,7 @@ extension MCPDispatch {
                 snapshot: snapshot,
                 candidatePaths: candidatePaths
             )
-            return ToolResult(success: true, data: archReviewToDict(review))
+            return typedResult(archReviewPayload(review))
 
         case MCPToolName.candidateReview:
             guard let goalDescription = request.string("goal_description"),
@@ -59,39 +109,37 @@ extension MCPDispatch {
                 candidate: patch,
                 diffSummary: diffSummary
             )
-            return ToolResult(success: true, data: archReviewToDict(review))
+            return typedResult(archReviewPayload(review))
 
         default:
             return ToolResult(success: false, error: "Unknown architecture tool: \(request.name)")
         }
     }
 
-    private static func archReviewToDict(_ review: ArchitectureReview) -> [String: Any] {
-        var d: [String: Any] = [
-            "triggered": review.triggered,
-            "risk_score": review.riskScore,
-            "affected_modules": review.affectedModules,
-        ]
-        d["findings"] = review.findings.map { f -> [String: Any] in
-            var fd: [String: Any] = [
-                "title": f.title,
-                "summary": f.summary,
-                "severity": f.severity.rawValue,
-                "risk_score": f.riskScore,
-                "affected_modules": f.affectedModules,
-            ]
-            if !f.evidence.isEmpty { fd["evidence"] = f.evidence }
-            return fd
-        }
-        if let proposal = review.refactorProposal {
-            d["refactor_proposal"] = [
-                "id": proposal.id,
-                "title": proposal.title,
-                "summary": proposal.summary,
-                "steps": proposal.steps,
-                "risk_score": proposal.riskScore,
-            ]
-        }
-        return d
+    private static func archReviewPayload(_ review: ArchitectureReview) -> ArchitectureReviewPayload {
+        ArchitectureReviewPayload(
+            triggered: review.triggered,
+            riskScore: review.riskScore,
+            affectedModules: review.affectedModules,
+            findings: review.findings.map { finding in
+                ArchitectureFindingPayload(
+                    title: finding.title,
+                    summary: finding.summary,
+                    severity: finding.severity.rawValue,
+                    riskScore: finding.riskScore,
+                    affectedModules: finding.affectedModules,
+                    evidence: finding.evidence.isEmpty ? nil : finding.evidence
+                )
+            },
+            refactorProposal: review.refactorProposal.map { proposal in
+                RefactorProposalPayload(
+                    id: proposal.id,
+                    title: proposal.title,
+                    summary: proposal.summary,
+                    steps: proposal.steps,
+                    riskScore: proposal.riskScore
+                )
+            }
+        )
     }
 }

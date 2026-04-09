@@ -5,6 +5,26 @@ import Foundation
 // Covers: oracle_recipes, oracle_run, oracle_recipe_show,
 //         oracle_recipe_save, oracle_recipe_delete
 
+private struct RecipeSummaryPayload: Encodable {
+    let recipes: [RecipeSummary]
+    let count: Int
+}
+
+private struct RecipeSummary: Encodable {
+    let name: String
+    let description: String
+    let parameters: [String]?
+}
+
+private struct RecipeShowPayload: Encodable {
+    let name: String
+    let recipe: String
+}
+
+private struct RecipeSavePayload: Encodable {
+    let saved: String
+}
+
 extension MCPDispatch {
     @MainActor
     static func dispatchRecipes(
@@ -15,14 +35,17 @@ extension MCPDispatch {
 
         case MCPToolName.recipes:
             let recipes = RecipeStore.listRecipes()
-            let summaries: [[String: Any]] = recipes.map { r in
-                var d: [String: Any] = ["name": r.name, "description": r.description]
-                if let params = r.params, !params.isEmpty {
-                    d["parameters"] = Array(params.keys).sorted()
-                }
-                return d
+            let summaries = recipes.map { recipe in
+                RecipeSummary(
+                    name: recipe.name,
+                    description: recipe.description,
+                    parameters: recipe.params.map { params in
+                        let names = Array(params.keys).sorted()
+                        return names.isEmpty ? nil : names
+                    } ?? nil
+                )
             }
-            return ToolResult(success: true, data: ["recipes": summaries, "count": summaries.count])
+            return typedResult(RecipeSummaryPayload(recipes: summaries, count: summaries.count))
 
         case MCPToolName.run:
             if let resumeToken = request.string("resume_token") {
@@ -63,7 +86,7 @@ extension MCPDispatch {
                   let jsonStr = String(data: data, encoding: .utf8) else {
                 return ToolResult(success: false, error: "Failed to serialize recipe '\(name)'")
             }
-            return ToolResult(success: true, data: ["name": name, "recipe": jsonStr])
+            return typedResult(RecipeShowPayload(name: name, recipe: jsonStr))
 
         case MCPToolName.recipeSave:
             guard let jsonStr = request.string("recipe_json") else {
@@ -71,9 +94,8 @@ extension MCPDispatch {
             }
             do {
                 let name = try RecipeStore.saveRecipeJSON(jsonStr)
-                return ToolResult(
-                    success: true,
-                    data: ["saved": name],
+                return typedResult(
+                    RecipeSavePayload(saved: name),
                     suggestion: "Recipe '\(name)' saved. Use oracle_run to execute it."
                 )
             } catch {

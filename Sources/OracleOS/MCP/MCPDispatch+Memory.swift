@@ -4,6 +4,38 @@ import Foundation
 //
 // Covers: oracle_memory_query, oracle_memory_draft
 
+private struct MemoryQueryPayload: Encodable {
+    let records: [MemoryRecordSummary]
+    let count: Int
+}
+
+private struct MemoryRecordSummary: Encodable {
+    let id: String
+    let kind: String
+    let title: String
+    let summary: String
+    let knowledgeClass: String
+    let affectedModules: [String]?
+    let body: String?
+    let evidenceRefs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case title
+        case summary
+        case knowledgeClass = "knowledge_class"
+        case affectedModules = "affected_modules"
+        case body
+        case evidenceRefs = "evidence_refs"
+    }
+}
+
+private struct MemoryDraftPayload: Encodable {
+    let drafted: String
+    let kind: String
+}
+
 extension MCPDispatch {
     @MainActor
     static func dispatchMemory(
@@ -41,20 +73,19 @@ extension MCPDispatch {
                     return matchesQuery && matchesKind && matchesModules
                 }.prefix(limit))
             }
-            let serialized: [[String: Any]] = filtered.map { r in
-                var d: [String: Any] = [
-                    "id": r.id,
-                    "kind": r.kind.rawValue,
-                    "title": r.title,
-                    "summary": r.summary,
-                    "knowledge_class": r.knowledgeClass.rawValue,
-                ]
-                if !r.affectedModules.isEmpty { d["affected_modules"] = r.affectedModules }
-                if !r.body.isEmpty { d["body"] = r.body }
-                if !r.evidenceRefs.isEmpty { d["evidence_refs"] = r.evidenceRefs }
-                return d
+            let records = filtered.map { record in
+                MemoryRecordSummary(
+                    id: record.id,
+                    kind: record.kind.rawValue,
+                    title: record.title,
+                    summary: record.summary,
+                    knowledgeClass: record.knowledgeClass.rawValue,
+                    affectedModules: record.affectedModules.isEmpty ? nil : record.affectedModules,
+                    body: record.body.isEmpty ? nil : record.body,
+                    evidenceRefs: record.evidenceRefs.isEmpty ? nil : record.evidenceRefs
+                )
             }
-            return ToolResult(success: true, data: ["records": serialized, "count": serialized.count])
+            return typedResult(MemoryQueryPayload(records: records, count: records.count))
 
         case MCPToolName.memoryDraft:
             guard let title = request.string("title"),
@@ -109,9 +140,8 @@ extension MCPDispatch {
                 default:
                     return ToolResult(success: false, error: "Unhandled kind: \(kindStr)")
                 }
-                return ToolResult(
-                    success: true,
-                    data: ["drafted": title, "kind": kindStr],
+                return typedResult(
+                    MemoryDraftPayload(drafted: title, kind: kindStr),
                     suggestion: "Memory record '\(title)' persisted. Retrieve with oracle_memory_query."
                 )
             } catch {

@@ -5,8 +5,8 @@
 // types. Legacy `[String: Any]` transport is confined to the outer JSON-RPC
 // adapter seam (`MCPDispatch.handle(_ params:)` and legacy export helpers).
 //
-// Version field is mandatory on every request and response.
-// Unknown versions are rejected at the boundary — no guessing.
+// Responses always carry an explicit version. The legacy JSON-RPC request adapter
+// still defaults omitted request versions to "1" for compatibility at the outer seam.
 
 import Foundation
 
@@ -86,7 +86,7 @@ public enum JSONValue: Sendable, Codable, Equatable {
         from(legacyValue: dict)
     }
 
-    /// Convert JSONValue back to a Foundation object for APIs that still require it.
+    /// Convert JSONValue back to a Foundation object for legacy outer-edge APIs only.
     public func toFoundation() -> Any {
         switch self {
         case .null: return NSNull()
@@ -201,11 +201,6 @@ public struct MCPToolRequest: Sendable, Codable {
         guard case .array(let arr) = arguments[key] else { return nil }
         return arr.compactMap { $0.stringValue }
     }
-    public func object(_ key: String) -> [String: Any]? {
-        guard case .object(let obj) = arguments[key] else { return nil }
-        return obj.mapValues { $0.toFoundation() }
-    }
-
     public func array(_ key: String) -> [JSONValue]? {
         arguments[key]?.arrayValue
     }
