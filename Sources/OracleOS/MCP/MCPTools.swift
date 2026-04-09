@@ -45,6 +45,12 @@ public struct MCPToolDefinition: Encodable, Sendable {
     public let name: String
     public let description: String
     public let inputSchema: MCPToolInputSchema
+
+    public init(name: String, description: String, inputSchema: MCPToolInputSchema) {
+        self.name = name
+        self.description = description
+        self.inputSchema = inputSchema
+    }
 }
 
 public struct MCPToolInputSchema: Encodable, Sendable {
@@ -77,6 +83,10 @@ public struct MCPPropertySchema: Encodable, Sendable {
 
 public struct MCPPropertyItemsSchema: Encodable, Sendable {
     public let type: String
+
+    public init(type: String) {
+        self.type = type
+    }
 }
 
 /// Tool definitions for the MCP server.
