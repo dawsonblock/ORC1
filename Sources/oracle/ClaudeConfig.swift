@@ -1,21 +1,6 @@
 import Foundation
 import OracleOS
 
-private struct ClaudeDynamicCodingKey: CodingKey {
-    var stringValue: String
-    var intValue: Int?
-
-    init?(stringValue: String) {
-        self.stringValue = stringValue
-        self.intValue = nil
-    }
-
-    init?(intValue: Int) {
-        self.stringValue = String(intValue)
-        self.intValue = intValue
-    }
-}
-
 struct ClaudeMCPServerEntry: Sendable, Equatable {
     var type: String
     var command: String
