@@ -14,7 +14,7 @@ public struct TimelineBuilder {
 
     private func buildPhases(from events: [EventEnvelope]) -> [TimelinePhase] {
         var phases: [TimelinePhase] = []
-        var current: TimelinePhaseKind = .planning
+        var current: TimelinePhaseKind = events.first.map { TimelinePhaseKind(eventType: $0.eventType) } ?? .planning
         var phaseStart = events.first?.timestamp ?? Date()
         var phaseEvents: [EventEnvelope] = []
 
