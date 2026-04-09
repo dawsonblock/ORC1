@@ -239,32 +239,32 @@ public enum MCPDispatch {
                 toolName: MCPToolName.experimentSearch
             )
         }
-        let buildCommandResult = makeExperimentCommandRequest(request.strings("build_command"), category: .build)
-        switch buildCommandResult {
+        let buildCommand: ExperimentCommandRequest?
+        switch makeExperimentCommandRequest(request.strings("build_command"), category: .build) {
         case .failure(let error):
             return formatTypedResult(
                 ToolResult(success: false, error: error),
                 toolName: MCPToolName.experimentSearch
             )
-        case .success:
-            break
+        case .success(let command):
+            buildCommand = command
         }
-        let testCommandResult = makeExperimentCommandRequest(request.strings("test_command"), category: .test)
-        switch testCommandResult {
+        let testCommand: ExperimentCommandRequest?
+        switch makeExperimentCommandRequest(request.strings("test_command"), category: .test) {
         case .failure(let error):
             return formatTypedResult(
                 ToolResult(success: false, error: error),
                 toolName: MCPToolName.experimentSearch
             )
-        case .success:
-            break
+        case .success(let command):
+            testCommand = command
         }
         let spec = ExperimentSpec(
             goalDescription: goalDescription,
             workspaceRoot: FileManager.default.currentDirectoryPath,
             candidates: patches,
-            buildCommand: try? buildCommandResult.get(),
-            testCommand: try? testCommandResult.get()
+            buildCommand: buildCommand,
+            testCommand: testCommand
         )
         do {
             let results = try await bootstrapped.container.experimentManager.run(spec: spec)
