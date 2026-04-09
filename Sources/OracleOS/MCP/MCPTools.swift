@@ -47,7 +47,14 @@ public enum MCPTools {
     /// All tool definitions as MCP-compatible dictionaries.
     @MainActor
     public static func definitions() -> [[String: Any]] {
-        allDefinitions.compactMap(\.legacyDictionary)
+        allDefinitions.map { definition in
+            guard let legacyDictionary = definition.legacyDictionary else {
+                preconditionFailure(
+                    "Failed to encode MCP tool definition '\(definition.name)' to legacy dictionary. Refusing to return a partial MCP tools list."
+                )
+            }
+            return legacyDictionary
+        }
     }
 
     @MainActor
