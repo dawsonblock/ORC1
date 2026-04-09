@@ -10,6 +10,7 @@ struct MemoryQueryPayload: Encodable {
 }
 
 struct MemoryRecordSummary: Encodable {
+private struct MemoryRecordPayload: Encodable {
     let id: String
     let kind: String
     let title: String
@@ -32,6 +33,12 @@ struct MemoryRecordSummary: Encodable {
 }
 
 struct MemoryDraftPayload: Encodable {
+private struct MemoryQueryPayload: Encodable {
+    let records: [MemoryRecordPayload]
+    let count: Int
+}
+
+private struct MemoryDraftPayload: Encodable {
     let drafted: String
     let kind: String
 }
@@ -86,6 +93,25 @@ extension MCPDispatch {
                 )
             }
             return typedResult(MemoryQueryPayload(records: records, count: records.count))
+            let payload = MemoryQueryPayload(
+                records: filtered.map { record in
+                    MemoryRecordPayload(
+                        id: record.id,
+                        kind: record.kind.rawValue,
+                        title: record.title,
+                        summary: record.summary,
+                        knowledgeClass: record.knowledgeClass.rawValue,
+                        affectedModules: record.affectedModules.isEmpty ? nil : record.affectedModules,
+                        body: record.body.isEmpty ? nil : record.body,
+                        evidenceRefs: record.evidenceRefs.isEmpty ? nil : record.evidenceRefs
+                    )
+                },
+                count: filtered.count
+            )
+            guard let data = mcpLegacyJSONObject(from: payload) else {
+                return ToolResult(success: false, error: "Failed to serialize memory query results")
+            }
+            return ToolResult(success: true, data: data)
 
         case MCPToolName.memoryDraft:
             guard let title = request.string("title"),
@@ -142,6 +168,13 @@ extension MCPDispatch {
                 }
                 return typedResult(
                     MemoryDraftPayload(drafted: title, kind: kindStr),
+                let payload = MemoryDraftPayload(drafted: title, kind: kindStr)
+                guard let data = mcpLegacyJSONObject(from: payload) else {
+                    return ToolResult(success: false, error: "Failed to serialize memory draft response")
+                }
+                return ToolResult(
+                    success: true,
+                    data: data,
                     suggestion: "Memory record '\(title)' persisted. Retrieve with oracle_memory_query."
                 )
             } catch {

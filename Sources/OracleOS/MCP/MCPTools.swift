@@ -41,6 +41,54 @@ public enum MCPToolName {
     public static let workflowExecute    = "oracle_workflow_execute"
 }
 
+public struct MCPToolDefinition: Encodable, Sendable {
+    public let name: String
+    public let description: String
+    public let inputSchema: MCPToolInputSchema
+
+    public init(name: String, description: String, inputSchema: MCPToolInputSchema) {
+        self.name = name
+        self.description = description
+        self.inputSchema = inputSchema
+    }
+}
+
+public struct MCPToolInputSchema: Encodable, Sendable {
+    public let type: String
+    public let properties: [String: MCPPropertySchema]
+    public let required: [String]?
+
+    public init(
+        type: String = "object",
+        properties: [String: MCPPropertySchema],
+        required: [String]? = nil
+    ) {
+        self.type = type
+        self.properties = properties
+        self.required = required
+    }
+}
+
+public struct MCPPropertySchema: Encodable, Sendable {
+    public let type: String
+    public let description: String
+    public let items: MCPPropertyItemsSchema?
+
+    public init(type: String, description: String, items: MCPPropertyItemsSchema? = nil) {
+        self.type = type
+        self.description = description
+        self.items = items
+    }
+}
+
+public struct MCPPropertyItemsSchema: Encodable, Sendable {
+    public let type: String
+
+    public init(type: String) {
+        self.type = type
+    }
+}
+
 /// Tool definitions for the MCP server.
 public enum MCPTools {
 
@@ -60,6 +108,14 @@ public enum MCPTools {
     @MainActor
     private static var allDefinitions: [MCPToolDefinition] {
         perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
+        let typed = perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
+        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
+        guard let data = try? encoder.encode(typed),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let list = object as? [[String: Any]] else {
+            return []
+        }
+        return list
     }
 
     // MARK: - Perception Tools (7)
@@ -444,6 +500,10 @@ public enum MCPTools {
             description: description
         )
     }
+
+    private static func prop(_ type: String, _ description: String) -> MCPPropertySchema {
+        MCPPropertySchema(type: type, description: description)
+    }
 }
 
 struct MCPToolDefinition: Encodable {
@@ -475,5 +535,7 @@ struct MCPPropertySchema: Encodable {
         self.type = type
         self.items = items
         self.description = description
+    private static func propArray(_ itemType: String, _ description: String) -> MCPPropertySchema {
+        MCPPropertySchema(type: "array", description: description, items: MCPPropertyItemsSchema(type: itemType))
     }
 }

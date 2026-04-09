@@ -32,6 +32,7 @@ private struct ExperimentSearchResultSummary: Encodable {
     let approvalStorePromotion: Bool?
     let liveRuntimeStateMutation: Bool?
     let workspaceWritebackOutsideSandbox: Bool?
+    let sandboxMetadata: SandboxExecutionMetadata?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -53,6 +54,7 @@ private struct ExperimentSearchResultSummary: Encodable {
         case approvalStorePromotion = "approval_store_promotion"
         case liveRuntimeStateMutation = "live_runtime_state_mutation"
         case workspaceWritebackOutsideSandbox = "workspace_writeback_outside_sandbox"
+        case sandboxMetadata = "sandbox_metadata"
     }
 }
 
@@ -274,11 +276,19 @@ public enum MCPDispatch {
                         approvalStorePromotion: result.sandboxEvidence?.approvalStorePromotion,
                         liveRuntimeStateMutation: result.sandboxEvidence?.liveRuntimeStateMutation,
                         workspaceWritebackOutsideSandbox: result.sandboxEvidence?.workspaceWritebackOutsideSandbox
+                        sandboxMetadata: result.sandboxMetadata
                     )
                 },
                 count: results.count
             )
             return exportTypedResponse(payload, toolName: MCPToolName.experimentSearch)
+            guard let data = mcpLegacyJSONObject(from: payload) else {
+                return .error("Failed to serialize experiment search results")
+            }
+            return formatTypedResult(
+                ToolResult(success: true, data: data),
+                toolName: MCPToolName.experimentSearch
+            )
         } catch {
             return formatTypedResult(
                 ToolResult(success: false, error: "Experiment search failed: \(error)"),

@@ -4,6 +4,17 @@ import XCTest
 @MainActor
 final class MCPBoundarySeamTests: XCTestCase {
 
+    func testLegacyParamsAdapterRejectsMissingName() async {
+        let params: [String: Any] = ["arguments": ["query": "Send"]]
+
+        let response = await MCPDispatch.handle(params)
+        let content = response["content"] as? [[String: Any]]
+        let text = content?.compactMap { $0["text"] as? String }.joined(separator: "\n") ?? ""
+
+        XCTAssertEqual(response["isError"] as? Bool, true)
+        XCTAssertTrue(text.contains("missing") || text.contains("name"), "Expected missing-name decode error, got: \(text)")
+    }
+
     func testLegacyParamsAdapterRejectsInvalidArguments() async {
         final class NotJSON {}
         let params: [String: Any] = [

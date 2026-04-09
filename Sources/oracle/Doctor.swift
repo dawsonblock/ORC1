@@ -121,6 +121,9 @@ struct Doctor {
         if let config = try? ClaudeConfig.load(from: URL(fileURLWithPath: configPath)),
            let oracleConfig = config.mcpServers["oracle-os"]
         {
+        if let config = ClaudeConfigFile.load(from: configPath),
+           let oracleConfig = config.server(named: ClaudeConfigFile.defaultServerName) {
+            let command = oracleConfig.command
             print("  [ok] MCP Config: oracle-os configured")
             print("    Binary: \(oracleConfig.command)")
         } else {

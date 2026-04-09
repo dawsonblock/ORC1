@@ -94,6 +94,22 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
             .resolvingSymlinksInPath()
             .standardizedFileURL
         guard resolvedURL.path.hasPrefix(sandboxPrefix) else {
+        let pathComponents = relativePath.split(separator: "/")
+        guard !relativePath.hasPrefix("/"),
+              !relativePath.contains("\\"),
+              !pathComponents.contains(where: { $0 == "." || $0 == ".." }) else {
+            throw SandboxError.invalidRelativePath(relativePath)
+        }
+        let candidateURL = URL(fileURLWithPath: sandboxPath, isDirectory: true)
+            .appendingPathComponent(relativePath)
+        let sandboxRootPath = canonicalSandboxRootPath()
+        let resolvedRoot = URL(fileURLWithPath: sandboxRootPath, isDirectory: true)
+        let resolvedURL = try canonicalCandidateTargetURL(
+            candidateURL: candidateURL,
+            sandboxRootURL: resolvedRoot,
+            relativePath: relativePath
+        )
+        guard resolvedURL.path.hasPrefix(sandboxRootPath + "/") || resolvedURL.path == sandboxRootPath else {
             throw SandboxError.containmentViolation(path: relativePath, sandboxRoot: sandboxPath)
         }
         try FileManager.default.createDirectory(at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -131,6 +147,81 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
             branchDeleted: branchDeleted,
             errors: errors
         )
+    public func cleanup(using adapter: any ProcessAdapter) {
+        _ = cleanupOutcome(using: adapter)
+    }
+
+    public func cleanupOutcome(using adapter: any ProcessAdapter) -> SandboxCleanupOutcome {
+        var removedWorktree = false
+        var removedBranch = false
+        var failures: [String] = []
+
+        do {
+            try runGit(
+                arguments: ["worktree", "remove", "--force", sandboxPath],
+                workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true),
+                adapter: adapter
+            )
+            removedWorktree = true
+        } catch {
+            failures.append("worktree remove failed: \(error.localizedDescription)")
+        }
+
+        do {
+            try runGit(
+                arguments: ["branch", "-D", branchName],
+                workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true),
+                adapter: adapter
+            )
+            removedBranch = true
+        } catch {
+            failures.append("branch delete failed: \(error.localizedDescription)")
+        }
+
+        return SandboxCleanupOutcome(
+            succeeded: failures.isEmpty,
+            removedWorktree: removedWorktree,
+            removedBranch: removedBranch,
+            message: failures.isEmpty ? nil : failures.joined(separator: "; ")
+        )
+    }
+
+    public func canonicalWorkspaceRootPath() -> String {
+        URL(fileURLWithPath: workspaceRoot, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+    }
+
+    public func canonicalSandboxRootPath() -> String {
+        URL(fileURLWithPath: sandboxPath, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+    }
+
+    private func canonicalCandidateTargetURL(
+        candidateURL: URL,
+        sandboxRootURL: URL,
+        relativePath: String
+    ) throws -> URL {
+        var current = sandboxRootURL
+        let components = relativePath.split(separator: "/").map(String.init)
+        for component in components {
+            if component == "." || component == ".." || component.isEmpty {
+                throw SandboxError.invalidRelativePath(relativePath)
+            }
+            current.appendPathComponent(component, isDirectory: false)
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: current.path, isDirectory: &isDir) {
+                let attrs = try FileManager.default.attributesOfItem(atPath: current.path)
+                if let fileType = attrs[.type] as? FileAttributeType,
+                   fileType == .typeSymbolicLink {
+                    throw SandboxError.containmentViolation(path: relativePath, sandboxRoot: sandboxPath)
+                }
+            }
+        }
+        return candidateURL.standardizedFileURL
     }
 
     public var resolvedSandboxRoot: String {

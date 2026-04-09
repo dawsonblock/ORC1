@@ -233,6 +233,34 @@ struct SetupWizard {
                 print("    claude mcp add oracle-os \(binaryPath) -- mcp")
                 print("")
             }
+        if let config = ClaudeConfigFile.load(from: configPath),
+           config.server(named: ClaudeConfigFile.defaultServerName) != nil {
+            printOK("Already configured")
+        }
+
+        // Write config directly — claude mcp add also hangs.
+        var config = ClaudeConfigFile.load(from: configPath) ?? ClaudeConfigFile()
+        if FileManager.default.fileExists(atPath: configPath),
+           ClaudeConfigFile.load(from: configPath) == nil {
+                print("  WARNING: ~/.claude.json contains non-standard JSON.")
+                print("  Please add Oracle OS manually:")
+                print("    claude mcp add oracle-os \(binaryPath) -- mcp")
+                print("")
+                return
+        }
+
+        config.setServer(
+            name: ClaudeConfigFile.defaultServerName,
+            entry: ClaudeMCPServerEntry(type: "stdio", command: binaryPath, args: ["mcp"])
+        )
+
+        do {
+            try config.write(to: configPath)
+            print("  MCP server: \(binaryPath)")
+        } catch {
+            print("  Could not write MCP config. Run this command manually:")
+            print("    claude mcp add oracle-os \(binaryPath) -- mcp")
+            print("")
         }
 
         // Add tool permissions to ~/.claude/settings.json so all oracle-os
@@ -246,6 +274,18 @@ struct SetupWizard {
             allowedTools.append(oraclePermission)
             var updatedSettings = settings
             updatedSettings.allowedTools = allowedTools
+        var settings = ClaudeConfigFile.load(from: settingsPath) ?? ClaudeConfigFile()
+        if FileManager.default.fileExists(atPath: settingsPath),
+           ClaudeConfigFile.load(from: settingsPath) == nil {
+            print("  Could not parse ~/.claude/settings.json; keeping existing file unchanged.")
+            print("  You may be prompted to approve oracle-os tools on first use.")
+            printOK("Configured")
+            return
+        }
+
+        let oraclePermission = "mcp__oracle-os__*"
+        if !settings.allowedTools.contains(oraclePermission) {
+            settings.ensureAllowedTool(oraclePermission)
 
             do {
                 try FileManager.default.createDirectory(
@@ -253,6 +293,7 @@ struct SetupWizard {
                     withIntermediateDirectories: true
                 )
                 try updatedSettings.encodedData().write(to: settingsURL)
+                try settings.write(to: settingsPath)
                 print("  Tool permissions: auto-approved")
             } catch {
                 print("  Could not set tool permissions automatically.")

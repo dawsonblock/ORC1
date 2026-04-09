@@ -21,6 +21,8 @@ struct ArchitectureReviewPayload: Encodable {
 }
 
 struct ArchitectureFindingPayload: Encodable {
+private struct ArchitectureFindingPayload: Encodable {
+    let id: String
     let title: String
     let summary: String
     let severity: String
@@ -29,6 +31,7 @@ struct ArchitectureFindingPayload: Encodable {
     let evidence: [String]?
 
     enum CodingKeys: String, CodingKey {
+        case id
         case title
         case summary
         case severity
@@ -43,14 +46,39 @@ struct RefactorProposalPayload: Encodable {
     let title: String
     let summary: String
     let steps: [String]
+private struct RefactorProposalPayload: Encodable {
+    let id: String
+    let title: String
+    let summary: String
+    let affectedModules: [String]
+    let steps: [String]
+    let invariantRefs: [String]
     let riskScore: Double
 
     enum CodingKeys: String, CodingKey {
         case id
         case title
         case summary
+        case affectedModules = "affected_modules"
         case steps
+        case invariantRefs = "invariant_refs"
         case riskScore = "risk_score"
+    }
+}
+
+private struct ArchitectureReviewPayload: Encodable {
+    let triggered: Bool
+    let riskScore: Double
+    let affectedModules: [String]
+    let findings: [ArchitectureFindingPayload]
+    let refactorProposal: RefactorProposalPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case triggered
+        case riskScore = "risk_score"
+        case affectedModules = "affected_modules"
+        case findings
+        case refactorProposal = "refactor_proposal"
     }
 }
 
@@ -75,6 +103,10 @@ extension MCPDispatch {
                 candidatePaths: candidatePaths
             )
             return typedResult(archReviewPayload(review))
+            guard let data = mcpLegacyJSONObject(from: archReviewPayload(from: review)) else {
+                return ToolResult(success: false, error: "Failed to serialize architecture review")
+            }
+            return ToolResult(success: true, data: data)
 
         case MCPToolName.candidateReview:
             guard let goalDescription = request.string("goal_description"),
@@ -110,6 +142,10 @@ extension MCPDispatch {
                 diffSummary: diffSummary
             )
             return typedResult(archReviewPayload(review))
+            guard let data = mcpLegacyJSONObject(from: archReviewPayload(from: review)) else {
+                return ToolResult(success: false, error: "Failed to serialize candidate architecture review")
+            }
+            return ToolResult(success: true, data: data)
 
         default:
             return ToolResult(success: false, error: "Unknown architecture tool: \(request.name)")
@@ -117,12 +153,14 @@ extension MCPDispatch {
     }
 
     private static func archReviewPayload(_ review: ArchitectureReview) -> ArchitectureReviewPayload {
+    private static func archReviewPayload(from review: ArchitectureReview) -> ArchitectureReviewPayload {
         ArchitectureReviewPayload(
             triggered: review.triggered,
             riskScore: review.riskScore,
             affectedModules: review.affectedModules,
             findings: review.findings.map { finding in
                 ArchitectureFindingPayload(
+                    id: finding.id,
                     title: finding.title,
                     summary: finding.summary,
                     severity: finding.severity.rawValue,
@@ -137,6 +175,9 @@ extension MCPDispatch {
                     title: proposal.title,
                     summary: proposal.summary,
                     steps: proposal.steps,
+                    affectedModules: proposal.affectedModules,
+                    steps: proposal.steps,
+                    invariantRefs: proposal.invariantRefs,
                     riskScore: proposal.riskScore
                 )
             }
