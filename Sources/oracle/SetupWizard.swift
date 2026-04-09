@@ -214,25 +214,6 @@ struct SetupWizard {
 
         // Check if already configured (read config file directly — claude mcp list hangs)
         let configPath = NSHomeDirectory() + "/.claude.json"
-        let configURL = URL(fileURLWithPath: configPath)
-        if let config = try? ClaudeConfig.load(from: configURL),
-           config.mcpServers["oracle-os"] != nil {
-            printOK("Already configured")
-        } else {
-            do {
-                var config = try ClaudeConfig.load(from: configURL)
-                config.mcpServers["oracle-os"] = ClaudeMCPServerEntry(
-                    command: binaryPath,
-                    args: ["mcp"],
-                    additionalFields: ["type": .string("stdio")]
-                )
-                try config.encodedData().write(to: configURL)
-                print("  MCP server: \(binaryPath)")
-            } catch {
-                print("  Could not write MCP config. Run this command manually:")
-                print("    claude mcp add oracle-os \(binaryPath) -- mcp")
-                print("")
-            }
         if let config = ClaudeConfigFile.load(from: configPath),
            config.server(named: ClaudeConfigFile.defaultServerName) != nil {
             printOK("Already configured")
@@ -266,14 +247,6 @@ struct SetupWizard {
         // Add tool permissions to ~/.claude/settings.json so all oracle-os
         // MCP tools are auto-approved globally (no per-session prompts).
         let settingsPath = NSHomeDirectory() + "/.claude/settings.json"
-        let settingsURL = URL(fileURLWithPath: settingsPath)
-        let settings = (try? ClaudeConfig.load(from: settingsURL)) ?? ClaudeConfig()
-        var allowedTools = settings.allowedTools ?? []
-        let oraclePermission = "mcp__oracle-os__*"
-        if !allowedTools.contains(oraclePermission) {
-            allowedTools.append(oraclePermission)
-            var updatedSettings = settings
-            updatedSettings.allowedTools = allowedTools
         var settings = ClaudeConfigFile.load(from: settingsPath) ?? ClaudeConfigFile()
         if FileManager.default.fileExists(atPath: settingsPath),
            ClaudeConfigFile.load(from: settingsPath) == nil {
@@ -292,7 +265,6 @@ struct SetupWizard {
                     atPath: NSHomeDirectory() + "/.claude",
                     withIntermediateDirectories: true
                 )
-                try updatedSettings.encodedData().write(to: settingsURL)
                 try settings.write(to: settingsPath)
                 print("  Tool permissions: auto-approved")
             } catch {

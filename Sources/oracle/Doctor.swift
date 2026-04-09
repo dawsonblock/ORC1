@@ -118,12 +118,8 @@ struct Doctor {
         // Read config file directly instead of running `claude mcp list`
         // which health-checks every server and takes 30+ seconds.
         let configPath = NSHomeDirectory() + "/.claude.json"
-        if let config = try? ClaudeConfig.load(from: URL(fileURLWithPath: configPath)),
-           let oracleConfig = config.mcpServers["oracle-os"]
-        {
         if let config = ClaudeConfigFile.load(from: configPath),
            let oracleConfig = config.server(named: ClaudeConfigFile.defaultServerName) {
-            let command = oracleConfig.command
             print("  [ok] MCP Config: oracle-os configured")
             print("    Binary: \(oracleConfig.command)")
         } else {

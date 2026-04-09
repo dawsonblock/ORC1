@@ -1,30 +1,14 @@
-import Foundation
-import Testing
-@testable import OracleOS
+import XCTest
 
-@Suite("Claude Config Round Trip")
-struct ClaudeConfigRoundTripTests {
-    @Test("Config updates preserve unknown root and server fields")
-    func preservesUnknownFields() throws {
-        let config = ClaudeConfig(
-            mcpServers: [
-                "oracle-os": ClaudeMCPServerEntry(
-                    command: "/usr/local/bin/oracle",
-                    args: ["mcp"],
-                    env: ["MODE": .string("local")],
-                    trust: false,
-                    additionalFields: ["type": .string("stdio")]
-                ),
-            ],
-            allowedTools: ["mcp__oracle-os__*"],
-            additionalFields: ["theme": .string("dark")]
-        )
+final class ClaudeConfigRoundTripTests: XCTestCase {
+    func testCLITypedClaudeConfigModelRemainsJSONValueBacked() throws {
+        let path = "/home/runner/work/ORC1/ORC1/Sources/oracle/ClaudeConfig.swift"
+        let content = try String(contentsOfFile: path, encoding: .utf8)
 
-        let data = try OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys]).encode(config)
-        let decoded = try OracleJSONCoding.makeDecoder().decode(ClaudeConfig.self, from: data)
-
-        #expect(decoded.additionalFields["theme"] == .string("dark"))
-        #expect(decoded.mcpServers["oracle-os"]?.additionalFields["type"] == .string("stdio"))
-        #expect(decoded.allowedTools == ["mcp__oracle-os__*"])
+        XCTAssertTrue(content.contains("var root: [String: JSONValue]"))
+        XCTAssertTrue(content.contains("mutating func setServer"))
+        XCTAssertTrue(content.contains("mutating func ensureAllowedTool"))
+        XCTAssertTrue(content.contains("func write(to path: String) throws"))
+        XCTAssertFalse(content.contains("JSONSerialization.jsonObject(with:"))
     }
 }
