@@ -120,9 +120,8 @@ struct Doctor {
         let configPath = NSHomeDirectory() + "/.claude.json"
         if let config = ClaudeConfigFile.load(from: configPath),
            let oracleConfig = config.server(named: ClaudeConfigFile.defaultServerName) {
-            let command = oracleConfig.command
             print("  [ok] MCP Config: oracle-os configured")
-            print("    Binary: \(command)")
+            print("    Binary: \(oracleConfig.command)")
         } else {
             print("  [FAIL] MCP Config: oracle-os not configured")
             let binaryPath = resolveBinaryPath()

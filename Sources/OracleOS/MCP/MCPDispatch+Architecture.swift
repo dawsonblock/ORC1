@@ -4,6 +4,23 @@ import Foundation
 //
 // Covers: oracle_architecture_review, oracle_candidate_review
 
+struct ArchitectureReviewPayload: Encodable {
+    let triggered: Bool
+    let riskScore: Double
+    let affectedModules: [String]
+    let findings: [ArchitectureFindingPayload]
+    let refactorProposal: RefactorProposalPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case triggered
+        case riskScore = "risk_score"
+        case affectedModules = "affected_modules"
+        case findings
+        case refactorProposal = "refactor_proposal"
+    }
+}
+
+struct ArchitectureFindingPayload: Encodable {
 private struct ArchitectureFindingPayload: Encodable {
     let id: String
     let title: String
@@ -24,6 +41,11 @@ private struct ArchitectureFindingPayload: Encodable {
     }
 }
 
+struct RefactorProposalPayload: Encodable {
+    let id: String
+    let title: String
+    let summary: String
+    let steps: [String]
 private struct RefactorProposalPayload: Encodable {
     let id: String
     let title: String
@@ -80,6 +102,7 @@ extension MCPDispatch {
                 snapshot: snapshot,
                 candidatePaths: candidatePaths
             )
+            return typedResult(archReviewPayload(review))
             guard let data = mcpLegacyJSONObject(from: archReviewPayload(from: review)) else {
                 return ToolResult(success: false, error: "Failed to serialize architecture review")
             }
@@ -118,6 +141,7 @@ extension MCPDispatch {
                 candidate: patch,
                 diffSummary: diffSummary
             )
+            return typedResult(archReviewPayload(review))
             guard let data = mcpLegacyJSONObject(from: archReviewPayload(from: review)) else {
                 return ToolResult(success: false, error: "Failed to serialize candidate architecture review")
             }
@@ -128,6 +152,7 @@ extension MCPDispatch {
         }
     }
 
+    private static func archReviewPayload(_ review: ArchitectureReview) -> ArchitectureReviewPayload {
     private static func archReviewPayload(from review: ArchitectureReview) -> ArchitectureReviewPayload {
         ArchitectureReviewPayload(
             triggered: review.triggered,
@@ -149,6 +174,7 @@ extension MCPDispatch {
                     id: proposal.id,
                     title: proposal.title,
                     summary: proposal.summary,
+                    steps: proposal.steps,
                     affectedModules: proposal.affectedModules,
                     steps: proposal.steps,
                     invariantRefs: proposal.invariantRefs,

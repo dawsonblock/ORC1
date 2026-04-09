@@ -22,7 +22,6 @@ import ApplicationServices
 import AXorcist
 import Foundation
 import OracleOS
-import OracleOS
 
 @MainActor
 struct SetupWizard {

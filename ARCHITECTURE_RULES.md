@@ -1,102 +1,72 @@
 # Architecture Rules
 
-This document is the single source of truth for Oracle-OS architectural invariants.
-All contributors must follow these rules. No exceptions without explicit amendment here.
+This document is the normative invariant set for this checkout.
 
----
+## Product Shape
 
-## Protected Backbone Modules
+Supported product surfaces are exactly:
 
-These modules form the execution and reasoning spine. They may be strengthened
-but not bypassed, duplicated, or replaced without updating this document:
+- `OracleController`
+- MCP server
+- `oracle` CLI
 
-| Module | Role |
-| -------- | ------ |
-| `VerifiedExecutor` | Only path for environment-changing actions (`execute(_:)` trust boundary) |
-| `CommitCoordinator` | Only path for committed state writes (returns `CommitReceipt`) |
-| `RuntimeBootstrap` | Canonical kernel factory (`makeBootstrappedRuntime()` wires all dependencies) |
-| `DomainEvent` | Typed event contract for reducer-safe decoding |
-| `StateSnapshot` | Immutable state capture (holds `WorldModelSnapshot` value type) |
-| `CriticLoop` | Post-action evaluation and failure classification |
-| `PlanSimulator` | Simulates plans before commitment |
-| `ProgramKnowledgeGraph` | Canonical code model (all code graphs are views over it) |
-| `WorldStateModel` | Authoritative committed world state |
-| `ObservationChangeDetector` | Element-level change detection with volatile filtering |
-| `TaskLedger` | Runtime task tracking and graph navigation (`Sources/OracleOS/TaskLedger/`) |
-| `TraceRecorder` | Execution evidence recording (`Sources/OracleOS/Learning/Trace/TraceRecorder.swift`) |
-| `RepairPipeline` | Canonical repair stages (localize → patch → validate → apply) |
-| `BenchmarkBaseline` | Metric thresholds for evidence-driven upgrades |
+No change may broaden the repo into a cross-platform runtime, hosted cloud service, or second primary execution framework.
 
----
+## Main Execution Spine
 
-## Required Runtime Sequence
+The supported main-path execution spine is exactly:
 
-Every environment mutation follows this exact sequence:
+`RuntimeBootstrap -> RuntimeOrchestrator -> MainPlanner -> VerifiedExecutor -> CommandRouter -> UIRouter / CodeRouter -> CommitCoordinator`
 
-```text
-planner proposes
-↓
-policy authorizes
-↓
-executor acts
-↓
-verifier judges
-↓
-runtime commits (returns CommitReceipt with snapshotID)
-↓
-trace records
-↓
-recovery reacts
-```
+New runtime behavior must route through this spine unless it is an already-approved bounded exception documented below.
 
-No authoritative state mutation may exist without executor evidence.
+## MCP Boundary
 
----
+- `MCPDispatch.handle(_ params: [String: Any])` is the outer compatibility seam only.
+- After decode into `MCPToolRequest`, normal MCP dispatch must use typed transport (`JSONValue`, typed request helpers, typed payload structs).
+- Internal MCP dispatch code must not introduce new raw `[String: Any]` transport or legacy dictionary probing after decode.
+- MCP tool schemas must be authored as typed Swift schema values and exported to the legacy dictionary shape in one final conversion step.
 
-## Required Rules
+## Side-Effect Authority
 
-### R1 — One planner entry point
+- Main-path environment mutation must flow through `VerifiedExecutor`.
+- Main-path committed runtime state must flow through `CommitCoordinator`.
+- Runtime code must not add new direct `Process()` spawning outside approved adapter boundaries.
+- Process execution in runtime code must route through `ProcessAdapter` / `DefaultProcessAdapter`.
+- `oracle setup` and `oracle doctor` remain explicit tooling-only exceptions outside the runtime spine.
 
-The runtime calls exactly one planner API entry point through `RuntimeOrchestrator.submitIntent(_:)`.
-All other plan generators (reasoning, LLM, graph search) are internal helpers
-consumed by `MainPlanner`, never called directly from the runtime.
-`PlanEvaluator` is the sole ranking authority.
+## Controller Bridge
 
-### R2 — Three runtime memory categories only
+- The controller bridge must consume typed runtime outputs for core truth.
+- It must not reintroduce legacy payload probing for action status, code execution, screenshots, or recipe progress when typed runtime fields already provide that information.
+- The controller bridge is an adapter surface, not a second planner, executor, or commit authority.
 
-Runtime memory is organized into exactly three categories:
+## Experiment Isolation
 
-| Category | Purpose |
-| ---------- | --------- |
-| **Trace** | What happened (execution evidence) |
-| **Workflow** | Reusable successful patterns |
-| **Knowledge Graph** | Structured facts and symbol relations |
+`oracle_experiment_search` is an explicit bounded exception and is not part of the guaranteed main-path contract.
 
-`ProjectMemory` is **static support material** — it stores documentation-like
-knowledge (patterns, decisions, risks) that inform but do not drive runtime
-decisions. It is not live runtime memory.
+It must remain:
 
-Do not create additional long-lived memory stores. Route new data into one of
-the three runtime categories.
+- isolated from `CommitCoordinator` mutation
+- isolated from approval-store mediated promotion into the main runtime path
+- isolated from live runtime state mutation
+- confined to sandbox-local writeback only
+- visibly separate from normal MCP dispatch/result flow
 
-### R3 — No runtime imports from controller or UI targets
+Worktree containment must reject traversal and symlink escape and must report cleanup outcome in result metadata.
 
-`OracleRuntime` and all files under `Sources/OracleOS/Runtime/` must import
-only `Foundation`. They must never import `AppKit`, `SwiftUI`,
-`OracleController`, or any controller/UI module. The controller is a surface,
-not a dependency.
+## Persistence Exceptions
 
-### R4 — No environment mutation outside the executor
+Recipe, workflow, and project-memory persistence are service-persistence surfaces, not alternate execution authorities. They may remain explicit bounded exceptions, but they must not expand into a second general execution path around the main runtime spine.
 
-Every environment-changing action (UI interaction, shell command, file write,
-browser navigation, git operation) must flow through `VerifiedExecutor`.
-The executor returns `ExecutionOutcome` with events and artifacts;
-`CommitCoordinator` is the only entity that writes committed state.
+## Verification Honesty
 
-> **Note:** `VerifiedActionExecutor` is removed from the runtime execution path.
-> All side-effect execution must flow through `VerifiedExecutor` via
-> `RuntimeOrchestrator.submitIntent(_:)`.
+Docs and status files must not claim:
 
+- cross-platform runtime support
+- production certification not backed by proof
+- fully local reasoning when configured backends may be remote
+- complete hardening beyond what code, tests, and guards prove
 Forbidden outside the executor and its commit flow:
 
 - Direct writes to `worldState`, `taskLedger`, or runtime memory stores

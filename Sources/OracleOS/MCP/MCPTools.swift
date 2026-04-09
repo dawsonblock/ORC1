@@ -95,6 +95,19 @@ public enum MCPTools {
     /// All tool definitions as MCP-compatible dictionaries.
     @MainActor
     public static func definitions() -> [[String: Any]] {
+        allDefinitions.map { definition in
+            guard let legacyDictionary = definition.legacyDictionary else {
+                preconditionFailure(
+                    "Failed to encode MCP tool definition '\(definition.name)' to legacy dictionary. Refusing to return a partial MCP tools list."
+                )
+            }
+            return legacyDictionary
+        }
+    }
+
+    @MainActor
+    private static var allDefinitions: [MCPToolDefinition] {
+        perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
         let typed = perception + actions + wait + recipes + vision + projectMemory + experiments + architecture + workflows
         let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
         guard let data = try? encoder.encode(typed),
@@ -480,6 +493,48 @@ public enum MCPTools {
         MCPPropertySchema(type: type, description: description)
     }
 
+    private static func propArray(_ itemType: String, _ description: String) -> MCPPropertySchema {
+        MCPPropertySchema(
+            type: "array",
+            items: MCPPropertySchema(type: itemType),
+            description: description
+        )
+    }
+
+    private static func prop(_ type: String, _ description: String) -> MCPPropertySchema {
+        MCPPropertySchema(type: type, description: description)
+    }
+}
+
+struct MCPToolDefinition: Encodable {
+    let name: String
+    let description: String
+    let inputSchema: MCPToolInputSchema
+
+    var legacyDictionary: [String: Any]? {
+        MCPDispatch.legacyDict(for: self)
+    }
+}
+
+struct MCPToolInputSchema: Encodable {
+    let type = "object"
+    let properties: [String: MCPPropertySchema]
+    let required: [String]?
+}
+
+struct MCPPropertySchema: Encodable {
+    let type: String
+    let items: MCPPropertySchema?
+    let description: String?
+
+    init(
+        type: String,
+        items: MCPPropertySchema? = nil,
+        description: String? = nil
+    ) {
+        self.type = type
+        self.items = items
+        self.description = description
     private static func propArray(_ itemType: String, _ description: String) -> MCPPropertySchema {
         MCPPropertySchema(type: "array", description: description, items: MCPPropertyItemsSchema(type: itemType))
     }

@@ -23,6 +23,15 @@ private struct ExperimentSearchResultSummary: Encodable {
     let architectureRisk: Double
     let diffSummary: String
     let commandResults: [ExperimentCommandResultSummary]
+    let resolvedSandboxRoot: String?
+    let canonicalWorkspaceRoot: String?
+    let candidatePaths: [String]?
+    let executedCommands: [String]?
+    let cleanupOutcome: ExperimentCleanupOutcome?
+    let commitCoordinatorMutation: Bool?
+    let approvalStorePromotion: Bool?
+    let liveRuntimeStateMutation: Bool?
+    let workspaceWritebackOutsideSandbox: Bool?
     let sandboxMetadata: SandboxExecutionMetadata?
 
     enum CodingKeys: String, CodingKey {
@@ -36,6 +45,15 @@ private struct ExperimentSearchResultSummary: Encodable {
         case architectureRisk = "architecture_risk"
         case diffSummary = "diff_summary"
         case commandResults = "command_results"
+        case resolvedSandboxRoot = "resolved_sandbox_root"
+        case canonicalWorkspaceRoot = "canonical_workspace_root"
+        case candidatePaths = "candidate_paths"
+        case executedCommands = "executed_commands"
+        case cleanupOutcome = "cleanup_outcome"
+        case commitCoordinatorMutation = "commit_coordinator_mutation"
+        case approvalStorePromotion = "approval_store_promotion"
+        case liveRuntimeStateMutation = "live_runtime_state_mutation"
+        case workspaceWritebackOutsideSandbox = "workspace_writeback_outside_sandbox"
         case sandboxMetadata = "sandbox_metadata"
     }
 }
@@ -221,12 +239,32 @@ public enum MCPDispatch {
                 toolName: MCPToolName.experimentSearch
             )
         }
+        let buildCommand: ExperimentCommandRequest?
+        switch makeExperimentCommandRequest(request.strings("build_command"), category: .build) {
+        case .failure(let error):
+            return formatTypedResult(
+                ToolResult(success: false, error: error),
+                toolName: MCPToolName.experimentSearch
+            )
+        case .success(let command):
+            buildCommand = command
+        }
+        let testCommand: ExperimentCommandRequest?
+        switch makeExperimentCommandRequest(request.strings("test_command"), category: .test) {
+        case .failure(let error):
+            return formatTypedResult(
+                ToolResult(success: false, error: error),
+                toolName: MCPToolName.experimentSearch
+            )
+        case .success(let command):
+            testCommand = command
+        }
         let spec = ExperimentSpec(
             goalDescription: goalDescription,
             workspaceRoot: FileManager.default.currentDirectoryPath,
             candidates: patches,
-            buildCommand: makeCommandSpec(request.strings("build_command"), category: .build),
-            testCommand: makeCommandSpec(request.strings("test_command"), category: .test)
+            buildCommand: buildCommand,
+            testCommand: testCommand
         )
         do {
             let results = try await bootstrapped.container.experimentManager.run(spec: spec)
@@ -249,18 +287,20 @@ public enum MCPDispatch {
                                 summary: commandResult.summary
                             )
                         },
-                        sandboxMetadata: result.sandboxMetadata
+                        resolvedSandboxRoot: result.sandboxEvidence?.resolvedSandboxRoot,
+                        canonicalWorkspaceRoot: result.sandboxEvidence?.canonicalWorkspaceRoot,
+                        candidatePaths: result.sandboxEvidence?.candidatePaths,
+                        executedCommands: result.sandboxEvidence?.executedCommands,
+                        cleanupOutcome: result.sandboxEvidence?.cleanupOutcome,
+                        commitCoordinatorMutation: result.sandboxEvidence?.commitCoordinatorMutation,
+                        approvalStorePromotion: result.sandboxEvidence?.approvalStorePromotion,
+                        liveRuntimeStateMutation: result.sandboxEvidence?.liveRuntimeStateMutation,
+                        workspaceWritebackOutsideSandbox: result.sandboxEvidence?.workspaceWritebackOutsideSandbox
                     )
                 },
                 count: results.count
             )
-            guard let data = mcpLegacyJSONObject(from: payload) else {
-                return .error("Failed to serialize experiment search results")
-            }
-            return formatTypedResult(
-                ToolResult(success: true, data: data),
-                toolName: MCPToolName.experimentSearch
-            )
+            return exportTypedResponse(payload, toolName: MCPToolName.experimentSearch)
         } catch {
             return formatTypedResult(
                 ToolResult(success: false, error: "Experiment search failed: \(error)"),
@@ -269,17 +309,54 @@ public enum MCPDispatch {
         }
     }
 
-    private static func makeCommandSpec(_ args: [String]?, category: CodeCommandCategory) -> CommandSpec? {
-        guard let args, !args.isEmpty else { return nil }
-        return CommandSpec(
+    private static func makeExperimentCommandRequest(
+        _ args: [String]?,
+        category: CodeCommandCategory
+    ) -> Result<ExperimentCommandRequest?, String> {
+        guard let args, !args.isEmpty else { return .success(nil) }
+        let executable = args[0]
+        let allowlist: Set<String> = category == .build
+            ? ["/usr/bin/swift", "swift", "/usr/bin/xcodebuild", "xcodebuild"]
+            : ["/usr/bin/swift", "swift", "/usr/bin/xcodebuild", "xcodebuild"]
+        guard allowlist.contains(executable) else {
+            let sorted = allowlist.sorted().joined(separator: ", ")
+            return .failure(
+                "Unsupported \(category.rawValue) command executable '\(executable)'. Allowed executables: \(sorted)."
+            )
+        }
+        return .success(ExperimentCommandRequest(
             category: category,
-            executable: args[0],
+            executable: executable,
             arguments: Array(args.dropFirst()),
-            workspaceRoot: FileManager.default.currentDirectoryPath,
-            summary: args.joined(separator: " "),
-            mutatesWorkspace: false,
-            touchesNetwork: false
-        )
+            summary: args.joined(separator: " ")
+        ))
+    }
+
+    static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
+        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
+        guard let data = try? encoder.encode(value),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: Any] else {
+            return nil
+        }
+        return dictionary
+    }
+
+    static func typedResult<T: Encodable>(
+        _ payload: T,
+        suggestion: String? = nil
+    ) -> ToolResult {
+        guard let data = legacyDict(for: payload) else {
+            return ToolResult(success: false, error: "Failed to serialize \(T.self)")
+        }
+        return ToolResult(success: true, data: data, suggestion: suggestion)
+    }
+
+    private static func exportTypedResponse<T: Encodable>(
+        _ payload: T,
+        toolName: String
+    ) -> MCPToolResponse {
+        formatTypedResult(typedResult(payload), toolName: toolName)
     }
 
     // MARK: - Result formatting
@@ -317,18 +394,18 @@ public enum MCPDispatch {
             return AXScanner.findElements(
                 query: request.string("query"),
                 role: request.string("role"),
-                domId: nil,
-                domClass: nil,
-                identifier: nil,
+                domId: request.string("dom_id"),
+                domClass: request.string("dom_class"),
+                identifier: request.string("identifier"),
                 appName: request.string("app"),
-                depth: nil
+                depth: request.int("depth")
             )
 
         case MCPToolName.read:
             return AXScanner.readContent(
                 appName: request.string("app"),
                 query: request.string("query"),
-                depth: nil
+                depth: request.int("depth")
             )
 
         case MCPToolName.inspect:
@@ -352,14 +429,15 @@ public enum MCPDispatch {
                 Actions.click(
                     query: request.string("query"),
                     role: request.string("role"),
-                    domId: nil,
+                    domId: request.string("dom_id"),
                     appName: request.string("app"),
                     x: request.double("x"),
                     y: request.double("y"),
-                    button: nil,
-                    count: nil,
+                    button: request.string("button"),
+                    count: request.int("count"),
                     runtime: runtime,
                     surface: .mcp,
+                    approvalRequestID: request.string("approval_request_id"),
                     toolName: tool
                 )
             }
@@ -369,11 +447,12 @@ public enum MCPDispatch {
                 Actions.typeText(
                     text: request.string("text") ?? "",
                     into: request.string("into"),
-                    domId: nil,
+                    domId: request.string("dom_id"),
                     appName: request.string("app"),
                     clear: request.bool("clear") ?? false,
                     runtime: runtime,
                     surface: .mcp,
+                    approvalRequestID: request.string("approval_request_id"),
                     toolName: tool
                 )
             }
@@ -386,14 +465,20 @@ public enum MCPDispatch {
                 key: key,
                 modifiers: request.strings("modifiers"),
                 appName: request.string("app"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         case MCPToolName.hotkey:
             guard let keys = request.strings("keys"), !keys.isEmpty else {
                 return ToolResult(success: false, error: "keys array is required for oracle_hotkey")
             }
-            return Actions.hotkey(keys: keys, appName: request.string("app"), runtime: runtime)
+            return Actions.hotkey(
+                keys: keys,
+                appName: request.string("app"),
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
+            )
 
         case MCPToolName.scroll:
             guard let direction = request.string("direction") else {
@@ -405,7 +490,8 @@ public enum MCPDispatch {
                 appName: request.string("app"),
                 x: request.double("x"),
                 y: request.double("y"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         case MCPToolName.focus:
@@ -415,7 +501,8 @@ public enum MCPDispatch {
             return Actions.focusApp(
                 appName: appName,
                 windowTitle: request.string("window"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         case MCPToolName.window:
@@ -430,7 +517,8 @@ public enum MCPDispatch {
                 y: request.double("y"),
                 width: request.double("width"),
                 height: request.double("height"),
-                runtime: runtime
+                runtime: runtime,
+                approvalRequestID: request.string("approval_request_id")
             )
 
         // MARK: Wait (read-only host-local polling)

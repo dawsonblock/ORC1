@@ -4,6 +4,12 @@ import Foundation
 //
 // Covers: oracle_memory_query, oracle_memory_draft
 
+struct MemoryQueryPayload: Encodable {
+    let records: [MemoryRecordSummary]
+    let count: Int
+}
+
+struct MemoryRecordSummary: Encodable {
 private struct MemoryRecordPayload: Encodable {
     let id: String
     let kind: String
@@ -26,6 +32,7 @@ private struct MemoryRecordPayload: Encodable {
     }
 }
 
+struct MemoryDraftPayload: Encodable {
 private struct MemoryQueryPayload: Encodable {
     let records: [MemoryRecordPayload]
     let count: Int
@@ -73,6 +80,19 @@ extension MCPDispatch {
                     return matchesQuery && matchesKind && matchesModules
                 }.prefix(limit))
             }
+            let records = filtered.map { record in
+                MemoryRecordSummary(
+                    id: record.id,
+                    kind: record.kind.rawValue,
+                    title: record.title,
+                    summary: record.summary,
+                    knowledgeClass: record.knowledgeClass.rawValue,
+                    affectedModules: record.affectedModules.isEmpty ? nil : record.affectedModules,
+                    body: record.body.isEmpty ? nil : record.body,
+                    evidenceRefs: record.evidenceRefs.isEmpty ? nil : record.evidenceRefs
+                )
+            }
+            return typedResult(MemoryQueryPayload(records: records, count: records.count))
             let payload = MemoryQueryPayload(
                 records: filtered.map { record in
                     MemoryRecordPayload(
@@ -146,6 +166,8 @@ extension MCPDispatch {
                 default:
                     return ToolResult(success: false, error: "Unhandled kind: \(kindStr)")
                 }
+                return typedResult(
+                    MemoryDraftPayload(drafted: title, kind: kindStr),
                 let payload = MemoryDraftPayload(drafted: title, kind: kindStr)
                 guard let data = mcpLegacyJSONObject(from: payload) else {
                     return ToolResult(success: false, error: "Failed to serialize memory draft response")

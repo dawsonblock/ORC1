@@ -299,6 +299,56 @@ public struct RecipeRunResultPayload: Sendable, Codable, Equatable {
     }
 }
 
+public struct RuntimeResultEnvelope: Sendable, Codable, Equatable {
+    public let summary: String
+    public let snapshotID: String?
+    public let actionResult: ActionResult?
+    public let traceResult: TraceResult?
+    public let codeExecutionResult: CodeExecutionResult?
+    public let recipeRunResult: RecipeRunResultPayload?
+
+    public init(
+        summary: String,
+        snapshotID: String? = nil,
+        actionResult: ActionResult? = nil,
+        traceResult: TraceResult? = nil,
+        codeExecutionResult: CodeExecutionResult? = nil,
+        recipeRunResult: RecipeRunResultPayload? = nil
+    ) {
+        self.summary = summary
+        self.snapshotID = snapshotID
+        self.actionResult = actionResult
+        self.traceResult = traceResult
+        self.codeExecutionResult = codeExecutionResult
+        self.recipeRunResult = recipeRunResult
+    }
+
+    public func toolResult(
+        success: Bool,
+        error: String? = nil,
+        suggestion: String? = nil
+    ) -> ToolResult {
+        ToolResult(
+            success: success,
+            data: compatibilityData,
+            error: error,
+            suggestion: suggestion,
+            actionResult: actionResult,
+            traceResult: traceResult,
+            codeExecutionResult: codeExecutionResult,
+            recipeRunResult: recipeRunResult
+        )
+    }
+
+    private var compatibilityData: [String: Any] {
+        var data: [String: Any] = ["summary": summary]
+        if let snapshotID {
+            data["snapshot_id"] = snapshotID
+        }
+        return data
+    }
+}
+
 private func decodeInt(_ value: Any?) -> Int? {
     if let intValue = value as? Int {
         return intValue
