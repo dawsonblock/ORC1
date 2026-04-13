@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import OracleOS
@@ -28,5 +29,21 @@ struct VisionBridgeLifecycleTests {
 
         #expect(result == false)
         #expect(process.terminateCallCount == 1)
+    }
+
+    @Test("Structured sidecar errors are flattened into a readable message")
+    func extractsStructuredErrorPayload() throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "error": "invalid request",
+            "detail": "missing image",
+            "suggestion": "capture a fresh screenshot",
+        ])
+
+        let message = VisionBridge.extractErrorMessage(from: data)
+
+        #expect(
+            message
+                == "invalid request | missing image | Suggestion: capture a fresh screenshot"
+        )
     }
 }

@@ -46,6 +46,10 @@ public enum VisionScanner {
         }
     }
 
+    struct ParseContractFailure: Error, Equatable {
+        let violations: [String]
+    }
+
     // MARK: - oracle_parse_screen
 
     /// Experimental full-screen vision parsing.
@@ -104,14 +108,14 @@ public enum VisionScanner {
                 data: encodedResponse,
                 suggestion: response.context ?? "Screen parsed successfully via vision sidecar."
             )
-        case .failure(let violations):
+        case .failure(let failure):
             var failureData = encodedResponse
-            failureData["validator_violations"] = violations
+            failureData["validator_violations"] = failure.violations
             return ToolResult(
                 success: false,
                 data: failureData,
                 error: "Vision parse response failed contract validation",
-                suggestion: violations.joined(separator: " | ")
+                suggestion: failure.violations.joined(separator: " | ")
             )
         }
     }
@@ -537,7 +541,7 @@ public enum VisionScanner {
         screenWidth: Double,
         screenHeight: Double,
         timestamp: String
-    ) -> Result<VisionPerceptionFrame, [String]> {
+    ) -> Result<VisionPerceptionFrame, ParseContractFailure> {
         var violations: [String] = []
         if let error = response.error?.trimmingCharacters(in: .whitespacesAndNewlines),
             !error.isEmpty
@@ -547,7 +551,7 @@ public enum VisionScanner {
 
         guard let elements = response.elements else {
             violations.append("Vision parse response is missing elements")
-            return .failure(violations)
+            return .failure(ParseContractFailure(violations: violations))
         }
 
         if let count = response.count, count != elements.count {
@@ -589,7 +593,9 @@ public enum VisionScanner {
         )
 
         violations.append(contentsOf: VisionContractValidator.validate(frame))
-        return violations.isEmpty ? .success(frame) : .failure(violations)
+        return violations.isEmpty
+            ? .success(frame)
+            : .failure(ParseContractFailure(violations: violations))
     }
 
     private static func encodeJSONObject<T: Encodable>(_ value: T) -> [String: Any]? {

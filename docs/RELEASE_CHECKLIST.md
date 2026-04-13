@@ -14,13 +14,13 @@ Use this checklist before tagging any release. Complete every item in order.
 - [ ] `python3 scripts/mcp_boundary_guard.py` exits 0 (all 30 MCP tools have dispatch entries)
 - [ ] `python3 scripts/architecture_guard.py` exits 0 (no architectural violations)
 - [ ] `python3 scripts/execution_boundary_guard.py` exits 0
+- [ ] `python3 scripts/vision_contract_guard.py` exits 0 (vision sidecar schema and runtime payload match `VisionSidecarContract.swift`)
 
 ### Code Quality
 
 - [ ] No `private` func/struct that should be `internal` when split across files
 - [ ] No `@Observable` var properties left in extensions (must be in main class body)
 - [ ] No new MCP tool added without a dispatch entry in `MCPDispatch.swift`
-- [ ] Vision sidecar `endpoints.py` schema matches `VisionSidecarContract.swift` types
 
 ### Documentation
 

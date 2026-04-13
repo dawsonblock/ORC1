@@ -187,7 +187,7 @@ mark_failed_phase() {
                 DASHBOARD_SMOKE_STATUS="failed"
             fi
             ;;
-        REPO_FACTS|CLI_CONTRACT_GUARD|MCP_BOUNDARY_GUARD|ARCHITECTURE_GUARD|EXECUTION_BOUNDARY_GUARD)
+        REPO_FACTS|CLI_CONTRACT_GUARD|MCP_BOUNDARY_GUARD|ARCHITECTURE_GUARD|EXECUTION_BOUNDARY_GUARD|VISION_CONTRACT_GUARD)
             GUARD_STATUS="failed"
             ;;
     esac
@@ -424,6 +424,7 @@ if [[ "$MODE" == "all" ]]; then
     run_guard_command "MCP_BOUNDARY_GUARD" "mcp_boundary_guard.py" python3 "$REPO_ROOT/scripts/mcp_boundary_guard.py"
     run_guard_command "ARCHITECTURE_GUARD" "architecture_guard.py" python3 "$REPO_ROOT/scripts/architecture_guard.py"
     run_guard_command "EXECUTION_BOUNDARY_GUARD" "execution_boundary_guard.py" python3 "$REPO_ROOT/scripts/execution_boundary_guard.py"
+    run_guard_command "VISION_CONTRACT_GUARD" "vision_contract_guard.py" python3 "$REPO_ROOT/scripts/vision_contract_guard.py"
     GUARD_STATUS="verified"
 else
     GUARD_STATUS="skipped by mode ($MODE)"

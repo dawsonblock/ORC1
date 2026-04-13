@@ -40,6 +40,5 @@ class VisionElement:
             "confidence": self.confidence,
             "box": [self.x, self.y, self.width, self.height],
             "text": self.text,
-            "source": self.source,
-            "attributes": self.attributes
+            "source": self.source
         }

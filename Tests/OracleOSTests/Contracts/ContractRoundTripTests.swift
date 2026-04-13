@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 // MARK: - JSONValue
@@ -58,7 +59,7 @@ final class JSONValueTests: XCTestCase {
         let v = JSONValue.object([
             "flag": .bool(true),
             "count": .int(7),
-            "nested": .object(["key": .string("val")])
+            "nested": .object(["key": .string("val")]),
         ])
         let data = try encoder.encode(v)
         let decoded = try decoder.decode(JSONValue.self, from: data)
@@ -121,7 +122,7 @@ final class JSONValueTests: XCTestCase {
             "num": .int(42),
             "flag": .bool(false),
             "text": .string("hi"),
-            "arr": .array([.null])
+            "arr": .array([.null]),
         ])
         let f = v.toFoundation() as? [String: Any]
         XCTAssertNotNil(f)
@@ -158,7 +159,7 @@ final class MCPToolRequestTests: XCTestCase {
     func testDecodeFromLegacyDict_happyPath() {
         let params: [String: Any] = [
             "name": "oracle_type",
-            "arguments": ["text": "hello"]
+            "arguments": ["text": "hello"],
         ]
         let req = MCPToolRequest.decode(from: params)
         XCTAssertNotNil(req)
@@ -171,7 +172,7 @@ final class MCPToolRequestTests: XCTestCase {
         let params: [String: Any] = [
             "version": "1",
             "name": "oracle_scroll",
-            "arguments": ["direction": "down"]
+            "arguments": ["direction": "down"],
         ]
         let req = MCPToolRequest.decode(from: params)
         XCTAssertNotNil(req)
@@ -188,7 +189,7 @@ final class MCPToolRequestTests: XCTestCase {
         let params: [String: Any] = [
             "version": "99",
             "name": "oracle_click",
-            "arguments": [:]
+            "arguments": [:],
         ]
         XCTAssertNil(MCPToolRequest.decode(from: params))
     }
@@ -441,7 +442,8 @@ final class VisionContractTests: XCTestCase {
     }
 
     func testImageInput_isValid_allThreeFields_isFalse() {
-        XCTAssertFalse(VisionImageInput(filePath: "/x", base64Bytes: "data", artifactID: "id").isValid)
+        XCTAssertFalse(
+            VisionImageInput(filePath: "/x", base64Bytes: "data", artifactID: "id").isValid)
     }
 
     // MARK: VisionResponse roundtrip
@@ -463,7 +465,8 @@ final class VisionContractTests: XCTestCase {
         XCTAssertEqual(decoded.results.count, 1)
         XCTAssertEqual(decoded.results[0].label, "button")
         XCTAssertEqual(decoded.results[0].confidence, 0.95)
-        XCTAssertEqual(decoded.results[0].boundingBox, VisionRect(x: 0.1, y: 0.2, width: 0.3, height: 0.1))
+        XCTAssertEqual(
+            decoded.results[0].boundingBox, VisionRect(x: 0.1, y: 0.2, width: 0.3, height: 0.1))
         XCTAssertEqual(decoded.results[0].metadata["role"], "AXButton")
     }
 
@@ -484,7 +487,7 @@ final class VisionContractTests: XCTestCase {
     func testVisionErrorCode_allCases_roundtrip() throws {
         let codes: [VisionErrorCode] = [
             .timeout, .modelUnavailable, .invalidInput,
-            .partialResult, .unsupportedVersion, .internalError
+            .partialResult, .unsupportedVersion, .internalError,
         ]
         for code in codes {
             let err = VisionError(code: code, detail: "test")
@@ -511,6 +514,94 @@ final class VisionContractTests: XCTestCase {
         XCTAssertEqual(VisionOperation.classify.rawValue, "classify")
         XCTAssertEqual(VisionOperation.ocr.rawValue, "ocr")
         XCTAssertEqual(VisionOperation.uiElements.rawValue, "uiElements")
+    }
+}
+
+// MARK: - VisionSidecarContract
+
+final class VisionSidecarContractTests: XCTestCase {
+
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    func testVisionGroundRequest_encodesSnakeCaseFields() throws {
+        let request = VisionGroundRequest(
+            image: "image-bytes",
+            description: "Compose button",
+            screenW: 1440,
+            screenH: 900,
+            cropBox: [10, 20, 300, 400]
+        )
+
+        let data = try encoder.encode(request)
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertEqual(object["image"] as? String, "image-bytes")
+        XCTAssertEqual(object["description"] as? String, "Compose button")
+        XCTAssertEqual(object["screen_w"] as? Double, 1440)
+        XCTAssertEqual(object["screen_h"] as? Double, 900)
+        XCTAssertEqual(object["crop_box"] as? [Double], [10, 20, 300, 400])
+    }
+
+    func testVisionDetectResponse_roundtrip() throws {
+        let response = VisionDetectResponse(
+            status: "success",
+            elements: [
+                VisionSidecarElement(
+                    id: "button-1",
+                    type: "button",
+                    confidence: 0.94,
+                    box: [10, 20, 30, 40],
+                    text: "Send",
+                    source: "yolo"
+                )
+            ],
+            count: 1,
+            suggestion: "tap the highlighted element",
+            error: nil
+        )
+
+        let data = try encoder.encode(response)
+        let decoded = try decoder.decode(VisionDetectResponse.self, from: data)
+
+        XCTAssertEqual(decoded.status, "success")
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded.elements.count, 1)
+        XCTAssertEqual(decoded.elements[0].id, "button-1")
+        XCTAssertEqual(decoded.elements[0].type, "button")
+        XCTAssertEqual(decoded.elements[0].frame?.x, 10)
+        XCTAssertEqual(decoded.elements[0].frame?.height, 40)
+        XCTAssertEqual(decoded.suggestion, "tap the highlighted element")
+    }
+
+    func testVisionParseResponse_roundtripPreservesContext() throws {
+        let response = VisionParseResponse(
+            status: "success",
+            elements: [
+                VisionSidecarElement(
+                    id: "field-1",
+                    type: "text_field",
+                    confidence: 0.88,
+                    box: [100, 120, 260, 36],
+                    text: "Email",
+                    source: "parser"
+                )
+            ],
+            count: 1,
+            context: "Focused form view",
+            error: nil
+        )
+
+        let data = try encoder.encode(response)
+        let decoded = try decoder.decode(VisionParseResponse.self, from: data)
+
+        XCTAssertEqual(decoded.status, "success")
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded.context, "Focused form view")
+        XCTAssertEqual(decoded.elements?.first?.text, "Email")
+        XCTAssertEqual(decoded.elements?.first?.source, "parser")
     }
 }
 
@@ -689,7 +780,7 @@ final class WebContractTests: XCTestCase {
     func testWebErrorCode_allCases_roundtrip() throws {
         let codes: [WebErrorCode] = [
             .unsupportedVersion, .invalidPayload, .intentRejected,
-            .artifactNotFound, .timeout, .internalError
+            .artifactNotFound, .timeout, .internalError,
         ]
         for code in codes {
             let err = WebError(code: code, detail: "test")
@@ -706,21 +797,22 @@ final class WebContractTests: XCTestCase {
         // for rejecting unknown versions at intake.  This test confirms the
         // version value survives the encode/decode cycle unchanged.
         let json = """
-        {
-          "version": "99",
-          "clientID": "c",
-          "intent": { "objective": "x", "domain": "ui", "metadata": {} }
-        }
-        """.data(using: .utf8)!
+            {
+              "version": "99",
+              "clientID": "c",
+              "intent": { "objective": "x", "domain": "ui", "metadata": {} }
+            }
+            """.data(using: .utf8)!
         let decoded = try decoder.decode(WebIntentSubmission.self, from: json)
-        XCTAssertEqual(decoded.version, "99",
+        XCTAssertEqual(
+            decoded.version, "99",
             "Unknown version must survive decode so the intake layer can reject it explicitly")
     }
 
     func testArtifactFetchRequest_unexpectedVersion_preserved() throws {
         let json = """
-        {"version":"7","artifactID":"x","kind":"log"}
-        """.data(using: .utf8)!
+            {"version":"7","artifactID":"x","kind":"log"}
+            """.data(using: .utf8)!
         let decoded = try decoder.decode(ArtifactFetchRequest.self, from: json)
         XCTAssertEqual(decoded.version, "7")
     }
