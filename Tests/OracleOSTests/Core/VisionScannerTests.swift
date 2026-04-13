@@ -183,4 +183,37 @@ struct VisionScannerTests {
             #expect(Bool(false))
         }
     }
+
+    @Test("Request failure surfaces warming diagnostics")
+    func requestFailureResultUsesWarmingDiagnostic() {
+        let result = VisionScanner.requestFailureResult(
+            tool: "oracle_parse_screen",
+            operation: "Vision parsing",
+            availability: .warming,
+            fallbackError: "Vision parsing failed",
+            fallbackSuggestion: "generic"
+        )
+
+        #expect(result.success == false)
+        #expect(result.error == "Vision parsing failed while the vision sidecar is still warming.")
+        #expect(result.suggestion?.contains("GET /health currently reports idle") == true)
+    }
+
+    @Test("Request failure surfaces degraded diagnostics")
+    func requestFailureResultUsesDegradedDiagnostic() {
+        let result = VisionScanner.requestFailureResult(
+            tool: "oracle_ground",
+            operation: "VLM grounding",
+            availability: .degraded("Vision sidecar model path not found: /missing/model"),
+            fallbackError: "VLM grounding failed",
+            fallbackSuggestion: "generic"
+        )
+
+        #expect(result.success == false)
+        #expect(
+            result.error
+                == "VLM grounding unavailable. Vision sidecar model path not found: /missing/model"
+        )
+        #expect(result.suggestion?.contains("model_exists") == true)
+    }
 }

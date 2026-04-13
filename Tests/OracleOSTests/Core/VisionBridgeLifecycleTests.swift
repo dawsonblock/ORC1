@@ -117,4 +117,15 @@ struct VisionBridgeLifecycleTests {
         #expect(result == false)
         #expect(sleepCalls == 0)
     }
+
+    @Test("Lifecycle state preserves warming versus ready truth")
+    func lifecycleStateReflectsAvailabilityTruthfully() {
+        #expect(VisionBridge.lifecycleState(for: .ready) == .ready)
+        #expect(VisionBridge.lifecycleState(for: .warming) == .warming)
+        #expect(
+            VisionBridge.lifecycleState(
+                for: .degraded("Vision sidecar model load failed: missing weights")
+            ) == .failed
+        )
+    }
 }

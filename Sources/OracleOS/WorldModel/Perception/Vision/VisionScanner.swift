@@ -87,10 +87,12 @@ public enum VisionScanner {
                 screenHeight: displayHeight
             )
         else {
-            return ToolResult(
-                success: false,
-                error: "Vision parsing failed",
-                suggestion: "The vision sidecar may have crashed. Check its logs."
+            return requestFailureResult(
+                tool: "oracle_parse_screen",
+                operation: "Vision parsing",
+                availability: VisionBridge.currentAvailability(),
+                fallbackError: "Vision parsing failed",
+                fallbackSuggestion: "The vision sidecar may have crashed. Check its logs."
             )
         }
 
@@ -208,10 +210,13 @@ public enum VisionScanner {
                 cropBox: cropBox
             )
         else {
-            return ToolResult(
-                success: false,
-                error: "VLM grounding failed for '\(description)'",
-                suggestion: "The vision sidecar may have crashed. Check its logs or restart it."
+            return requestFailureResult(
+                tool: "oracle_ground",
+                operation: "VLM grounding for '\(description)'",
+                availability: VisionBridge.currentAvailability(),
+                fallbackError: "VLM grounding failed for '\(description)'",
+                fallbackSuggestion:
+                    "The vision sidecar may have crashed. Check its logs or restart it."
             )
         }
 
@@ -488,6 +493,44 @@ public enum VisionScanner {
                 + "If it is already running, inspect GET /health for model_exists and vlm_load_error.\n"
                 + "Or use oracle_find for AX-based element search (works without sidecar)."
         )
+    }
+
+    static func requestFailureResult(
+        tool: String,
+        operation: String,
+        availability: VisionBridge.SidecarAvailability,
+        fallbackError: String,
+        fallbackSuggestion: String
+    ) -> ToolResult {
+        switch availability {
+        case .warming:
+            return ToolResult(
+                success: false,
+                error: "\(operation) failed while the vision sidecar is still warming.",
+                suggestion:
+                    "Retry shortly. GET /health currently reports idle while the model is still loading for \(tool)."
+            )
+        case .degraded(let message):
+            return ToolResult(
+                success: false,
+                error: "\(operation) unavailable. \(message)",
+                suggestion:
+                    "Inspect GET /health for model_exists and vlm_load_error, then restart the sidecar before retrying \(tool)."
+            )
+        case .unavailable(let failure):
+            return ToolResult(
+                success: false,
+                error:
+                    "\(operation) failed because the vision sidecar is unreachable. \(failure.description)",
+                suggestion: "Start or restart the sidecar, then retry \(tool)."
+            )
+        case .ready:
+            return ToolResult(
+                success: false,
+                error: fallbackError,
+                suggestion: fallbackSuggestion
+            )
+        }
     }
 
     static func groundingContext(

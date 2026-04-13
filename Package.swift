@@ -77,6 +77,7 @@ let package = Package(
                 .product(name: "Testing", package: "swift-testing"),
             ],
             path: "Tests/OracleOSTests",
+            exclude: ["Fixtures"],
             swiftSettings: concurrencySettings
         ),
         .testTarget(

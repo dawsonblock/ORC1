@@ -110,6 +110,7 @@ public enum VisionBridge {
     public enum SidecarState: Sendable {
         case stopped
         case starting
+        case warming
         case ready
         case failed
     }
@@ -368,7 +369,7 @@ public enum VisionBridge {
             Log.info("Vision sidecar already running and ready")
             return true
         case .warming:
-            lifecycle.state = .ready
+            lifecycle.state = .warming
             Log.info("Vision sidecar already running and warming")
             return true
         case .degraded(let message):
@@ -388,13 +389,16 @@ public enum VisionBridge {
             // Another start is in progress — wait for it.
             if lifecycle.state == .starting {
                 Log.info("Vision sidecar start already in progress, waiting...")
-                if waitForSidecar() {
-                    // Re-check state after waiting — another thread may have moved it.
-                    return lifecycle.state == .ready || isAvailable()
+                let availability = waitForSidecarAvailability()
+                lifecycle.state = lifecycleState(for: availability)
+                switch availability {
+                case .ready, .warming:
+                    return true
+                case .degraded, .unavailable:
+                    return false
                 }
             }
-            // If state is .ready, we're good
-            if lifecycle.state == .ready { return true }
+            if lifecycle.state == .ready || lifecycle.state == .warming { return true }
             return false
         }
 
@@ -427,16 +431,32 @@ public enum VisionBridge {
                 return false
             }
 
-            if waitForSidecar() {
+            let availability = waitForSidecarAvailability()
+            switch availability {
+            case .ready:
                 lifecycle.state = .ready
                 Log.info(
-                    "Vision sidecar started (PID \(lifecycle.process?.processIdentifier ?? 0))")
+                    "Vision sidecar started ready (PID \(lifecycle.process?.processIdentifier ?? 0))"
+                )
                 return true
+            case .warming:
+                lifecycle.state = .warming
+                Log.info(
+                    "Vision sidecar started and is still warming (PID \(lifecycle.process?.processIdentifier ?? 0))"
+                )
+                return true
+            case .degraded(let message):
+                return failSidecarStart(
+                    launchedProcess: lifecycle.process,
+                    message: "Vision sidecar launched but reported degraded health: \(message)"
+                )
+            case .unavailable(let failure):
+                return failSidecarStart(
+                    launchedProcess: lifecycle.process,
+                    message:
+                        "Vision sidecar launched but not responding after 10s: \(failure.description)"
+                )
             }
-            return failSidecarStart(
-                launchedProcess: lifecycle.process,
-                message: "Vision sidecar launched but not responding after 10s"
-            )
         }
 
         // Strategy 2: Run server.py directly with best available Python
@@ -462,16 +482,32 @@ public enum VisionBridge {
                 return false
             }
 
-            if waitForSidecar() {
+            let availability = waitForSidecarAvailability()
+            switch availability {
+            case .ready:
                 lifecycle.state = .ready
                 Log.info(
-                    "Vision sidecar started (PID \(lifecycle.process?.processIdentifier ?? 0))")
+                    "Vision sidecar started ready (PID \(lifecycle.process?.processIdentifier ?? 0))"
+                )
                 return true
+            case .warming:
+                lifecycle.state = .warming
+                Log.info(
+                    "Vision sidecar started and is still warming (PID \(lifecycle.process?.processIdentifier ?? 0))"
+                )
+                return true
+            case .degraded(let message):
+                return failSidecarStart(
+                    launchedProcess: lifecycle.process,
+                    message: "Vision sidecar launched but reported degraded health: \(message)"
+                )
+            case .unavailable(let failure):
+                return failSidecarStart(
+                    launchedProcess: lifecycle.process,
+                    message:
+                        "Vision sidecar launched but not responding after 10s: \(failure.description)"
+                )
             }
-            return failSidecarStart(
-                launchedProcess: lifecycle.process,
-                message: "Vision sidecar launched but not responding after 10s"
-            )
         }
 
         return failSidecarStart(message: "Could not find or start vision sidecar")
@@ -496,34 +532,60 @@ public enum VisionBridge {
         return false
     }
 
+    static func waitForSidecarAvailability(
+        maxAttempts: Int = 100,
+        sleep: (TimeInterval) -> Void = defaultStartupSleep,
+        availabilityProbe: () -> SidecarAvailability = defaultAvailabilityProbe
+    ) -> SidecarAvailability {
+        var lastFailure: VisionRequestFailure = .timedOut
+        for _ in 0..<maxAttempts {
+            let availability = availabilityProbe()
+            switch availability {
+            case .ready, .warming, .degraded:
+                return availability
+            case .unavailable(let failure):
+                lastFailure = failure
+                sleep(0.1)
+            }
+        }
+
+        return .unavailable(lastFailure)
+    }
+
     /// Wait for the sidecar to become responsive (up to 10 seconds).
     static func waitForSidecar(
         maxAttempts: Int = 100,
         sleep: (TimeInterval) -> Void = defaultStartupSleep,
         availabilityProbe: () -> SidecarAvailability = defaultAvailabilityProbe
     ) -> Bool {
-        var lastFailure: VisionRequestFailure?
-        for _ in 0..<maxAttempts {
-            switch availabilityProbe() {
-            case .ready, .warming:
-                return true
-            case .degraded(let message):
-                Log.warn("Vision sidecar reported degraded health during startup: \(message)")
-                return false
-            case .unavailable(let failure):
-                lastFailure = failure
-                sleep(0.1)
-            }
-        }
-        let timeoutSeconds = Double(maxAttempts) * 0.1
-        if let lastFailure {
+        switch waitForSidecarAvailability(
+            maxAttempts: maxAttempts,
+            sleep: sleep,
+            availabilityProbe: availabilityProbe
+        ) {
+        case .ready, .warming:
+            return true
+        case .degraded(let message):
+            Log.warn("Vision sidecar reported degraded health during startup: \(message)")
+            return false
+        case .unavailable(let failure):
+            let timeoutSeconds = Double(maxAttempts) * 0.1
             Log.warn(
-                "Vision sidecar started but not responding after \(timeoutSeconds)s: \(lastFailure.description)"
+                "Vision sidecar started but not responding after \(timeoutSeconds)s: \(failure.description)"
             )
-        } else {
-            Log.warn("Vision sidecar started but not responding after \(timeoutSeconds)s")
+            return false
         }
-        return false
+    }
+
+    static func lifecycleState(for availability: SidecarAvailability) -> SidecarState {
+        switch availability {
+        case .ready:
+            return .ready
+        case .warming:
+            return .warming
+        case .degraded, .unavailable:
+            return .failed
+        }
     }
 
     static func assessSidecarAvailability(_ response: VisionHealthResponse) -> SidecarAvailability {
