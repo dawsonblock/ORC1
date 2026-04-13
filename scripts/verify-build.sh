@@ -276,9 +276,15 @@ run_logged_command() {
     local description="$2"
     local log_path="$3"
     shift 3
+    local -a pipeline_status=()
 
     write_section "$description"
-    if env "${SANITIZED_ENV_ARGS[@]}" "$@" 2>&1 | tee "$log_path"; then
+    set +e
+    env "${SANITIZED_ENV_ARGS[@]}" "$@" 2>&1 | tee "$log_path"
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+
+    if [[ "${pipeline_status[0]:-1}" -eq 0 ]]; then
         write_result "$label: PASS"
         write_result ""
     else
@@ -290,15 +296,29 @@ run_guard_command() {
     local label="$1"
     local description="$2"
     shift 2
+    local -a pipeline_status=()
 
     write_section "$description"
-    if env "${SANITIZED_ENV_ARGS[@]}" "$@" 2>&1 | tee -a "$RESULT_LOG"; then
+    set +e
+    env "${SANITIZED_ENV_ARGS[@]}" "$@" 2>&1 | tee -a "$RESULT_LOG"
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+
+    if [[ "${pipeline_status[0]:-1}" -eq 0 ]]; then
         VERIFIED_GUARDS+=("$description")
         write_result "$label: PASS"
         write_result ""
     else
         fail_step "$label" "Command failed: $description"
     fi
+}
+
+mirror_output_file() {
+    local source_file="$1"
+    local destination_log="$2"
+
+    cat "$source_file" >> "$destination_log"
+    cat "$source_file" || true
 }
 
 join_with_comma() {
@@ -324,7 +344,7 @@ run_cli_smoke() {
 
     write_section "oracle $*"
     if env "${SANITIZED_ENV_ARGS[@]}" TERM=dumb "$binary" "$@" >"$tmp_output" 2>&1; then
-        cat "$tmp_output" | tee -a "$CLI_SMOKE_LOG"
+        mirror_output_file "$tmp_output" "$CLI_SMOKE_LOG"
         if ! grep -Fq "$expected_marker" "$tmp_output"; then
             rm -f "$tmp_output"
             fail_step "$label" "CLI smoke output for 'oracle $*' did not contain expected marker: $expected_marker"
@@ -333,7 +353,7 @@ run_cli_smoke() {
         write_result "$label: PASS"
         write_result ""
     else
-        cat "$tmp_output" | tee -a "$CLI_SMOKE_LOG"
+        mirror_output_file "$tmp_output" "$CLI_SMOKE_LOG"
         rm -f "$tmp_output"
         fail_step "$label" "Command failed: oracle $*"
     fi
