@@ -12,18 +12,6 @@ import os
 /// All execution is mediated by IntentAPI (implemented by RuntimeOrchestrator).
 @MainActor
 public final class RuntimeExecutionDriver: AgentExecutionDriver {
-    private struct RuntimeExecutionPayload: Encodable {
-        let summary: String
-        let cycleID: String
-        let snapshotID: String?
-
-        enum CodingKeys: String, CodingKey {
-            case summary
-            case cycleID
-            case snapshotID = "snapshot_id"
-        }
-    }
-
     /// CONCURRENCY INVARIANT: Single-use handoff box shared between one detached
     /// submission task and one waiting caller. `result` is serialized by a
     /// mutex, the box is discarded after the semaphore join, and it must not
@@ -106,8 +94,7 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         approvalToken: String? = nil
     ) -> ToolResult {
         let codeExecutionResult = Self.makeCodeExecutionResult(from: intent)
-        let domain: IntentDomain = intent.agentKind == .code ? .code :
-            .ui
+        let domain: IntentDomain = intent.agentKind == .code ? .code : .ui
 
         var metadata = [
             "query": intent.query ?? intent.text ?? intent.name,
@@ -143,10 +130,11 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         Task.detached(priority: .userInitiated) { [submissionState, semaphore] in
             do {
                 let response = try await api.submitIntent(typedIntent)
-                submissionState.store(Self.makeToolResult(
-                    from: response,
-                    codeExecutionResult: codeExecutionResult
-                ))
+                submissionState.store(
+                    Self.makeToolResult(
+                        from: response,
+                        codeExecutionResult: codeExecutionResult
+                    ))
             } catch {
                 let envelope = RuntimeResultEnvelope(
                     summary: "Intent submission failed",
@@ -207,7 +195,8 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         from response: IntentResponse,
         codeExecutionResult: CodeExecutionResult?
     ) -> ToolResult {
-        let success = response.outcome == .success
+        let success =
+            response.outcome == .success
             || response.outcome == .skipped
             || response.outcome == .partialSuccess
         let isPlanningFailure = response.summary.lowercased().hasPrefix("planning failed")
@@ -246,29 +235,20 @@ public final class RuntimeExecutionDriver: AgentExecutionDriver {
         let envelope = RuntimeResultEnvelope(
             summary: response.summary,
             snapshotID: response.snapshotID?.uuidString,
-        let payload = RuntimeExecutionPayload(
-            summary: response.summary,
-            cycleID: response.cycleID.uuidString,
-            snapshotID: response.snapshotID?.uuidString
-        )
-        let data = mcpLegacyJSONObject(from: payload) ?? {
-            var d: [String: Any] = ["summary": response.summary, "cycleID": response.cycleID.uuidString]
-            if let snapshotID = response.snapshotID { d["snapshot_id"] = snapshotID.uuidString }
-            return d
-        }()
-
-        return ToolResult(
-            success: success,
-            data: data,
-            error: response.outcome == .failed ? response.summary : nil,
             actionResult: actionResult,
             traceResult: traceResult,
             codeExecutionResult: codeExecutionResult
         )
-        return envelope.toolResult(success: success, error: response.outcome == .failed ? response.summary : nil)
+
+        return envelope.toolResult(
+            success: success,
+            error: response.outcome == .failed ? response.summary : nil
+        )
     }
 
-    nonisolated private static func makeCodeExecutionResult(from intent: ActionIntent) -> CodeExecutionResult? {
+    nonisolated private static func makeCodeExecutionResult(from intent: ActionIntent)
+        -> CodeExecutionResult?
+    {
         guard intent.agentKind == .code else {
             return nil
         }
