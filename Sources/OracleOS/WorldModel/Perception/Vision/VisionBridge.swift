@@ -57,23 +57,55 @@ public enum VisionBridge {
         private var _configuredAdapter: (any ProcessAdapter)?
 
         var state: SidecarState {
-            get { lock.lock(); defer { lock.unlock() }; return _state }
-            set { lock.lock(); defer { lock.unlock() }; _state = newValue }
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return _state
+            }
+            set {
+                lock.lock()
+                defer { lock.unlock() }
+                _state = newValue
+            }
         }
 
         var process: (any BackgroundProcess)? {
-            get { lock.lock(); defer { lock.unlock() }; return _process }
-            set { lock.lock(); defer { lock.unlock() }; _process = newValue }
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return _process
+            }
+            set {
+                lock.lock()
+                defer { lock.unlock() }
+                _process = newValue
+            }
         }
 
         var hasCompletedFirstGround: Bool {
-            get { lock.lock(); defer { lock.unlock() }; return _hasCompletedFirstGround }
-            set { lock.lock(); defer { lock.unlock() }; _hasCompletedFirstGround = newValue }
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return _hasCompletedFirstGround
+            }
+            set {
+                lock.lock()
+                defer { lock.unlock() }
+                _hasCompletedFirstGround = newValue
+            }
         }
 
         var configuredAdapter: (any ProcessAdapter)? {
-            get { lock.lock(); defer { lock.unlock() }; return _configuredAdapter }
-            set { lock.lock(); defer { lock.unlock() }; _configuredAdapter = newValue }
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return _configuredAdapter
+            }
+            set {
+                lock.lock()
+                defer { lock.unlock() }
+                _configuredAdapter = newValue
+            }
         }
 
         /// Atomically transition from an expected state to a new state.
@@ -102,12 +134,16 @@ public enum VisionBridge {
 
     /// Check if the vision sidecar is running and responsive.
     public static func isAvailable() -> Bool {
-        httpGetTyped(path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self, timeout: healthTimeout) != nil
+        httpGetTyped(
+            path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self,
+            timeout: healthTimeout) != nil
     }
 
     /// Get detailed health status from the sidecar.
     public static func healthCheck() -> VisionHealthResponse? {
-        httpGetTyped(path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self, timeout: healthTimeout)
+        httpGetTyped(
+            path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self,
+            timeout: healthTimeout)
     }
 
     // MARK: - VLM Grounding
@@ -169,12 +205,14 @@ public enum VisionBridge {
         // Use longer timeout for first call (model needs to load ~10-15s)
         let timeout = lifecycle.hasCompletedFirstGround ? groundTimeout : firstGroundTimeout
 
-        guard let response = httpPostTyped(
-            path: VisionSidecarEndpoint.ground,
-            body: req,
-            as: VisionGroundResponse.self,
-            timeout: timeout
-        ) else {
+        guard
+            let response = httpPostTyped(
+                path: VisionSidecarEndpoint.ground,
+                body: req,
+                as: VisionGroundResponse.self,
+                timeout: timeout
+            )
+        else {
             Log.warn("Vision sidecar /ground request failed")
             return nil
         }
@@ -198,8 +236,11 @@ public enum VisionBridge {
         screenWidth: Double = 1728,
         screenHeight: Double = 1117
     ) -> VisionDetectResponse? {
-        let req = VisionDetectRequest(image: imageBase64, screenW: screenWidth, screenH: screenHeight)
-        return httpPostTyped(path: VisionSidecarEndpoint.detect, body: req, as: VisionDetectResponse.self, timeout: groundTimeout)
+        let req = VisionDetectRequest(
+            image: imageBase64, screenW: screenWidth, screenH: screenHeight)
+        return httpPostTyped(
+            path: VisionSidecarEndpoint.detect, body: req, as: VisionDetectResponse.self,
+            timeout: groundTimeout)
     }
 
     // MARK: - Screen Parsing
@@ -210,8 +251,11 @@ public enum VisionBridge {
         screenWidth: Double = 1728,
         screenHeight: Double = 1117
     ) -> VisionParseResponse? {
-        let req = VisionParseRequest(image: imageBase64, screenW: screenWidth, screenH: screenHeight)
-        return httpPostTyped(path: VisionSidecarEndpoint.parse, body: req, as: VisionParseResponse.self, timeout: groundTimeout)
+        let req = VisionParseRequest(
+            image: imageBase64, screenW: screenWidth, screenH: screenHeight)
+        return httpPostTyped(
+            path: VisionSidecarEndpoint.parse, body: req, as: VisionParseResponse.self,
+            timeout: groundTimeout)
     }
 
     // MARK: - Sidecar Lifecycle
@@ -230,8 +274,10 @@ public enum VisionBridge {
 
         // Atomically claim the starting transition; if another caller is already
         // starting, wait for that attempt to finish instead of double-starting.
-        guard lifecycle.transition(from: .stopped, to: .starting)
-            || lifecycle.transition(from: .failed, to: .starting) else {
+        guard
+            lifecycle.transition(from: .stopped, to: .starting)
+                || lifecycle.transition(from: .failed, to: .starting)
+        else {
             // Another start is in progress — wait for it.
             if lifecycle.state == .starting {
                 Log.info("Vision sidecar start already in progress, waiting...")
@@ -252,14 +298,16 @@ public enum VisionBridge {
             // FALLBACK EXCEPTION: Not configured via RuntimeBootstrap.configure(processAdapter:).
             // Expected in: CLI setup (oracle doctor/setup), standalone test contexts.
             // In MCP/Controller runtime, bootstrap always configures before first startSidecar().
-            Log.warn("[VisionBridge] Using local DefaultProcessAdapter — not configured via bootstrap (expected in CLI/test contexts only)")
+            Log.warn(
+                "[VisionBridge] Using local DefaultProcessAdapter — not configured via bootstrap (expected in CLI/test contexts only)"
+            )
             adapter = DefaultProcessAdapter()
         }
 
         // Strategy 1: Use oracle-vision launcher script (handles venv/Python resolution)
         if let launcher = findOracleVisionBinary() {
             Log.info("Starting vision sidecar via \(launcher)")
-            
+
             do {
                 let bgProcess = try adapter.spawnBackground(
                     SystemCommand(executable: launcher, arguments: ["--idle-timeout", "600"]),
@@ -274,12 +322,14 @@ public enum VisionBridge {
 
             if waitForSidecar() {
                 lifecycle.state = .ready
-                Log.info("Vision sidecar started (PID \(lifecycle.process?.processIdentifier ?? 0))")
+                Log.info(
+                    "Vision sidecar started (PID \(lifecycle.process?.processIdentifier ?? 0))")
                 return true
             }
-            lifecycle.state = .failed
-            Log.warn("Vision sidecar launched but not responding after 10s")
-            return false
+            return failSidecarStart(
+                launchedProcess: lifecycle.process,
+                message: "Vision sidecar launched but not responding after 10s"
+            )
         }
 
         // Strategy 2: Run server.py directly with best available Python
@@ -294,7 +344,8 @@ public enum VisionBridge {
 
             do {
                 let bgProcess = try adapter.spawnBackground(
-                    SystemCommand(executable: python, arguments: [script, "--idle-timeout", "600"]),
+                    SystemCommand(
+                        executable: python, arguments: [script, "--idle-timeout", "600"]),
                     in: nil
                 )
                 lifecycle.process = bgProcess
@@ -306,16 +357,35 @@ public enum VisionBridge {
 
             if waitForSidecar() {
                 lifecycle.state = .ready
-                Log.info("Vision sidecar started (PID \(lifecycle.process?.processIdentifier ?? 0))")
+                Log.info(
+                    "Vision sidecar started (PID \(lifecycle.process?.processIdentifier ?? 0))")
                 return true
             }
-            lifecycle.state = .failed
-            Log.warn("Vision sidecar launched but not responding after 10s")
-            return false
+            return failSidecarStart(
+                launchedProcess: lifecycle.process,
+                message: "Vision sidecar launched but not responding after 10s"
+            )
         }
 
+        return failSidecarStart(message: "Could not find or start vision sidecar")
+    }
+
+    @discardableResult
+    static func failSidecarStart(
+        launchedProcess: (any BackgroundProcess)? = nil,
+        message: String
+    ) -> Bool {
+        let process = launchedProcess ?? lifecycle.process
+        process?.terminate()
+        if let terminatedPID = process?.processIdentifier,
+            lifecycle.process?.processIdentifier == terminatedPID
+        {
+            lifecycle.process = nil
+        } else if process == nil {
+            lifecycle.process = nil
+        }
         lifecycle.state = .failed
-        Log.warn("Could not find or start vision sidecar")
+        Log.warn(message)
         return false
     }
 
@@ -333,10 +403,15 @@ public enum VisionBridge {
 
     /// Find the oracle-vision launcher script/binary.
     private static func findOracleVisionBinary() -> String? {
-        let executableDirectory = (ProcessInfo.processInfo.arguments[0] as NSString).deletingLastPathComponent
+        let executableDirectory = (ProcessInfo.processInfo.arguments[0] as NSString)
+            .deletingLastPathComponent
         let candidates: [String] = [
-            OracleProductPaths.visionInstallDirectory.appendingPathComponent("oracle-vision", isDirectory: false).path,
-            OracleProductPaths.bundledVisionBootstrapDirectory?.appendingPathComponent("oracle-vision", isDirectory: false).path,
+            OracleProductPaths.visionInstallDirectory.appendingPathComponent(
+                "oracle-vision", isDirectory: false
+            ).path,
+            OracleProductPaths.bundledVisionBootstrapDirectory?.appendingPathComponent(
+                "oracle-vision", isDirectory: false
+            ).path,
             "/opt/homebrew/bin/oracle-vision",
             "/usr/local/bin/oracle-vision",
             executableDirectory + "/oracle-vision",
@@ -353,16 +428,21 @@ public enum VisionBridge {
 
     /// Find the server.py script in expected locations.
     private static func findServerScript() -> String? {
-        let executableDirectory = (ProcessInfo.processInfo.arguments[0] as NSString).deletingLastPathComponent
+        let executableDirectory = (ProcessInfo.processInfo.arguments[0] as NSString)
+            .deletingLastPathComponent
         let bundledVisionDirectory = OracleProductPaths.bundledVisionBootstrapDirectory
         let candidates: [String] = [
-            OracleProductPaths.visionInstallDirectory.appendingPathComponent("server.py", isDirectory: false).path,
+            OracleProductPaths.visionInstallDirectory.appendingPathComponent(
+                "server.py", isDirectory: false
+            ).path,
             bundledVisionDirectory?.appendingPathComponent("server.py", isDirectory: false).path,
             "/opt/homebrew/share/oracle-os/vision-sidecar/server.py",
             "/usr/local/share/oracle-os/vision-sidecar/server.py",
             executableDirectory + "/vision-sidecar/server.py",
-            (executableDirectory as NSString).deletingLastPathComponent + "/vision-sidecar/server.py",
-            ((executableDirectory as NSString).deletingLastPathComponent as NSString).deletingLastPathComponent + "/vision-sidecar/server.py",
+            (executableDirectory as NSString).deletingLastPathComponent
+                + "/vision-sidecar/server.py",
+            ((executableDirectory as NSString).deletingLastPathComponent as NSString)
+                .deletingLastPathComponent + "/vision-sidecar/server.py",
         ].compactMap { $0 }
 
         for path in candidates {
@@ -424,7 +504,9 @@ public enum VisionBridge {
     // MARK: - HTTP Helpers
 
     /// Synchronous HTTP GET, decoded into a typed Decodable response. Returns nil on any failure.
-    private static func httpGetTyped<R: Decodable>(path: String, as type: R.Type, timeout: TimeInterval) -> R? {
+    private static func httpGetTyped<R: Decodable>(
+        path: String, as type: R.Type, timeout: TimeInterval
+    ) -> R? {
         guard let url = URL(string: baseURL + path) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "GET"
@@ -490,9 +572,8 @@ public enum VisionBridge {
         if let error = box.error {
             // Don't log connection refused as error — sidecar might not be running
             let nsError = error as NSError
-            if nsError.code == NSURLErrorCannotConnectToHost ||
-               nsError.code == NSURLErrorTimedOut ||
-               nsError.code == NSURLErrorNetworkConnectionLost
+            if nsError.code == NSURLErrorCannotConnectToHost || nsError.code == NSURLErrorTimedOut
+                || nsError.code == NSURLErrorNetworkConnectionLost
             {
                 Log.debug("Vision sidecar not reachable: \(error.localizedDescription)")
             } else {
