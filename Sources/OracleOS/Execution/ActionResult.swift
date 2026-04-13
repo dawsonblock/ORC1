@@ -27,41 +27,41 @@ public enum ActionResultKey {
 
 /// Typed constants for keys in the trace sub-object produced by RuntimeExecutionDriver.
 public enum TraceResultKey {
-    public static let cycleID  = "cycle_id"
+    public static let cycleID = "cycle_id"
     public static let intentID = "intent_id"
 }
 
 /// Typed constants for recipe-run result dictionary keys.
 /// Producer: RecipeEngine. Consumer: ControllerRuntimeBridge+Mapping.mapRecipeRunResult.
 public enum RecipeResultKey {
-    public static let recipe            = "recipe"
-    public static let stepsCompleted    = "steps_completed"
-    public static let totalSteps        = "total_steps"
-    public static let durationMs        = "duration_ms"
-    public static let stepResults       = "step_results"
-    public static let pendingApproval   = "pending_approval"
+    public static let recipe = "recipe"
+    public static let stepsCompleted = "steps_completed"
+    public static let totalSteps = "total_steps"
+    public static let durationMs = "duration_ms"
+    public static let stepResults = "step_results"
+    public static let pendingApproval = "pending_approval"
     public static let approvalRequestID = "approval_request_id"
-    public static let resumeToken       = "resume_token"
+    public static let resumeToken = "resume_token"
     // Step sub-object keys
-    public static let stepIndex         = "step"
-    public static let stepAction        = "action"
-    public static let stepSuccess       = "success"
-    public static let stepDurationMs    = "duration_ms"
-    public static let stepError         = "error"
-    public static let stepNote          = "note"
+    public static let stepIndex = "step"
+    public static let stepAction = "action"
+    public static let stepSuccess = "success"
+    public static let stepDurationMs = "duration_ms"
+    public static let stepError = "error"
+    public static let stepNote = "note"
 }
 
 /// Typed constants for keys in the `code_execution` sub-dict.
 /// Producer: CodeRouter / ExecutionSemanticsEncoder / ActionContract.
 /// Consumer: ControllerRuntimeBridge+Mapping.mapActionResult (codeData probe).
 public enum CodeExecutionResultKey {
-    public static let commandCategory       = "command_category"
+    public static let commandCategory = "command_category"
     /// Human-readable summary of the command. The dict key is "summary".
-    public static let commandSummary        = "summary"
+    public static let commandSummary = "summary"
     public static let workspaceRelativePath = "workspace_relative_path"
-    public static let buildResultSummary    = "build_result_summary"
-    public static let testResultSummary     = "test_result_summary"
-    public static let patchID               = "patch_id"
+    public static let buildResultSummary = "build_result_summary"
+    public static let testResultSummary = "test_result_summary"
+    public static let patchID = "patch_id"
 }
 
 public struct TraceResult: Sendable, Codable, Equatable {
@@ -82,7 +82,7 @@ public struct TraceResult: Sendable, Codable, Equatable {
 
     public static func from(dict: [String: Any]) -> TraceResult? {
         guard let cycleID = dict[TraceResultKey.cycleID] as? String,
-              let intentID = dict[TraceResultKey.intentID] as? String
+            let intentID = dict[TraceResultKey.intentID] as? String
         else {
             return nil
         }
@@ -272,7 +272,8 @@ public struct RecipeRunResultPayload: Sendable, Codable, Equatable {
     }
 
     public static func from(data: [String: Any]) -> RecipeRunResultPayload? {
-        let hasRecipeShape = data[RecipeResultKey.recipe] != nil
+        let hasRecipeShape =
+            data[RecipeResultKey.recipe] != nil
             || data[RecipeResultKey.stepsCompleted] != nil
             || data[RecipeResultKey.totalSteps] != nil
             || data[RecipeResultKey.stepResults] != nil
@@ -293,13 +294,14 @@ public struct RecipeRunResultPayload: Sendable, Codable, Equatable {
             durationMs: decodeInt(data[RecipeResultKey.durationMs]),
             stepResults: stepResults,
             pendingApproval: data[RecipeResultKey.pendingApproval] as? Bool ?? false,
-            approvalRequestID: data[RecipeResultKey.approvalRequestID] as? String ?? data[ActionResultKey.approvalRequestID] as? String,
+            approvalRequestID: data[RecipeResultKey.approvalRequestID] as? String ?? data[
+                ActionResultKey.approvalRequestID] as? String,
             resumeToken: data[RecipeResultKey.resumeToken] as? String
         )
     }
 }
 
-public struct RuntimeResultEnvelope: Sendable, Codable, Equatable {
+public struct RuntimeResultEnvelope: Sendable, Codable {
     public let summary: String
     public let snapshotID: String?
     public let actionResult: ActionResult?
@@ -476,8 +478,10 @@ public struct ActionResult: Sendable, Codable {
             method: dict[ActionResultKey.method] as? String,
             verificationStatus: verificationStatus,
             failureClass: dict[ActionResultKey.failureClass] as? String,
-            elapsedMs: (dict[ActionResultKey.elapsedMs] as? Double) ?? Double(dict[ActionResultKey.elapsedMs] as? Int ?? 0),
-            policyDecision: (dict[ActionResultKey.policyDecision] as? [String: Any]).flatMap(PolicyDecision.from(dict:)),
+            elapsedMs: (dict[ActionResultKey.elapsedMs] as? Double)
+                ?? Double(dict[ActionResultKey.elapsedMs] as? Int ?? 0),
+            policyDecision: (dict[ActionResultKey.policyDecision] as? [String: Any]).flatMap(
+                PolicyDecision.from(dict:)),
             protectedOperation: dict[ActionResultKey.protectedOperation] as? String,
             approvalRequestID: dict[ActionResultKey.approvalRequestID] as? String,
             approvalStatus: dict[ActionResultKey.approvalStatus] as? String,

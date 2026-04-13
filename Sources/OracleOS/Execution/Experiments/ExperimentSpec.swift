@@ -18,6 +18,15 @@ public struct ExperimentCommandRequest: Codable, Sendable, Equatable {
         self.summary = summary
     }
 
+    public init(commandSpec: CommandSpec) {
+        self.init(
+            category: commandSpec.category,
+            executable: commandSpec.executable,
+            arguments: commandSpec.arguments,
+            summary: commandSpec.summary
+        )
+    }
+
     public func materializedForSandbox(workspaceRoot: String) -> CommandSpec {
         CommandSpec(
             category: category,

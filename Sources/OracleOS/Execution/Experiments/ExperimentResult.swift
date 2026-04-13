@@ -52,6 +52,8 @@ public struct ExperimentSandboxEvidence: Codable, Sendable, Equatable {
         self.liveRuntimeStateMutation = liveRuntimeStateMutation
         self.workspaceWritebackOutsideSandbox = workspaceWritebackOutsideSandbox
     }
+}
+
 public struct SandboxCleanupOutcome: Codable, Sendable, Equatable {
     public let succeeded: Bool
     public let removedWorktree: Bool
@@ -111,7 +113,7 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
         refactorProposalID: String? = nil,
         selected: Bool = false,
         promptDiagnostics: PromptDiagnostics? = nil,
-        sandboxEvidence: ExperimentSandboxEvidence? = nil
+        sandboxEvidence: ExperimentSandboxEvidence? = nil,
         sandboxMetadata: SandboxExecutionMetadata? = nil
     ) {
         self.id = id
@@ -154,7 +156,7 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
             refactorProposalID: refactorProposalID,
             selected: selected,
             promptDiagnostics: promptDiagnostics,
-            sandboxEvidence: sandboxEvidence
+            sandboxEvidence: sandboxEvidence,
             sandboxMetadata: sandboxMetadata
         )
     }

@@ -4,33 +4,6 @@ import Foundation
 //
 // Covers: oracle_workflow_list, oracle_workflow_mine, oracle_workflow_execute
 
-struct WorkflowSummaryPayload: Encodable {
-    let workflows: [WorkflowSummary]
-    let count: Int
-}
-
-struct WorkflowMinePayload: Encodable {
-    let synthesized: Int
-    let workflows: [WorkflowSummary]
-}
-
-struct WorkflowExecutePayload: Encodable {
-    let workflowID: String
-    let goalPattern: String
-    let stepCount: Int
-    let parameterSlots: [String]
-    let steps: [WorkflowStepSummary]
-
-    enum CodingKeys: String, CodingKey {
-        case workflowID = "workflow_id"
-        case goalPattern = "goal_pattern"
-        case stepCount = "step_count"
-        case parameterSlots = "parameter_slots"
-        case steps
-    }
-}
-
-struct WorkflowSummary: Encodable {
 private struct WorkflowListItem: Encodable {
     let id: String
     let goalPattern: String
@@ -49,6 +22,11 @@ private struct WorkflowListItem: Encodable {
     }
 }
 
+private struct WorkflowListPayload: Encodable {
+    let workflows: [WorkflowListItem]
+    let count: Int
+}
+
 private struct WorkflowMineItem: Encodable {
     let id: String
     let goalPattern: String
@@ -65,15 +43,6 @@ private struct WorkflowMineItem: Encodable {
         case parameterSlots = "parameter_slots"
         case promotionStatus = "promotion_status"
     }
-}
-
-struct WorkflowStepSummary: Encodable {
-    }
-}
-
-private struct WorkflowListPayload: Encodable {
-    let workflows: [WorkflowListItem]
-    let count: Int
 }
 
 private struct WorkflowMinePayload: Encodable {
@@ -126,17 +95,6 @@ extension MCPDispatch {
         case MCPToolName.workflowList:
             let index = WorkflowIndex()
             let plans = index.allPlans()
-            let workflows = plans.map {
-                WorkflowSummary(
-                    id: $0.id,
-                    goalPattern: $0.goalPattern,
-                    successRate: $0.successRate,
-                    stepCount: $0.steps.count,
-                    parameterSlots: $0.parameterSlots,
-                    promotionStatus: $0.promotionStatus.rawValue
-                )
-            }
-            return typedResult(WorkflowSummaryPayload(workflows: workflows, count: workflows.count))
             let payload = WorkflowListPayload(
                 workflows: plans.map { plan in
                     WorkflowListItem(
@@ -150,45 +108,30 @@ extension MCPDispatch {
                 },
                 count: plans.count
             )
-            guard let data = mcpLegacyJSONObject(from: payload) else {
-                return ToolResult(success: false, error: "Failed to serialize workflow list")
-            }
-            return ToolResult(success: true, data: data)
+            return typedResult(payload)
 
         case MCPToolName.workflowMine:
             guard let goalPattern = request.string("goal_pattern") else {
-                return ToolResult(success: false, error: "goal_pattern is required for \(MCPToolName.workflowMine)")
+                return ToolResult(
+                    success: false,
+                    error: "goal_pattern is required for \(MCPToolName.workflowMine)")
             }
             let limit = request.int("limit") ?? 1000
             let events = container.traceStore.loadRecentEvents(limit: limit)
-            let synthesized = WorkflowSynthesizer().synthesize(goalPattern: goalPattern, events: events)
+            let synthesized = WorkflowSynthesizer().synthesize(
+                goalPattern: goalPattern, events: events)
             if synthesized.isEmpty {
                 return typedResult(
                     WorkflowMinePayload(synthesized: 0, workflows: []),
-                let payload = WorkflowMinePayload(synthesized: 0, workflows: [])
-                guard let data = mcpLegacyJSONObject(from: payload) else {
-                    return ToolResult(success: false, error: "Failed to serialize synthesized workflow response")
-                }
-                return ToolResult(
-                    success: true,
-                    data: data,
-                    suggestion: "No repeatable patterns found for '\(goalPattern)'. Run more successful traces to build workflow patterns."
+                    suggestion:
+                        "No repeatable patterns found for '\(goalPattern)'. Run more successful traces to build workflow patterns."
                 )
             }
+
             let index = WorkflowIndex()
-            for plan in synthesized { index.add(plan) }
-            let workflows = synthesized.map {
-                WorkflowSummary(
-                    id: $0.id,
-                    goalPattern: $0.goalPattern,
-                    successRate: $0.successRate,
-                    stepCount: $0.steps.count,
-                    parameterSlots: $0.parameterSlots,
-                    promotionStatus: nil
-                )
+            for plan in synthesized {
+                index.add(plan)
             }
-            return typedResult(
-                WorkflowMinePayload(synthesized: synthesized.count, workflows: workflows),
             let payload = WorkflowMinePayload(
                 synthesized: synthesized.count,
                 workflows: synthesized.map { plan in
@@ -197,22 +140,22 @@ extension MCPDispatch {
                         goalPattern: plan.goalPattern,
                         successRate: plan.successRate,
                         stepCount: plan.steps.count,
-                        parameterSlots: plan.parameterSlots
+                        parameterSlots: plan.parameterSlots,
+                        promotionStatus: nil
                     )
                 }
             )
-            guard let data = mcpLegacyJSONObject(from: payload) else {
-                return ToolResult(success: false, error: "Failed to serialize synthesized workflows")
-            }
-            return ToolResult(
-                success: true,
-                data: data,
-                suggestion: "Synthesized \(synthesized.count) workflow(s) and saved to index. Use oracle_workflow_list to see all."
+            return typedResult(
+                payload,
+                suggestion:
+                    "Synthesized \(synthesized.count) workflow(s) and saved to index. Use oracle_workflow_list to see all."
             )
 
         case MCPToolName.workflowExecute:
             guard let workflowID = request.string("workflow_id") else {
-                return ToolResult(success: false, error: "workflow_id is required for \(MCPToolName.workflowExecute)")
+                return ToolResult(
+                    success: false,
+                    error: "workflow_id is required for \(MCPToolName.workflowExecute)")
             }
             let index = WorkflowIndex()
             guard let plan = index.plan(id: workflowID) else {
@@ -222,47 +165,26 @@ extension MCPDispatch {
                     suggestion: "Use oracle_workflow_list to see available workflow IDs."
                 )
             }
-            let steps = plan.steps.enumerated().map { index, step in
-                WorkflowStepSummary(
-                    step: index + 1,
-                    agentKind: step.agentKind.rawValue,
-                    skill: step.actionContract.skillName,
-                    domain: step.actionContract.domain,
-                    notes: step.notes.isEmpty ? nil : step.notes,
-                    query: step.semanticQuery?.text
-                )
-            }
-            return typedResult(
-                WorkflowExecutePayload(
-                    workflowID: plan.id,
-                    goalPattern: plan.goalPattern,
-                    stepCount: plan.steps.count,
-                    parameterSlots: plan.parameterSlots,
-                    steps: steps
-                ),
             let payload = WorkflowExecutePayload(
                 workflowID: plan.id,
                 goalPattern: plan.goalPattern,
                 stepCount: plan.steps.count,
                 parameterSlots: plan.parameterSlots,
-                steps: plan.steps.enumerated().map { idx, step in
+                steps: plan.steps.enumerated().map { index, step in
                     WorkflowExecutionStep(
-                        step: idx + 1,
+                        step: index + 1,
                         agentKind: step.agentKind.rawValue,
                         skill: step.actionContract.skillName,
                         domain: step.actionContract.domain,
-                        notes: step.notes.isEmpty ? nil : step.notes,
+                        notes: step.notes.isEmpty ? nil : step.notes.joined(separator: "\n"),
                         query: step.semanticQuery?.text
                     )
                 }
             )
-            guard let data = mcpLegacyJSONObject(from: payload) else {
-                return ToolResult(success: false, error: "Failed to serialize workflow execution plan")
-            }
-            return ToolResult(
-                success: true,
-                data: data,
-                suggestion: "Follow steps in order using the appropriate oracle tools. Substitute parameter_slots values as needed."
+            return typedResult(
+                payload,
+                suggestion:
+                    "Follow steps in order using the appropriate oracle tools. Substitute parameter_slots values as needed."
             )
 
         default:

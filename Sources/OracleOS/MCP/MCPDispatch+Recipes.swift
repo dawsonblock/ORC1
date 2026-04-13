@@ -5,19 +5,12 @@ import Foundation
 // Covers: oracle_recipes, oracle_run, oracle_recipe_show,
 //         oracle_recipe_save, oracle_recipe_delete
 
-struct RecipeSummaryPayload: Encodable {
-    let recipes: [RecipeSummary]
-    let count: Int
-}
-
-struct RecipeSummary: Encodable {
 private struct RecipeSummaryPayload: Encodable {
     let name: String
     let description: String
     let parameters: [String]?
 }
 
-struct RecipeShowPayload: Encodable {
 private struct RecipesListPayload: Encodable {
     let recipes: [RecipeSummaryPayload]
     let count: Int
@@ -28,7 +21,6 @@ private struct RecipeShowPayload: Encodable {
     let recipe: String
 }
 
-struct RecipeSavePayload: Encodable {
 private struct RecipeSavePayload: Encodable {
     let saved: String
 }
@@ -43,22 +35,13 @@ extension MCPDispatch {
 
         case MCPToolName.recipes:
             let recipes = RecipeStore.listRecipes()
-            let summaries = recipes.map { recipe in
-                RecipeSummary(
-                    name: recipe.name,
-                    description: recipe.description,
-                    parameters: recipe.params.map { params in
-                        let names = Array(params.keys).sorted()
-                        return names.isEmpty ? nil : names
-                    } ?? nil
-                )
-            }
-            return typedResult(RecipeSummaryPayload(recipes: summaries, count: summaries.count))
             let payload = RecipesListPayload(
                 recipes: recipes.map { recipe in
-                    let parameters = recipe.params.map { params in
-                        params.isEmpty ? nil : Array(params.keys).sorted()
-                    } ?? nil
+                    let parameters =
+                        recipe.params.map { params in
+                            let names = Array(params.keys).sorted()
+                            return names.isEmpty ? nil : names
+                        } ?? nil
                     return RecipeSummaryPayload(
                         name: recipe.name,
                         description: recipe.description,
@@ -67,10 +50,7 @@ extension MCPDispatch {
                 },
                 count: recipes.count
             )
-            guard let data = mcpLegacyJSONObject(from: payload) else {
-                return ToolResult(success: false, error: "Failed to serialize recipe list")
-            }
-            return ToolResult(success: true, data: data)
+            return typedResult(payload)
 
         case MCPToolName.run:
             if let resumeToken = request.string("resume_token") {
@@ -81,7 +61,8 @@ extension MCPDispatch {
                 )
             }
             guard let recipeName = request.string("recipe") else {
-                return ToolResult(success: false, error: "recipe is required for \(MCPToolName.run)")
+                return ToolResult(
+                    success: false, error: "recipe is required for \(MCPToolName.run)")
             }
             guard let recipe = RecipeStore.loadRecipe(named: recipeName) else {
                 return ToolResult(
@@ -92,47 +73,43 @@ extension MCPDispatch {
             }
             var params: [String: String] = [:]
             if let paramsValue = request.arguments.objectValue?["params"],
-               let paramsDict = paramsValue.objectValue {
-                for (k, v) in paramsDict {
-                    if let s = v.stringValue { params[k] = s }
+                let paramsDict = paramsValue.objectValue
+            {
+                for (key, value) in paramsDict {
+                    if let stringValue = value.stringValue {
+                        params[key] = stringValue
+                    }
                 }
             }
             return RecipeEngine.run(recipe: recipe, params: params, runtime: runtime)
 
         case MCPToolName.recipeShow:
             guard let name = request.string("name") else {
-                return ToolResult(success: false, error: "name is required for \(MCPToolName.recipeShow)")
+                return ToolResult(
+                    success: false, error: "name is required for \(MCPToolName.recipeShow)")
             }
             guard let recipe = RecipeStore.loadRecipe(named: name) else {
                 return ToolResult(success: false, error: "Recipe '\(name)' not found")
             }
-            let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.prettyPrinted, .sortedKeys])
+            let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [
+                .prettyPrinted, .sortedKeys,
+            ])
             guard let data = try? encoder.encode(recipe),
-                  let jsonStr = String(data: data, encoding: .utf8) else {
+                let jsonString = String(data: data, encoding: .utf8)
+            else {
                 return ToolResult(success: false, error: "Failed to serialize recipe '\(name)'")
             }
-            return typedResult(RecipeShowPayload(name: name, recipe: jsonStr))
-            let payload = RecipeShowPayload(name: name, recipe: jsonStr)
-            guard let responseData = mcpLegacyJSONObject(from: payload) else {
-                return ToolResult(success: false, error: "Failed to serialize recipe response payload")
-            }
-            return ToolResult(success: true, data: responseData)
+            return typedResult(RecipeShowPayload(name: name, recipe: jsonString))
 
         case MCPToolName.recipeSave:
-            guard let jsonStr = request.string("recipe_json") else {
-                return ToolResult(success: false, error: "recipe_json is required for \(MCPToolName.recipeSave)")
+            guard let jsonString = request.string("recipe_json") else {
+                return ToolResult(
+                    success: false, error: "recipe_json is required for \(MCPToolName.recipeSave)")
             }
             do {
-                let name = try RecipeStore.saveRecipeJSON(jsonStr)
+                let name = try RecipeStore.saveRecipeJSON(jsonString)
                 return typedResult(
                     RecipeSavePayload(saved: name),
-                let payload = RecipeSavePayload(saved: name)
-                guard let data = mcpLegacyJSONObject(from: payload) else {
-                    return ToolResult(success: false, error: "Failed to serialize saved recipe response")
-                }
-                return ToolResult(
-                    success: true,
-                    data: data,
                     suggestion: "Recipe '\(name)' saved. Use oracle_run to execute it."
                 )
             } catch {
@@ -141,7 +118,8 @@ extension MCPDispatch {
 
         case MCPToolName.recipeDelete:
             guard let name = request.string("name") else {
-                return ToolResult(success: false, error: "name is required for \(MCPToolName.recipeDelete)")
+                return ToolResult(
+                    success: false, error: "name is required for \(MCPToolName.recipeDelete)")
             }
             let deleted = RecipeStore.deleteRecipe(named: name)
             return ToolResult(

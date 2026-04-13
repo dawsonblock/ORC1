@@ -59,19 +59,25 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
         experimentsRoot: URL,
         adapter: any ProcessAdapter
     ) throws -> WorktreeSandbox {
-        try FileManager.default.createDirectory(at: experimentsRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: experimentsRoot, withIntermediateDirectories: true)
         let canonicalWorkspaceRoot = canonicalResolvedDirectoryRoot(workspaceRoot.path)
         let canonicalExperimentsRoot = canonicalResolvedDirectoryRoot(experimentsRoot.path)
         guard canonicalExperimentsRoot.path != canonicalWorkspaceRoot.path else {
-            throw SandboxError.containmentViolation(path: canonicalExperimentsRoot.path, sandboxRoot: canonicalWorkspaceRoot.path)
+            throw SandboxError.containmentViolation(
+                path: canonicalExperimentsRoot.path, sandboxRoot: canonicalWorkspaceRoot.path)
         }
-        let sandboxPath = experimentsRoot
+        let sandboxPath =
+            experimentsRoot
             .appendingPathComponent(experimentID, isDirectory: true)
             .appendingPathComponent(candidateID, isDirectory: true)
-        try FileManager.default.createDirectory(at: sandboxPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: sandboxPath.deletingLastPathComponent(), withIntermediateDirectories: true)
 
         let branchName = "codex/exp-\(experimentID)-\(candidateID)"
-        try runGit(arguments: ["worktree", "add", "-f", "-b", branchName, sandboxPath.path, "HEAD"], workspaceRoot: workspaceRoot, adapter: adapter)
+        try runGit(
+            arguments: ["worktree", "add", "-f", "-b", branchName, sandboxPath.path, "HEAD"],
+            workspaceRoot: workspaceRoot, adapter: adapter)
 
         return WorktreeSandbox(
             experimentID: experimentID,
@@ -84,20 +90,11 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
 
     public func apply(_ candidate: CandidatePatch) throws {
         let relativePath = candidate.workspaceRelativePath
-        guard !relativePath.hasPrefix("/"),
-              !relativePath.split(separator: "/").contains("..") else {
-            throw SandboxError.invalidRelativePath(relativePath)
-        }
-        let (sandboxURL, sandboxPrefix) = canonicalResolvedScopeRoot(sandboxPath)
-        let resolvedURL = sandboxURL
-            .appendingPathComponent(relativePath)
-            .resolvingSymlinksInPath()
-            .standardizedFileURL
-        guard resolvedURL.path.hasPrefix(sandboxPrefix) else {
         let pathComponents = relativePath.split(separator: "/")
         guard !relativePath.hasPrefix("/"),
-              !relativePath.contains("\\"),
-              !pathComponents.contains(where: { $0 == "." || $0 == ".." }) else {
+            !relativePath.contains("\\"),
+            !pathComponents.contains(where: { $0 == "." || $0 == ".." })
+        else {
             throw SandboxError.invalidRelativePath(relativePath)
         }
         let candidateURL = URL(fileURLWithPath: sandboxPath, isDirectory: true)
@@ -109,81 +106,77 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
             sandboxRootURL: resolvedRoot,
             relativePath: relativePath
         )
-        guard resolvedURL.path.hasPrefix(sandboxRootPath + "/") || resolvedURL.path == sandboxRootPath else {
+        guard
+            resolvedURL.path.hasPrefix(sandboxRootPath + "/") || resolvedURL.path == sandboxRootPath
+        else {
             throw SandboxError.containmentViolation(path: relativePath, sandboxRoot: sandboxPath)
         }
-        try FileManager.default.createDirectory(at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try candidate.content.write(to: resolvedURL, atomically: true, encoding: .utf8)
     }
 
     public func diffSummary(using adapter: any ProcessAdapter) -> String {
-        (try? runGitOutput(arguments: ["diff", "--stat"], workspaceRoot: URL(fileURLWithPath: sandboxPath, isDirectory: true), adapter: adapter)) ?? ""
+        (try? runGitOutput(
+            arguments: ["diff", "--stat"],
+            workspaceRoot: URL(fileURLWithPath: sandboxPath, isDirectory: true), adapter: adapter))
+            ?? ""
     }
 
     public func cleanup(using adapter: any ProcessAdapter) -> ExperimentCleanupOutcome {
-        var errors: [String] = []
-        let workspaceRootURL = URL(fileURLWithPath: workspaceRoot, isDirectory: true)
-
-        let worktreeRemoved: Bool
-        do {
-            try runGit(arguments: ["worktree", "remove", "--force", sandboxPath], workspaceRoot: workspaceRootURL, adapter: adapter)
-            worktreeRemoved = true
-        } catch {
-            worktreeRemoved = false
-            errors.append("worktree remove failed: \(error.localizedDescription)")
-        }
-
-        let branchDeleted: Bool
-        do {
-            try runGit(arguments: ["branch", "-D", branchName], workspaceRoot: workspaceRootURL, adapter: adapter)
-            branchDeleted = true
-        } catch {
-            branchDeleted = false
-            errors.append("branch delete failed: \(error.localizedDescription)")
-        }
-
+        let outcome = performCleanup(using: adapter)
         return ExperimentCleanupOutcome(
-            worktreeRemoved: worktreeRemoved,
-            branchDeleted: branchDeleted,
-            errors: errors
+            worktreeRemoved: outcome.removedWorktree,
+            branchDeleted: outcome.removedBranch,
+            errors: outcome.failures
         )
-    public func cleanup(using adapter: any ProcessAdapter) {
-        _ = cleanupOutcome(using: adapter)
     }
 
     public func cleanupOutcome(using adapter: any ProcessAdapter) -> SandboxCleanupOutcome {
-        var removedWorktree = false
-        var removedBranch = false
+        let outcome = performCleanup(using: adapter)
+        return SandboxCleanupOutcome(
+            succeeded: outcome.failures.isEmpty,
+            removedWorktree: outcome.removedWorktree,
+            removedBranch: outcome.removedBranch,
+            message: outcome.failures.isEmpty ? nil : outcome.failures.joined(separator: "; ")
+        )
+    }
+
+    private func performCleanup(using adapter: any ProcessAdapter) -> (
+        removedWorktree: Bool,
+        removedBranch: Bool,
+        failures: [String]
+    ) {
+        let workspaceRootURL = URL(fileURLWithPath: workspaceRoot, isDirectory: true)
         var failures: [String] = []
 
+        let removedWorktree: Bool
         do {
             try runGit(
                 arguments: ["worktree", "remove", "--force", sandboxPath],
-                workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true),
+                workspaceRoot: workspaceRootURL,
                 adapter: adapter
             )
             removedWorktree = true
         } catch {
+            removedWorktree = false
             failures.append("worktree remove failed: \(error.localizedDescription)")
         }
 
+        let removedBranch: Bool
         do {
             try runGit(
                 arguments: ["branch", "-D", branchName],
-                workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true),
+                workspaceRoot: workspaceRootURL,
                 adapter: adapter
             )
             removedBranch = true
         } catch {
+            removedBranch = false
             failures.append("branch delete failed: \(error.localizedDescription)")
         }
 
-        return SandboxCleanupOutcome(
-            succeeded: failures.isEmpty,
-            removedWorktree: removedWorktree,
-            removedBranch: removedBranch,
-            message: failures.isEmpty ? nil : failures.joined(separator: "; ")
-        )
+        return (removedWorktree, removedBranch, failures)
     }
 
     public func canonicalWorkspaceRootPath() -> String {
@@ -216,8 +209,10 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
             if FileManager.default.fileExists(atPath: current.path, isDirectory: &isDir) {
                 let attrs = try FileManager.default.attributesOfItem(atPath: current.path)
                 if let fileType = attrs[.type] as? FileAttributeType,
-                   fileType == .typeSymbolicLink {
-                    throw SandboxError.containmentViolation(path: relativePath, sandboxRoot: sandboxPath)
+                    fileType == .typeSymbolicLink
+                {
+                    throw SandboxError.containmentViolation(
+                        path: relativePath, sandboxRoot: sandboxPath)
                 }
             }
         }
@@ -233,12 +228,6 @@ public struct WorktreeSandbox: Codable, Sendable, Equatable {
     }
 }
 
-private func canonicalResolvedScopeRoot(_ path: String) -> (url: URL, prefix: String) {
-    let url = canonicalResolvedDirectoryRoot(path)
-    let prefix = url.path.hasSuffix("/") ? url.path : url.path + "/"
-    return (url, prefix)
-}
-
 private func canonicalResolvedDirectoryRoot(_ path: String) -> URL {
     URL(fileURLWithPath: path, isDirectory: true)
         .resolvingSymlinksInPath()
@@ -247,21 +236,33 @@ private func canonicalResolvedDirectoryRoot(_ path: String) -> URL {
 
 private func runGit(arguments: [String], workspaceRoot: URL, adapter: any ProcessAdapter) throws {
     let context = WorkspaceContext(rootURL: workspaceRoot)
-    let result = try adapter.runSync(SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context, policy: nil)
+    let result = try adapter.runSync(
+        SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context,
+        policy: nil)
     guard result.exitCode == 0 else {
-        throw NSError(domain: "WorktreeSandbox", code: Int(result.exitCode), userInfo: [
-            NSLocalizedDescriptionKey: result.stderr.trimmingCharacters(in: .whitespacesAndNewlines),
-        ])
+        throw NSError(
+            domain: "WorktreeSandbox", code: Int(result.exitCode),
+            userInfo: [
+                NSLocalizedDescriptionKey: result.stderr.trimmingCharacters(
+                    in: .whitespacesAndNewlines)
+            ])
     }
 }
 
-private func runGitOutput(arguments: [String], workspaceRoot: URL, adapter: any ProcessAdapter) throws -> String {
+private func runGitOutput(arguments: [String], workspaceRoot: URL, adapter: any ProcessAdapter)
+    throws -> String
+{
     let context = WorkspaceContext(rootURL: workspaceRoot)
-    let result = try adapter.runSync(SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context, policy: nil)
+    let result = try adapter.runSync(
+        SystemCommand(executable: "/usr/bin/env", arguments: ["git"] + arguments), in: context,
+        policy: nil)
     guard result.exitCode == 0 else {
-        throw NSError(domain: "WorktreeSandbox", code: Int(result.exitCode), userInfo: [
-            NSLocalizedDescriptionKey: result.stderr.trimmingCharacters(in: .whitespacesAndNewlines),
-        ])
+        throw NSError(
+            domain: "WorktreeSandbox", code: Int(result.exitCode),
+            userInfo: [
+                NSLocalizedDescriptionKey: result.stderr.trimmingCharacters(
+                    in: .whitespacesAndNewlines)
+            ])
     }
     return result.stdout
 }

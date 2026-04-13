@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OracleOS
 
 @Suite("RuntimeExecutionDriver Boundary")
@@ -32,6 +33,36 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(actionResult?["executed_through_executor"] as? Bool == true)
         #expect(result.actionResult?.executedThroughExecutor == true)
         #expect(result.traceResult?.cycleID == response.cycleID.uuidString)
+    }
+
+    @Test("RuntimeExecutionDriver exports envelope-backed compatibility data")
+    func runtimeExecutionDriverExportsEnvelopeBackedCompatibilityData() {
+        let snapshotID = UUID()
+        let response = IntentResponse(
+            intentID: UUID(),
+            outcome: .success,
+            summary: "Intent completed",
+            cycleID: UUID(),
+            snapshotID: snapshotID
+        )
+        let driver = RuntimeExecutionDriver(
+            intentAPI: StubIntentAPI(response: response),
+            surface: .mcp
+        )
+
+        let result = driver.execute(
+            intent: ActionIntent.click(app: nil, query: "Save"),
+            plannerDecision: testPlannerDecision(),
+            selectedCandidate: nil
+        )
+
+        let trace = result.data?[ActionResultKey.trace] as? [String: Any]
+
+        #expect(result.data?["summary"] as? String == response.summary)
+        #expect(result.data?["snapshot_id"] as? String == snapshotID.uuidString)
+        #expect(result.data?["cycleID"] == nil)
+        #expect(trace?[TraceResultKey.cycleID] as? String == response.cycleID.uuidString)
+        #expect(trace?[TraceResultKey.intentID] as? String == response.intentID.uuidString)
     }
 
     @Test("Planning-failure responses are marked as non-executed")
@@ -152,9 +183,14 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(result.codeExecutionResult?.commandCategory == CodeCommandCategory.build.rawValue)
         #expect(result.codeExecutionResult?.commandSummary == "swift build")
         #expect(result.codeExecutionResult?.workspaceRelativePath == "Package.swift")
-        #expect(codeExecutionData?[CodeExecutionResultKey.commandCategory] as? String == CodeCommandCategory.build.rawValue)
-        #expect(codeExecutionData?[CodeExecutionResultKey.commandSummary] as? String == "swift build")
-        #expect(codeExecutionData?[CodeExecutionResultKey.workspaceRelativePath] as? String == "Package.swift")
+        #expect(
+            codeExecutionData?[CodeExecutionResultKey.commandCategory] as? String
+                == CodeCommandCategory.build.rawValue)
+        #expect(
+            codeExecutionData?[CodeExecutionResultKey.commandSummary] as? String == "swift build")
+        #expect(
+            codeExecutionData?[CodeExecutionResultKey.workspaceRelativePath] as? String
+                == "Package.swift")
     }
 
     @Test("Code action submission failures keep native codeExecutionResult")
@@ -197,7 +233,8 @@ struct RuntimeExecutionDriverBoundaryTests {
             metadata: ["action_intent_base64": encoded]
         )
 
-        let command = try await planner.plan(intent: intent, context: PlannerContext(state: WorldStateModel()))
+        let command = try await planner.plan(
+            intent: intent, context: PlannerContext(state: WorldStateModel()))
         guard case .ui(let uiAction) = command.payload else {
             Issue.record("Expected UI command payload")
             return
@@ -220,7 +257,8 @@ struct RuntimeExecutionDriverBoundaryTests {
             metadata: ["action_intent_base64": encoded]
         )
 
-        let command = try await planner.plan(intent: intent, context: PlannerContext(state: WorldStateModel()))
+        let command = try await planner.plan(
+            intent: intent, context: PlannerContext(state: WorldStateModel()))
         guard case .ui(let uiAction) = command.payload else {
             Issue.record("Expected UI command payload")
             return
@@ -262,7 +300,9 @@ private actor StubIntentAPI: IntentAPI {
 private actor ThrowingIntentAPI: IntentAPI {
     func submitIntent(_ intent: Intent) async throws -> IntentResponse {
         _ = intent
-        throw NSError(domain: "RuntimeExecutionDriverBoundaryTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "submit failed"])
+        throw NSError(
+            domain: "RuntimeExecutionDriverBoundaryTests", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "submit failed"])
     }
 
     func queryState() async throws -> RuntimeSnapshot {

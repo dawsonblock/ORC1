@@ -4,23 +4,6 @@ import Foundation
 //
 // Covers: oracle_architecture_review, oracle_candidate_review
 
-struct ArchitectureReviewPayload: Encodable {
-    let triggered: Bool
-    let riskScore: Double
-    let affectedModules: [String]
-    let findings: [ArchitectureFindingPayload]
-    let refactorProposal: RefactorProposalPayload?
-
-    enum CodingKeys: String, CodingKey {
-        case triggered
-        case riskScore = "risk_score"
-        case affectedModules = "affected_modules"
-        case findings
-        case refactorProposal = "refactor_proposal"
-    }
-}
-
-struct ArchitectureFindingPayload: Encodable {
 private struct ArchitectureFindingPayload: Encodable {
     let id: String
     let title: String
@@ -41,11 +24,6 @@ private struct ArchitectureFindingPayload: Encodable {
     }
 }
 
-struct RefactorProposalPayload: Encodable {
-    let id: String
-    let title: String
-    let summary: String
-    let steps: [String]
 private struct RefactorProposalPayload: Encodable {
     let id: String
     let title: String
@@ -92,10 +70,13 @@ extension MCPDispatch {
 
         case MCPToolName.architectureReview:
             guard let goalDescription = request.string("goal_description") else {
-                return ToolResult(success: false, error: "goal_description is required for \(MCPToolName.architectureReview)")
+                return ToolResult(
+                    success: false,
+                    error: "goal_description is required for \(MCPToolName.architectureReview)")
             }
             let candidatePaths = request.strings("candidate_paths") ?? []
-            let workspaceURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+            let workspaceURL = URL(
+                fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
             let snapshot = container.repositoryIndexer.indexIfNeeded(workspaceRoot: workspaceURL)
             let review = container.architectureEngine.review(
                 goalDescription: goalDescription,
@@ -103,28 +84,28 @@ extension MCPDispatch {
                 candidatePaths: candidatePaths
             )
             return typedResult(archReviewPayload(review))
-            guard let data = mcpLegacyJSONObject(from: archReviewPayload(from: review)) else {
-                return ToolResult(success: false, error: "Failed to serialize architecture review")
-            }
-            return ToolResult(success: true, data: data)
 
         case MCPToolName.candidateReview:
             guard let goalDescription = request.string("goal_description"),
-                  let diffSummary = request.string("diff_summary") else {
+                let diffSummary = request.string("diff_summary")
+            else {
                 return ToolResult(
                     success: false,
-                    error: "goal_description and diff_summary are required for \(MCPToolName.candidateReview)"
+                    error:
+                        "goal_description and diff_summary are required for \(MCPToolName.candidateReview)"
                 )
             }
             guard let candidateValue = request.arguments.objectValue?["candidate"],
-                  let obj = candidateValue.objectValue,
-                  let title = obj["title"]?.stringValue,
-                  let patchSummary = obj["summary"]?.stringValue,
-                  let path = obj["workspace_relative_path"]?.stringValue,
-                  let content = obj["content"]?.stringValue else {
+                let object = candidateValue.objectValue,
+                let title = object["title"]?.stringValue,
+                let patchSummary = object["summary"]?.stringValue,
+                let path = object["workspace_relative_path"]?.stringValue,
+                let content = object["content"]?.stringValue
+            else {
                 return ToolResult(
                     success: false,
-                    error: "candidate object with title, summary, workspace_relative_path, and content is required"
+                    error:
+                        "candidate object with title, summary, workspace_relative_path, and content is required"
                 )
             }
             let patch = CandidatePatch(
@@ -133,7 +114,8 @@ extension MCPDispatch {
                 workspaceRelativePath: path,
                 content: content
             )
-            let workspaceURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+            let workspaceURL = URL(
+                fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
             let snapshot = container.repositoryIndexer.indexIfNeeded(workspaceRoot: workspaceURL)
             let review = container.architectureEngine.reviewCandidatePatch(
                 goalDescription: goalDescription,
@@ -142,18 +124,14 @@ extension MCPDispatch {
                 diffSummary: diffSummary
             )
             return typedResult(archReviewPayload(review))
-            guard let data = mcpLegacyJSONObject(from: archReviewPayload(from: review)) else {
-                return ToolResult(success: false, error: "Failed to serialize candidate architecture review")
-            }
-            return ToolResult(success: true, data: data)
 
         default:
             return ToolResult(success: false, error: "Unknown architecture tool: \(request.name)")
         }
     }
 
-    private static func archReviewPayload(_ review: ArchitectureReview) -> ArchitectureReviewPayload {
-    private static func archReviewPayload(from review: ArchitectureReview) -> ArchitectureReviewPayload {
+    private static func archReviewPayload(_ review: ArchitectureReview) -> ArchitectureReviewPayload
+    {
         ArchitectureReviewPayload(
             triggered: review.triggered,
             riskScore: review.riskScore,
@@ -174,7 +152,6 @@ extension MCPDispatch {
                     id: proposal.id,
                     title: proposal.title,
                     summary: proposal.summary,
-                    steps: proposal.steps,
                     affectedModules: proposal.affectedModules,
                     steps: proposal.steps,
                     invariantRefs: proposal.invariantRefs,

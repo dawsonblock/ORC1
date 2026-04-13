@@ -129,7 +129,8 @@ public enum MCPDispatch {
         }
 
         let toolName = request.name
-        let actualTimeout = toolName == MCPToolName.experimentSearch ? 600.0 : defaultToolTimeoutSeconds
+        let actualTimeout =
+            toolName == MCPToolName.experimentSearch ? 600.0 : defaultToolTimeoutSeconds
 
         struct RespWrapper: @unchecked Sendable { let payload: MCPToolResponse? }
         let response: RespWrapper
@@ -202,11 +203,14 @@ public enum MCPDispatch {
 
     @MainActor
     private static func handleScreenshot(_ request: MCPToolRequest) -> MCPToolResponse {
-        let res = AXScanner.screenshot(appName: request.string("app"), fullResolution: request.bool("full_resolution") ?? false)
+        let res = AXScanner.screenshot(
+            appName: request.string("app"), fullResolution: request.bool("full_resolution") ?? false
+        )
         guard res.success, let screenshot = res.screenshotResult else {
             return formatTypedResult(res, toolName: MCPToolName.screenshot)
         }
-        return .imageAndCaption(base64: screenshot.base64PNG, mimeType: screenshot.mimeType, caption: "Screenshot")
+        return .imageAndCaption(
+            base64: screenshot.base64PNG, mimeType: screenshot.mimeType, caption: "Screenshot")
     }
 
     @MainActor
@@ -219,45 +223,54 @@ public enum MCPDispatch {
         var patches: [CandidatePatch] = []
         for raw in rawCandidates {
             guard let obj = raw.objectValue,
-                  let title = obj["title"]?.stringValue,
-                  let summary = obj["summary"]?.stringValue,
-                  let path = obj["workspace_relative_path"]?.stringValue,
-                  let content = obj["content"]?.stringValue
+                let title = obj["title"]?.stringValue,
+                let summary = obj["summary"]?.stringValue,
+                let path = obj["workspace_relative_path"]?.stringValue,
+                let content = obj["content"]?.stringValue
             else { continue }
-            patches.append(CandidatePatch(
-                title: title,
-                summary: summary,
-                workspaceRelativePath: path,
-                content: content,
-                hypothesis: obj["hypothesis"]?.stringValue,
-                strategyKind: obj["strategy_kind"]?.stringValue
-            ))
+            patches.append(
+                CandidatePatch(
+                    title: title,
+                    summary: summary,
+                    workspaceRelativePath: path,
+                    content: content,
+                    hypothesis: obj["hypothesis"]?.stringValue,
+                    strategyKind: obj["strategy_kind"]?.stringValue
+                ))
         }
         guard !patches.isEmpty else {
             return formatTypedResult(
-                ToolResult(success: false, error: "No valid candidates provided. Each candidate needs title, summary, workspace_relative_path, and content."),
+                ToolResult(
+                    success: false,
+                    error:
+                        "No valid candidates provided. Each candidate needs title, summary, workspace_relative_path, and content."
+                ),
                 toolName: MCPToolName.experimentSearch
             )
         }
         let buildCommand: ExperimentCommandRequest?
-        switch makeExperimentCommandRequest(request.strings("build_command"), category: .build) {
-        case .failure(let error):
+        do {
+            buildCommand = try makeExperimentCommandRequest(
+                request.strings("build_command"),
+                category: .build
+            )
+        } catch {
             return formatTypedResult(
-                ToolResult(success: false, error: error),
+                ToolResult(success: false, error: error.localizedDescription),
                 toolName: MCPToolName.experimentSearch
             )
-        case .success(let command):
-            buildCommand = command
         }
         let testCommand: ExperimentCommandRequest?
-        switch makeExperimentCommandRequest(request.strings("test_command"), category: .test) {
-        case .failure(let error):
+        do {
+            testCommand = try makeExperimentCommandRequest(
+                request.strings("test_command"),
+                category: .test
+            )
+        } catch {
             return formatTypedResult(
-                ToolResult(success: false, error: error),
+                ToolResult(success: false, error: error.localizedDescription),
                 toolName: MCPToolName.experimentSearch
             )
-        case .success(let command):
-            testCommand = command
         }
         let spec = ExperimentSpec(
             goalDescription: goalDescription,
@@ -292,10 +305,13 @@ public enum MCPDispatch {
                         candidatePaths: result.sandboxEvidence?.candidatePaths,
                         executedCommands: result.sandboxEvidence?.executedCommands,
                         cleanupOutcome: result.sandboxEvidence?.cleanupOutcome,
-                        commitCoordinatorMutation: result.sandboxEvidence?.commitCoordinatorMutation,
+                        commitCoordinatorMutation: result.sandboxEvidence?
+                            .commitCoordinatorMutation,
                         approvalStorePromotion: result.sandboxEvidence?.approvalStorePromotion,
                         liveRuntimeStateMutation: result.sandboxEvidence?.liveRuntimeStateMutation,
-                        workspaceWritebackOutsideSandbox: result.sandboxEvidence?.workspaceWritebackOutsideSandbox
+                        workspaceWritebackOutsideSandbox: result.sandboxEvidence?
+                            .workspaceWritebackOutsideSandbox,
+                        sandboxMetadata: result.sandboxMetadata
                     )
                 },
                 count: results.count
@@ -309,34 +325,45 @@ public enum MCPDispatch {
         }
     }
 
+    private struct ExperimentCommandRequestError: LocalizedError {
+        let message: String
+
+        var errorDescription: String? {
+            message
+        }
+    }
+
     private static func makeExperimentCommandRequest(
         _ args: [String]?,
         category: CodeCommandCategory
-    ) -> Result<ExperimentCommandRequest?, String> {
-        guard let args, !args.isEmpty else { return .success(nil) }
+    ) throws -> ExperimentCommandRequest? {
+        guard let args, !args.isEmpty else { return nil }
         let executable = args[0]
-        let allowlist: Set<String> = category == .build
+        let allowlist: Set<String> =
+            category == .build
             ? ["/usr/bin/swift", "swift", "/usr/bin/xcodebuild", "xcodebuild"]
             : ["/usr/bin/swift", "swift", "/usr/bin/xcodebuild", "xcodebuild"]
         guard allowlist.contains(executable) else {
             let sorted = allowlist.sorted().joined(separator: ", ")
-            return .failure(
-                "Unsupported \(category.rawValue) command executable '\(executable)'. Allowed executables: \(sorted)."
+            throw ExperimentCommandRequestError(
+                message:
+                    "Unsupported \(category.rawValue) command executable '\(executable)'. Allowed executables: \(sorted)."
             )
         }
-        return .success(ExperimentCommandRequest(
+        return ExperimentCommandRequest(
             category: category,
             executable: executable,
             arguments: Array(args.dropFirst()),
             summary: args.joined(separator: " ")
-        ))
+        )
     }
 
     static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
         let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
         guard let data = try? encoder.encode(value),
-              let object = try? JSONSerialization.jsonObject(with: data),
-              let dictionary = object as? [String: Any] else {
+            let object = try? JSONSerialization.jsonObject(with: data),
+            let dictionary = object as? [String: Any]
+        else {
             return nil
         }
         return dictionary
@@ -361,9 +388,11 @@ public enum MCPDispatch {
 
     // MARK: - Result formatting
 
-    private static func formatTypedResult(_ result: ToolResult, toolName: String) -> MCPToolResponse {
+    private static func formatTypedResult(_ result: ToolResult, toolName: String) -> MCPToolResponse
+    {
         if let data = try? JSONSerialization.data(withJSONObject: result.toDict(), options: []),
-           let jsonStr = String(data: data, encoding: .utf8) {
+            let jsonStr = String(data: data, encoding: .utf8)
+        {
             return .text(jsonStr, isError: !result.success)
         }
         return .error("Format failed")
@@ -418,7 +447,8 @@ public enum MCPDispatch {
 
         case MCPToolName.elementAt:
             guard let x = request.double("x"), let y = request.double("y") else {
-                return ToolResult(success: false, error: "x and y are required for oracle_element_at")
+                return ToolResult(
+                    success: false, error: "x and y are required for oracle_element_at")
             }
             return AXScanner.elementAt(x: x, y: y)
 
@@ -507,7 +537,8 @@ public enum MCPDispatch {
 
         case MCPToolName.window:
             guard let action = request.string("action"), let appName = request.string("app") else {
-                return ToolResult(success: false, error: "action and app are required for oracle_window")
+                return ToolResult(
+                    success: false, error: "action and app are required for oracle_window")
             }
             return Actions.manageWindow(
                 action: action,
@@ -542,7 +573,8 @@ public enum MCPDispatch {
 
         case MCPToolName.ground:
             guard let description = request.string("description") else {
-                return ToolResult(success: false, error: "description is required for oracle_ground")
+                return ToolResult(
+                    success: false, error: "description is required for oracle_ground")
             }
             let cropBox = request.array("crop_box")?.compactMap { $0.doubleValue }
             return VisionScanner.groundElement(
@@ -553,7 +585,8 @@ public enum MCPDispatch {
 
         // MARK: Recipes
 
-        case MCPToolName.recipes, MCPToolName.run, MCPToolName.recipeShow, MCPToolName.recipeSave, MCPToolName.recipeDelete:
+        case MCPToolName.recipes, MCPToolName.run, MCPToolName.recipeShow, MCPToolName.recipeSave,
+            MCPToolName.recipeDelete:
             return dispatchRecipes(request, runtime: runtime)
 
         // MARK: Project Memory
