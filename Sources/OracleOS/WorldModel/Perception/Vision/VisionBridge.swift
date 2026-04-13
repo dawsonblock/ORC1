@@ -20,6 +20,45 @@ import Foundation
 /// Bridge between Oracle OS and the Python vision sidecar.
 /// All methods are synchronous (blocking) because the MCP server is synchronous.
 public enum VisionBridge {
+    private struct VisionHTTPPayload {
+        let data: Data
+        let statusCode: Int
+    }
+
+    enum VisionRequestFailure: Error, Sendable, Equatable, CustomStringConvertible {
+        case invalidURL(String)
+        case requestEncodingFailed
+        case timedOut
+        case network(code: Int?, description: String)
+        case http(statusCode: Int, message: String?)
+        case sidecar(String)
+        case decode(type: String, description: String)
+        case emptyResponse
+
+        var description: String {
+            switch self {
+            case .invalidURL(let url):
+                return "Invalid vision sidecar URL: \(url)"
+            case .requestEncodingFailed:
+                return "Failed to encode vision request body"
+            case .timedOut:
+                return "Vision sidecar request timed out"
+            case .network(_, let description):
+                return description
+            case .http(let statusCode, let message):
+                if let message, !message.isEmpty {
+                    return "Vision sidecar returned HTTP \(statusCode): \(message)"
+                }
+                return "Vision sidecar returned HTTP \(statusCode)"
+            case .sidecar(let message):
+                return message
+            case .decode(let type, let description):
+                return "Failed to decode \(type) from vision sidecar response: \(description)"
+            case .emptyResponse:
+                return "Vision sidecar returned no response body"
+            }
+        }
+    }
 
     /// Default sidecar URL. Can be overridden via ORACLE_VISION_URL env var.
     private static let baseURL: String = {
@@ -134,16 +173,17 @@ public enum VisionBridge {
 
     /// Check if the vision sidecar is running and responsive.
     public static func isAvailable() -> Bool {
-        httpGetTyped(
-            path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self,
-            timeout: healthTimeout) != nil
+        switch healthCheckResult() {
+        case .success:
+            return true
+        case .failure:
+            return false
+        }
     }
 
     /// Get detailed health status from the sidecar.
     public static func healthCheck() -> VisionHealthResponse? {
-        httpGetTyped(
-            path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self,
-            timeout: healthTimeout)
+        try? healthCheckResult().get()
     }
 
     // MARK: - VLM Grounding
@@ -205,15 +245,24 @@ public enum VisionBridge {
         // Use longer timeout for first call (model needs to load ~10-15s)
         let timeout = lifecycle.hasCompletedFirstGround ? groundTimeout : firstGroundTimeout
 
-        guard
-            let response = httpPostTyped(
-                path: VisionSidecarEndpoint.ground,
-                body: req,
-                as: VisionGroundResponse.self,
-                timeout: timeout
-            )
-        else {
-            Log.warn("Vision sidecar /ground request failed")
+        let response: VisionGroundResponse
+        switch httpPostTyped(
+            path: VisionSidecarEndpoint.ground,
+            body: req,
+            as: VisionGroundResponse.self,
+            timeout: timeout
+        ) {
+        case .success(let decoded):
+            response = decoded
+        case .failure(let failure):
+            if case .timedOut = failure, lifecycle.hasCompletedFirstGround == false,
+                let health = healthCheck()
+            {
+                Log.warn(
+                    "Vision sidecar /ground timed out while sidecar remained reachable (status=\(health.status)); the model may still be warming"
+                )
+            }
+            logRequestFailure(failure, prefix: "Vision sidecar /ground request failed")
             return nil
         }
 
@@ -238,9 +287,18 @@ public enum VisionBridge {
     ) -> VisionDetectResponse? {
         let req = VisionDetectRequest(
             image: imageBase64, screenW: screenWidth, screenH: screenHeight)
-        return httpPostTyped(
-            path: VisionSidecarEndpoint.detect, body: req, as: VisionDetectResponse.self,
-            timeout: groundTimeout)
+        switch httpPostTyped(
+            path: VisionSidecarEndpoint.detect,
+            body: req,
+            as: VisionDetectResponse.self,
+            timeout: groundTimeout
+        ) {
+        case .success(let response):
+            return response
+        case .failure(let failure):
+            logRequestFailure(failure, prefix: "Vision sidecar /detect request failed")
+            return nil
+        }
     }
 
     // MARK: - Screen Parsing
@@ -253,9 +311,18 @@ public enum VisionBridge {
     ) -> VisionParseResponse? {
         let req = VisionParseRequest(
             image: imageBase64, screenW: screenWidth, screenH: screenHeight)
-        return httpPostTyped(
-            path: VisionSidecarEndpoint.parse, body: req, as: VisionParseResponse.self,
-            timeout: groundTimeout)
+        switch httpPostTyped(
+            path: VisionSidecarEndpoint.parse,
+            body: req,
+            as: VisionParseResponse.self,
+            timeout: groundTimeout
+        ) {
+        case .success(let response):
+            return response
+        case .failure(let failure):
+            logRequestFailure(failure, prefix: "Vision sidecar /parse request failed")
+            return nil
+        }
     }
 
     // MARK: - Sidecar Lifecycle
@@ -393,7 +460,7 @@ public enum VisionBridge {
     private static func waitForSidecar() -> Bool {
         for _ in 0..<100 {
             Thread.sleep(forTimeInterval: 0.1)
-            if isAvailable() {
+            if case .success = healthCheckResult() {
                 return true
             }
         }
@@ -503,15 +570,27 @@ public enum VisionBridge {
 
     // MARK: - HTTP Helpers
 
-    /// Synchronous HTTP GET, decoded into a typed Decodable response. Returns nil on any failure.
+    private static func healthCheckResult() -> Result<VisionHealthResponse, VisionRequestFailure> {
+        httpGetTyped(
+            path: VisionSidecarEndpoint.health, as: VisionHealthResponse.self,
+            timeout: healthTimeout)
+    }
+
+    /// Synchronous HTTP GET, decoded into a typed Decodable response.
     private static func httpGetTyped<R: Decodable>(
         path: String, as type: R.Type, timeout: TimeInterval
-    ) -> R? {
-        guard let url = URL(string: baseURL + path) else { return nil }
+    ) -> Result<R, VisionRequestFailure> {
+        guard let url = URL(string: baseURL + path) else {
+            return .failure(.invalidURL(baseURL + path))
+        }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "GET"
-        guard let data = performRawRequest(request) else { return nil }
-        return try? JSONDecoder().decode(R.self, from: data)
+        switch performRawRequest(request) {
+        case .success(let payload):
+            return decodeTypedResponse(payload, as: type)
+        case .failure(let failure):
+            return .failure(failure)
+        }
     }
 
     /// Synchronous HTTP POST with a typed Encodable body, decoded into a typed Decodable response.
@@ -520,24 +599,31 @@ public enum VisionBridge {
         body: B,
         as type: R.Type,
         timeout: TimeInterval
-    ) -> R? {
-        guard let url = URL(string: baseURL + path) else { return nil }
+    ) -> Result<R, VisionRequestFailure> {
+        guard let url = URL(string: baseURL + path) else {
+            return .failure(.invalidURL(baseURL + path))
+        }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         guard let jsonData = try? JSONEncoder().encode(body) else {
-            Log.error("Vision: Failed to encode request body")
-            return nil
+            return .failure(.requestEncodingFailed)
         }
         request.httpBody = jsonData
-        guard let data = performRawRequest(request) else { return nil }
-        return try? JSONDecoder().decode(R.self, from: data)
+        switch performRawRequest(request) {
+        case .success(let payload):
+            return decodeTypedResponse(payload, as: type)
+        case .failure(let failure):
+            return .failure(failure)
+        }
     }
 
     /// Perform a synchronous URLSession request. Blocks the calling thread
     /// using a semaphore (acceptable since MCP server is single-threaded).
-    /// Returns the raw response Data or nil on failure.
-    private static func performRawRequest(_ request: URLRequest) -> Data? {
+    /// Returns the raw response payload on success.
+    private static func performRawRequest(_ request: URLRequest) -> Result<
+        VisionHTTPPayload, VisionRequestFailure
+    > {
         let semaphore = DispatchSemaphore(value: 0)
 
         // Use nonisolated Sendable box to shuttle data across the closure boundary.
@@ -546,14 +632,16 @@ public enum VisionBridge {
         nonisolated final class ResponseBox: @unchecked Sendable {
             var data: Data?
             var error: (any Error)?
+            var response: URLResponse?
         }
         let box = ResponseBox()
 
         // Use a detached session to avoid MainActor issues
         let session = URLSession(configuration: .default)
-        let task = session.dataTask(with: request) { data, _, error in
+        let task = session.dataTask(with: request) { data, response, error in
             box.data = data
             box.error = error
+            box.response = response
             semaphore.signal()
         }
         task.resume()
@@ -565,27 +653,92 @@ public enum VisionBridge {
         let waitResult = semaphore.wait(timeout: deadline)
         if waitResult == .timedOut {
             task.cancel()
-            Log.warn("Vision HTTP request timed out (semaphore deadline exceeded)")
-            return nil
+            return .failure(.timedOut)
         }
 
         if let error = box.error {
-            // Don't log connection refused as error — sidecar might not be running
             let nsError = error as NSError
-            if nsError.code == NSURLErrorCannotConnectToHost || nsError.code == NSURLErrorTimedOut
-                || nsError.code == NSURLErrorNetworkConnectionLost
-            {
-                Log.debug("Vision sidecar not reachable: \(error.localizedDescription)")
-            } else {
-                Log.warn("Vision HTTP error: \(error.localizedDescription)")
+            return .failure(.network(code: nsError.code, description: error.localizedDescription))
+        }
+
+        guard let response = box.response as? HTTPURLResponse,
+            let data = box.data
+        else {
+            return .failure(.emptyResponse)
+        }
+
+        return .success(VisionHTTPPayload(data: data, statusCode: response.statusCode))
+    }
+
+    static func extractErrorMessage(from data: Data) -> String? {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            var parts: [String] = []
+            if let error = object["error"] as? String, !error.isEmpty {
+                parts.append(error)
             }
-            return nil
+            if let detail = object["detail"] as? String, !detail.isEmpty {
+                parts.append(detail)
+            }
+            if let suggestion = object["suggestion"] as? String, !suggestion.isEmpty {
+                parts.append("Suggestion: \(suggestion)")
+            }
+            if !parts.isEmpty {
+                return parts.joined(separator: " | ")
+            }
         }
 
-        guard let data = box.data else {
+        guard
+            let raw = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !raw.isEmpty
+        else {
             return nil
         }
+        return raw
+    }
 
-        return data
+    private static func decodeTypedResponse<R: Decodable>(
+        _ payload: VisionHTTPPayload,
+        as type: R.Type
+    ) -> Result<R, VisionRequestFailure> {
+        if payload.statusCode >= 400 {
+            return .failure(
+                .http(
+                    statusCode: payload.statusCode, message: extractErrorMessage(from: payload.data)
+                ))
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode(R.self, from: payload.data)
+            if let errorCarrier = decoded as? any VisionSidecarErrorCarrier,
+                let error = errorCarrier.error?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !error.isEmpty
+            {
+                return .failure(.sidecar(error))
+            }
+            return .success(decoded)
+        } catch {
+            return .failure(
+                .decode(type: String(describing: R.self), description: error.localizedDescription))
+        }
+    }
+
+    private static func logRequestFailure(
+        _ failure: VisionRequestFailure,
+        prefix: String
+    ) {
+        switch failure {
+        case .network(let code, _)
+        where code == NSURLErrorCannotConnectToHost
+            || code == NSURLErrorTimedOut
+            || code == NSURLErrorNetworkConnectionLost:
+            Log.debug("\(prefix): \(failure.description)")
+        case .network(let code, _) where code == NSURLErrorNotConnectedToInternet:
+            Log.debug("\(prefix): \(failure.description)")
+        case .timedOut:
+            Log.warn("\(prefix): \(failure.description)")
+        default:
+            Log.warn("\(prefix): \(failure.description)")
+        }
     }
 }

@@ -3,7 +3,7 @@
 //
 // All data crossing this boundary must use these types. No free-form maps.
 // Transport: HTTP to localhost:9876 (default). Port is runtime-configured.
-// Schema version is embedded in each request; add new request types for breaking changes.
+// Breaking wire changes must update this file and vision-sidecar/schema/endpoints.py together.
 
 import Foundation
 
@@ -15,7 +15,7 @@ public enum VisionSidecarEndpoint {
     public static let health = "/health"
     public static let ground = "/ground"
     public static let detect = "/detect"
-    public static let parse  = "/parse"
+    public static let parse = "/parse"
 }
 
 // MARK: - Ground Request/Response
@@ -116,21 +116,41 @@ public struct VisionDetectRequest: Sendable, Codable {
 public struct VisionDetectResponse: Sendable, Codable {
     public let status: String
     /// Detected elements in the order returned by the detector.
-    public let elements: [VisionDetectedElement]
+    public let elements: [VisionSidecarElement]
     public let count: Int
     public let suggestion: String?
     public let error: String?
 }
 
-/// A single detected UI element from the `/detect` endpoint.
-public struct VisionDetectedElement: Sendable, Codable {
-    public let role: String?
-    public let label: String?
-    public let x: Double
-    public let y: Double
-    public let width: Double
-    public let height: Double
-    public let confidence: Double?
+/// Canonical sidecar element shape shared by `/detect` and `/parse`.
+public struct VisionSidecarElement: Sendable, Codable, Equatable {
+    public let id: String
+    public let type: String
+    public let confidence: Double
+    public let box: [Double]
+    public let text: String?
+    public let source: String
+
+    public init(
+        id: String,
+        type: String,
+        confidence: Double,
+        box: [Double],
+        text: String? = nil,
+        source: String
+    ) {
+        self.id = id
+        self.type = type
+        self.confidence = confidence
+        self.box = box
+        self.text = text
+        self.source = source
+    }
+
+    public var frame: VisionFrame? {
+        guard box.count == 4 else { return nil }
+        return VisionFrame(x: box[0], y: box[1], width: box[2], height: box[3])
+    }
 }
 
 // MARK: - Parse Request/Response
@@ -161,8 +181,9 @@ public struct VisionParseRequest: Sendable, Codable {
 /// typed fields cover the stable surface, extras are in `extra`.
 public struct VisionParseResponse: Sendable, Codable {
     public let status: String?
-    public let elements: [VisionDetectedElement]?
+    public let elements: [VisionSidecarElement]?
     public let count: Int?
+    public let context: String?
     public let error: String?
 }
 
@@ -192,3 +213,11 @@ public struct VisionHealthResponse: Sendable, Codable {
     /// Convenience: returns true when the sidecar has a VLM model loaded and ready.
     public var isReady: Bool { status == "ready" }
 }
+
+protocol VisionSidecarErrorCarrier {
+    var error: String? { get }
+}
+
+extension VisionGroundResponse: VisionSidecarErrorCarrier {}
+extension VisionDetectResponse: VisionSidecarErrorCarrier {}
+extension VisionParseResponse: VisionSidecarErrorCarrier {}

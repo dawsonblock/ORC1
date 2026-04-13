@@ -77,13 +77,12 @@ DETECT_REQUEST_SCHEMA: dict = {
 DETECT_REQUIRED_FIELDS: tuple[str, ...] = ("image",)
 
 DETECT_ELEMENT_SCHEMA: dict = {
-    "role": (str, type(None)),
-    "label": (str, type(None)),
-    "x": float,
-    "y": float,
-    "width": float,
-    "height": float,
-    "confidence": (float, type(None)),
+    "id": str,
+    "type": str,
+    "confidence": float,
+    "box": list,
+    "text": (str, type(None)),
+    "source": str,
 }
 
 DETECT_RESPONSE_SCHEMA: dict = {
@@ -112,6 +111,7 @@ PARSE_RESPONSE_SCHEMA: dict = {
     "status": (str, type(None)),
     "elements": (list, type(None)),
     "count": (int, type(None)),
+    "context": (str, type(None)),
     "error": (str, type(None)),
 }
 

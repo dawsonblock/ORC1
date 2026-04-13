@@ -31,6 +31,20 @@ import Foundation
 /// - The supported runtime loop MUST NOT block on sidecar availability
 @MainActor
 public enum VisionScanner {
+    static let minimumReportedGroundConfidence = 0.3
+    static let minimumActionableGroundConfidence = 0.5
+
+    struct GroundingContext: Equatable {
+        let sidecarWidth: Double
+        let sidecarHeight: Double
+        let offsetX: Double
+        let offsetY: Double
+        let isEffectivelyFullscreen: Bool
+
+        func mapToScreen(x: Double, y: Double) -> (x: Double, y: Double) {
+            (x + offsetX, y + offsetY)
+        }
+    }
 
     // MARK: - oracle_parse_screen
 
@@ -47,7 +61,8 @@ public enum VisionScanner {
         }
 
         // Take screenshot
-        guard let screenshot = captureForVision(appName: appName, fullResolution: fullResolution) else {
+        guard let screenshot = captureForVision(appName: appName, fullResolution: fullResolution)
+        else {
             return ToolResult(
                 success: false,
                 error: "Screenshot capture failed",
@@ -61,11 +76,13 @@ public enum VisionScanner {
         let displayHeight = Double(mainScreen?.frame.height ?? 1117)
 
         // Call VLM parsing
-        guard let response = VisionBridge.parse(
-            imageBase64: screenshot.base64PNG,
-            screenWidth: displayWidth,
-            screenHeight: displayHeight
-        ) else {
+        guard
+            let response = VisionBridge.parse(
+                imageBase64: screenshot.base64PNG,
+                screenWidth: displayWidth,
+                screenHeight: displayHeight
+            )
+        else {
             return ToolResult(
                 success: false,
                 error: "Vision parsing failed",
@@ -73,22 +90,30 @@ public enum VisionScanner {
             )
         }
 
-        // Re-encode the typed response to [String: Any] for the MCP tool result.
-        let encoder = JSONEncoder()
-        let resultDict: [String: Any]
-        if let data = try? encoder.encode(response),
-           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        {
-            resultDict = dict
-        } else {
-            resultDict = [:]
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let encodedResponse = encodeJSONObject(response) ?? [:]
+        switch parsePerceptionFrame(
+            from: response,
+            screenWidth: displayWidth,
+            screenHeight: displayHeight,
+            timestamp: timestamp
+        ) {
+        case .success:
+            return ToolResult(
+                success: true,
+                data: encodedResponse,
+                suggestion: response.context ?? "Screen parsed successfully via vision sidecar."
+            )
+        case .failure(let violations):
+            var failureData = encodedResponse
+            failureData["validator_violations"] = violations
+            return ToolResult(
+                success: false,
+                data: failureData,
+                error: "Vision parse response failed contract validation",
+                suggestion: violations.joined(separator: " | ")
+            )
         }
-
-        return ToolResult(
-            success: true,
-            data: resultDict,
-            suggestion: "Screen parsed successfully via vision sidecar."
-        )
     }
 
     // MARK: - oracle_ground
@@ -101,6 +126,15 @@ public enum VisionScanner {
         appName: String?,
         cropBox: [Double]?
     ) -> ToolResult {
+        if let cropBoxError = validateCropBox(cropBox) {
+            return ToolResult(
+                success: false,
+                error: cropBoxError,
+                suggestion:
+                    "Pass crop_box as [x1, y1, x2, y2] in logical screen points with x2>x1 and y2>y1."
+            )
+        }
+
         // Check sidecar availability, try to start it if not running
         if !VisionBridge.isAvailable() {
             Log.info("Vision sidecar not running, attempting to start...")
@@ -149,43 +183,27 @@ public enum VisionScanner {
         let mainScreen = NSScreen.main ?? NSScreen.screens.first
         let displayWidth = Double(mainScreen?.frame.width ?? 1728)
         let displayHeight = Double(mainScreen?.frame.height ?? 1117)
-
-        // Determine if window is effectively fullscreen (covers most of display width)
-        let isEffectivelyFullscreen = windowWidth > 0 && (windowWidth / displayWidth) > 0.9
-
-        let sidecarWidth: Double
-        let sidecarHeight: Double
-        let offsetX: Double
-        let offsetY: Double
-
-        if isEffectivelyFullscreen {
-            // Fullscreen: use display dimensions, no offset
-            sidecarWidth = displayWidth
-            sidecarHeight = displayHeight
-            offsetX = 0
-            offsetY = 0
-        } else if windowWidth > 0 && windowHeight > 0 {
-            // Non-fullscreen: use window dimensions + offset
-            sidecarWidth = windowWidth
-            sidecarHeight = windowHeight
-            offsetX = windowX
-            offsetY = windowY
-        } else {
-            // Fallback: use screenshot pixels
-            sidecarWidth = screenshotWidth
-            sidecarHeight = screenshotHeight
-            offsetX = 0
-            offsetY = 0
-        }
+        let mappingContext = groundingContext(
+            screenshotWidth: screenshotWidth,
+            screenshotHeight: screenshotHeight,
+            windowWidth: windowWidth,
+            windowHeight: windowHeight,
+            windowX: windowX,
+            windowY: windowY,
+            displayWidth: displayWidth,
+            displayHeight: displayHeight
+        )
 
         // Call VLM grounding
-        guard let result = VisionBridge.ground(
-            imageBase64: screenshot.base64PNG,
-            description: description,
-            screenWidth: sidecarWidth,
-            screenHeight: sidecarHeight,
-            cropBox: cropBox
-        ) else {
+        guard
+            let result = VisionBridge.ground(
+                imageBase64: screenshot.base64PNG,
+                description: description,
+                screenWidth: mappingContext.sidecarWidth,
+                screenHeight: mappingContext.sidecarHeight,
+                cropBox: cropBox
+            )
+        else {
             return ToolResult(
                 success: false,
                 error: "VLM grounding failed for '\(description)'",
@@ -194,9 +212,12 @@ public enum VisionScanner {
         }
 
         // Map to screen-absolute coordinates
-        let mappedX = result.x + offsetX
-        let mappedY = result.y + offsetY
-        Log.info("Vision ground: sidecar(\(Int(sidecarWidth))x\(Int(sidecarHeight))) → VLM (\(Int(result.x)),\(Int(result.y))) + offset (\(Int(offsetX)),\(Int(offsetY))) → screen (\(Int(mappedX)),\(Int(mappedY))) [fullscreen=\(isEffectivelyFullscreen)]")
+        let mappedPoint = mappingContext.mapToScreen(x: result.x, y: result.y)
+        let mappedX = mappedPoint.x
+        let mappedY = mappedPoint.y
+        Log.info(
+            "Vision ground: sidecar(\(Int(mappingContext.sidecarWidth))x\(Int(mappingContext.sidecarHeight))) → VLM (\(Int(result.x)),\(Int(result.y))) + offset (\(Int(mappingContext.offsetX)),\(Int(mappingContext.offsetY))) → screen (\(Int(mappedX)),\(Int(mappedY))) [fullscreen=\(mappingContext.isEffectivelyFullscreen)]"
+        )
 
         // Build response with screen-logical coordinates
         var data: [String: Any] = [
@@ -221,16 +242,21 @@ public enum VisionScanner {
 
         // Include suggestion based on confidence
         var suggestion: String?
-        if result.confidence < 0.3 {
-            suggestion = "Low confidence (\(result.confidence)). The element may not be visible on screen. " +
-                         "Try oracle_screenshot to verify, or use oracle_find for AX-based search."
+        if result.confidence < minimumReportedGroundConfidence {
+            suggestion =
+                "Low confidence (\(result.confidence)). The element may not be visible on screen. "
+                + "Try oracle_screenshot to verify, or use oracle_find for AX-based search."
         } else if result.confidence < 0.6 {
-            suggestion = "Medium confidence. Consider using crop_box to narrow the search area for better accuracy."
+            suggestion =
+                "Medium confidence. Consider using crop_box to narrow the search area for better accuracy."
         }
 
         return ToolResult(
-            success: result.confidence > 0,
+            success: result.confidence >= minimumReportedGroundConfidence,
             data: data,
+            error: result.confidence >= minimumReportedGroundConfidence
+                ? nil
+                : "Low-confidence VLM grounding for '\(description)'",
             suggestion: suggestion
         )
     }
@@ -260,42 +286,43 @@ public enum VisionScanner {
         let mainScreen = NSScreen.main ?? NSScreen.screens.first
         let displayW = Double(mainScreen?.frame.width ?? 1728)
         let displayH = Double(mainScreen?.frame.height ?? 1117)
-        let isFullscreen = screenshot.windowWidth > 0 && (screenshot.windowWidth / displayW) > 0.9
-
-        let sidecarW: Double
-        let sidecarH: Double
-        let offX: Double
-        let offY: Double
-        if isFullscreen {
-            sidecarW = displayW; sidecarH = displayH; offX = 0; offY = 0
-        } else if screenshot.windowWidth > 0 {
-            sidecarW = screenshot.windowWidth; sidecarH = screenshot.windowHeight
-            offX = screenshot.windowX; offY = screenshot.windowY
-        } else {
-            sidecarW = Double(screenshot.width); sidecarH = Double(screenshot.height)
-            offX = 0; offY = 0
-        }
+        let mappingContext = groundingContext(
+            screenshotWidth: Double(screenshot.width),
+            screenshotHeight: Double(screenshot.height),
+            windowWidth: screenshot.windowWidth,
+            windowHeight: screenshot.windowHeight,
+            windowX: screenshot.windowX,
+            windowY: screenshot.windowY,
+            displayWidth: displayW,
+            displayHeight: displayH
+        )
 
         // Run VLM grounding
-        guard let result = VisionBridge.ground(
-            imageBase64: screenshot.base64PNG,
-            description: query,
-            screenWidth: sidecarW,
-            screenHeight: sidecarH
-        ) else {
+        guard
+            let result = VisionBridge.ground(
+                imageBase64: screenshot.base64PNG,
+                description: query,
+                screenWidth: mappingContext.sidecarWidth,
+                screenHeight: mappingContext.sidecarHeight
+            )
+        else {
             return nil
         }
 
         // Only return if confidence is reasonable
-        guard result.confidence >= 0.5 else {
-            Log.info("Vision fallback for '\(query)': low confidence \(result.confidence), skipping")
+        guard result.confidence >= minimumActionableGroundConfidence else {
+            Log.info(
+                "Vision fallback for '\(query)': low confidence \(result.confidence), skipping")
             return nil
         }
 
-        let mappedX = Int(result.x + offX)
-        let mappedY = Int(result.y + offY)
+        let mappedPoint = mappingContext.mapToScreen(x: result.x, y: result.y)
+        let mappedX = Int(mappedPoint.x)
+        let mappedY = Int(mappedPoint.y)
 
-        Log.info("Vision fallback found '\(query)' at screen (\(mappedX), \(mappedY)) conf=\(result.confidence)")
+        Log.info(
+            "Vision fallback found '\(query)' at screen (\(mappedX), \(mappedY)) conf=\(result.confidence)"
+        )
 
         // Return as a synthetic element summary matching oracle_find's output format
         let element: [String: Any] = [
@@ -306,7 +333,8 @@ public enum VisionScanner {
             "actionable": true,
             "grounded_by": "vlm",
             "confidence": result.confidence,
-            "note": "Found by VLM vision grounding. Use oracle_click with x:\(mappedX) y:\(mappedY) to click.",
+            "note":
+                "Found by VLM vision grounding. Use oracle_click with x:\(mappedX) y:\(mappedY) to click.",
         ]
 
         return [element]
@@ -337,42 +365,42 @@ public enum VisionScanner {
         let mainScreen = NSScreen.main ?? NSScreen.screens.first
         let displayW = Double(mainScreen?.frame.width ?? 1728)
         let displayH = Double(mainScreen?.frame.height ?? 1117)
-        let isFullscreen = screenshot.windowWidth > 0 && (screenshot.windowWidth / displayW) > 0.9
-
-        let sidecarW: Double
-        let sidecarH: Double
-        let offX: Double
-        let offY: Double
-        if isFullscreen {
-            sidecarW = displayW; sidecarH = displayH; offX = 0; offY = 0
-        } else if screenshot.windowWidth > 0 {
-            sidecarW = screenshot.windowWidth; sidecarH = screenshot.windowHeight
-            offX = screenshot.windowX; offY = screenshot.windowY
-        } else {
-            sidecarW = Double(screenshot.width); sidecarH = Double(screenshot.height)
-            offX = 0; offY = 0
-        }
+        let mappingContext = groundingContext(
+            screenshotWidth: Double(screenshot.width),
+            screenshotHeight: Double(screenshot.height),
+            windowWidth: screenshot.windowWidth,
+            windowHeight: screenshot.windowHeight,
+            windowX: screenshot.windowX,
+            windowY: screenshot.windowY,
+            displayWidth: displayW,
+            displayHeight: displayH
+        )
 
         // Run VLM grounding
-        guard let result = VisionBridge.ground(
-            imageBase64: screenshot.base64PNG,
-            description: query,
-            screenWidth: sidecarW,
-            screenHeight: sidecarH
-        ) else {
+        guard
+            let result = VisionBridge.ground(
+                imageBase64: screenshot.base64PNG,
+                description: query,
+                screenWidth: mappingContext.sidecarWidth,
+                screenHeight: mappingContext.sidecarHeight
+            )
+        else {
             return nil
         }
 
         // Only click if confidence is reasonable
-        guard result.confidence >= 0.5 else {
+        guard result.confidence >= minimumActionableGroundConfidence else {
             Log.info("Vision click fallback for '\(query)': low confidence \(result.confidence)")
             return nil
         }
 
-        let mappedX = result.x + offX
-        let mappedY = result.y + offY
+        let mappedPoint = mappingContext.mapToScreen(x: result.x, y: result.y)
+        let mappedX = mappedPoint.x
+        let mappedY = mappedPoint.y
 
-        Log.info("Vision click: '\(query)' at screen (\(Int(mappedX)), \(Int(mappedY))) conf=\(result.confidence)")
+        Log.info(
+            "Vision click: '\(query)' at screen (\(Int(mappedX)), \(Int(mappedY))) conf=\(result.confidence)"
+        )
 
         return ToolResult(
             success: true,
@@ -383,9 +411,11 @@ public enum VisionScanner {
                 "method": "vlm-grounded",
                 "description": query,
                 "inference_ms": result.inferenceMs,
-                "note": "Element found by VLM vision grounding. Use oracle_click(x:\(Int(mappedX)), y:\(Int(mappedY))) to click.",
+                "note":
+                    "Element found by VLM vision grounding. Use oracle_click(x:\(Int(mappedX)), y:\(Int(mappedY))) to click.",
             ],
-            suggestion: "To click this element, use oracle_click with x:\(Int(mappedX)) y:\(Int(mappedY))"
+            suggestion:
+                "To click this element, use oracle_click with x:\(Int(mappedX)) y:\(Int(mappedY))"
         )
     }
 
@@ -446,8 +476,128 @@ public enum VisionScanner {
         ToolResult(
             success: false,
             error: "Vision sidecar not running. \(tool) requires the Python vision sidecar.",
-            suggestion: "Start the sidecar: cd vision-sidecar && python3 server.py &\n" +
-                        "Or use oracle_find for AX-based element search (works without sidecar)."
+            suggestion: "Start the sidecar: cd vision-sidecar && python3 server.py &\n"
+                + "Or use oracle_find for AX-based element search (works without sidecar)."
         )
+    }
+
+    static func groundingContext(
+        screenshotWidth: Double,
+        screenshotHeight: Double,
+        windowWidth: Double,
+        windowHeight: Double,
+        windowX: Double,
+        windowY: Double,
+        displayWidth: Double,
+        displayHeight: Double
+    ) -> GroundingContext {
+        let isEffectivelyFullscreen = windowWidth > 0 && (windowWidth / displayWidth) > 0.9
+        if isEffectivelyFullscreen {
+            return GroundingContext(
+                sidecarWidth: displayWidth,
+                sidecarHeight: displayHeight,
+                offsetX: 0,
+                offsetY: 0,
+                isEffectivelyFullscreen: true
+            )
+        }
+
+        if windowWidth > 0 && windowHeight > 0 {
+            return GroundingContext(
+                sidecarWidth: windowWidth,
+                sidecarHeight: windowHeight,
+                offsetX: windowX,
+                offsetY: windowY,
+                isEffectivelyFullscreen: false
+            )
+        }
+
+        return GroundingContext(
+            sidecarWidth: screenshotWidth,
+            sidecarHeight: screenshotHeight,
+            offsetX: 0,
+            offsetY: 0,
+            isEffectivelyFullscreen: false
+        )
+    }
+
+    static func validateCropBox(_ cropBox: [Double]?) -> String? {
+        guard let cropBox else { return nil }
+        guard cropBox.count == 4 else {
+            return "crop_box must contain exactly four coordinates"
+        }
+        guard cropBox[2] > cropBox[0], cropBox[3] > cropBox[1] else {
+            return "crop_box must satisfy x2>x1 and y2>y1"
+        }
+        return nil
+    }
+
+    static func parsePerceptionFrame(
+        from response: VisionParseResponse,
+        screenWidth: Double,
+        screenHeight: Double,
+        timestamp: String
+    ) -> Result<VisionPerceptionFrame, [String]> {
+        var violations: [String] = []
+        if let error = response.error?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !error.isEmpty
+        {
+            violations.append("Vision sidecar reported parse error: \(error)")
+        }
+
+        guard let elements = response.elements else {
+            violations.append("Vision parse response is missing elements")
+            return .failure(violations)
+        }
+
+        if let count = response.count, count != elements.count {
+            violations.append(
+                "Vision parse response count \(count) did not match element payload count \(elements.count)"
+            )
+        }
+
+        let detections = elements.compactMap { element -> VisionDetection? in
+            guard let frame = element.frame else {
+                violations.append(
+                    "Vision parse element '\(element.id)' returned an invalid box payload")
+                return nil
+            }
+            return VisionDetection(
+                id: element.id,
+                elementType: element.type,
+                frame: frame,
+                confidence: element.confidence,
+                text: element.text,
+                source: element.source,
+                timestamp: timestamp
+            )
+        }
+
+        let overallConfidence: Double
+        if detections.isEmpty {
+            overallConfidence = 0
+        } else {
+            overallConfidence = detections.map(\.confidence).reduce(0, +) / Double(detections.count)
+        }
+
+        let frame = VisionPerceptionFrame(
+            detections: detections,
+            overallConfidence: overallConfidence,
+            timestamp: timestamp,
+            screenWidth: screenWidth,
+            screenHeight: screenHeight
+        )
+
+        violations.append(contentsOf: VisionContractValidator.validate(frame))
+        return violations.isEmpty ? .success(frame) : .failure(violations)
+    }
+
+    private static func encodeJSONObject<T: Encodable>(_ value: T) -> [String: Any]? {
+        guard let data = try? JSONEncoder().encode(value),
+            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return nil
+        }
+        return dict
     }
 }
