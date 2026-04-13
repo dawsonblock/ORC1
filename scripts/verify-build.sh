@@ -27,6 +27,7 @@ CLI_SMOKE_LOG="$EVIDENCE_DIR/cli-smoke-output.txt"
 TEST_LOG="$EVIDENCE_DIR/test-output.txt"
 ENVIRONMENT_LOG="$EVIDENCE_DIR/environment.txt"
 RESULT_LOG="$EVIDENCE_DIR/verify-result.txt"
+PREFERRED_XCODE_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 
 declare -a VERIFIED_CLI_COMMANDS=()
 declare -a VERIFIED_GUARDS=()
@@ -41,6 +42,7 @@ declare -a SANITIZED_ENV_VARS=(
     "ORACLE_LLM_RECOVERY_MODEL"
 )
 declare -a SANITIZED_ENV_ARGS=()
+declare -a SWIFT_CMD=("swift")
 PLATFORM_STATUS="not-run"
 DEPENDENCY_STATUS="not-run"
 BUILD_STATUS="not-run"
@@ -51,6 +53,8 @@ GUARD_STATUS="not-run"
 FAILURE_LABEL=""
 FAILURE_MESSAGE=""
 SANITIZED_REASONING_ENV="none detected"
+SWIFT_INVOCATION="swift"
+SELECTED_DEVELOPER_DIR="${DEVELOPER_DIR:-}"
 declare -i DID_BUILD=0
 declare -i DID_RESOLVE=0
 declare -i DID_TEST=0
@@ -97,6 +101,21 @@ initialize_sanitized_environment() {
 
     if [[ -n "$present" ]]; then
         SANITIZED_REASONING_ENV="$present"
+    fi
+}
+
+configure_swift_toolchain() {
+    if command -v xcrun >/dev/null 2>&1; then
+        if [[ -z "$SELECTED_DEVELOPER_DIR" && -d "$PREFERRED_XCODE_DEVELOPER_DIR" ]]; then
+            SELECTED_DEVELOPER_DIR="$PREFERRED_XCODE_DEVELOPER_DIR"
+            export DEVELOPER_DIR="$SELECTED_DEVELOPER_DIR"
+        fi
+        SWIFT_CMD=("xcrun" "swift")
+        if [[ -n "$SELECTED_DEVELOPER_DIR" ]]; then
+            SWIFT_INVOCATION="DEVELOPER_DIR=$SELECTED_DEVELOPER_DIR xcrun swift"
+        else
+            SWIFT_INVOCATION="xcrun swift"
+        fi
     fi
 }
 
@@ -193,11 +212,15 @@ record_environment() {
         echo "mode=$MODE"
         echo "pwd=$REPO_ROOT"
         echo "uname=$(uname -a)"
+        echo "swift_command=$SWIFT_INVOCATION"
+        if [[ -n "$SELECTED_DEVELOPER_DIR" ]]; then
+            echo "developer_dir=$SELECTED_DEVELOPER_DIR"
+        fi
         if command -v sw_vers >/dev/null 2>&1; then
             echo "sw_vers=$(sw_vers -productVersion)"
         fi
-        if command -v swift >/dev/null 2>&1; then
-            echo "swift_version=$(swift --version | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
+        if "${SWIFT_CMD[@]}" --version >/dev/null 2>&1; then
+            echo "swift_version=$("${SWIFT_CMD[@]}" --version | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
         fi
         if command -v python3 >/dev/null 2>&1; then
             echo "python_version=$(python3 --version 2>&1)"
@@ -339,19 +362,21 @@ echo "Mode:    $MODE" | tee -a "$RESULT_LOG"
 echo "" | tee -a "$RESULT_LOG"
 
 initialize_sanitized_environment
+configure_swift_toolchain
 record_environment
 write_result "Environment: $ENVIRONMENT_LOG"
 write_result "Sanitized optional reasoning env: $SANITIZED_REASONING_ENV"
+write_result "Swift command: $SWIFT_INVOCATION"
 write_result ""
 require_supported_runtime_platform
 
-run_logged_command "DEPENDENCY_RESOLUTION" "swift package resolve" "$DEPENDENCY_LOG" swift package resolve
+run_logged_command "DEPENDENCY_RESOLUTION" "$SWIFT_INVOCATION package resolve" "$DEPENDENCY_LOG" "${SWIFT_CMD[@]}" package resolve
 DID_RESOLVE=1
 DEPENDENCY_STATUS="verified"
 
 # --- Build ---
 if [[ "$MODE" == "all" || "$MODE" == "build" ]]; then
-    run_logged_command "BUILD" "swift build -c release" "$BUILD_LOG" swift build -c release
+    run_logged_command "BUILD" "$SWIFT_INVOCATION build -c release" "$BUILD_LOG" "${SWIFT_CMD[@]}" build -c release
     DID_BUILD=1
     BUILD_STATUS="verified"
     run_cli_smokes
@@ -364,7 +389,7 @@ fi
 
 # --- Test ---
 if [[ "$MODE" == "all" || "$MODE" == "test" ]]; then
-    run_logged_command "TEST" "swift test" "$TEST_LOG" swift test
+    run_logged_command "TEST" "$SWIFT_INVOCATION test" "$TEST_LOG" "${SWIFT_CMD[@]}" test
     DID_TEST=1
     TEST_STATUS="verified"
 else

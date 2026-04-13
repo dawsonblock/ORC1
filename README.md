@@ -33,7 +33,7 @@ The supported Swift runtime build and test path is **macOS 14+ only**.
 
 The runtime depends on Apple accessibility frameworks and the vendored AX layer in `Vendor/AXorcist`, so `swift build`, `swift test`, and the supported controller or MCP runtime flow require macOS. Linux may run some repository-analysis or guard scripts, but it is not a supported platform for the Swift runtime build.
 
-`bash scripts/verify-build.sh` is the canonical local proof path for that supported runtime. It is fail-fast, writes evidence only under `local/verify/latest/`, and should be treated as the release-gate verifier in this checkout.
+`bash scripts/verify-build.sh` is the canonical local proof path for that supported runtime. It is fail-fast, writes evidence only under `local/verify/latest/`, auto-prefers `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` via `xcrun` when full Xcode is installed, and should be treated as the release-gate verifier in this checkout. See [STATUS.md](STATUS.md) for the current pass/fail state of that path.
 
 ---
 
@@ -63,14 +63,14 @@ These are bounded exceptions and are **not** part of the guaranteed main-path ex
 
 ## Quick Start
 
-**Requirements:** macOS 14+, Swift 6, Xcode command-line tools, Accessibility and Screen Recording permissions for UI automation.
+**Requirements:** macOS 14+, Swift 6, full Xcode 16+ installed for the supported SwiftPM test path, Accessibility and Screen Recording permissions for UI automation.
 
 ```bash
 git clone https://github.com/dawsonblock/ORC1.git
 cd ORC1
 swift build
-swift test
-bash scripts/verify-build.sh   # canonical local proof
+bash scripts/verify-build.sh --build-only
+bash scripts/verify-build.sh   # canonical local proof; current evidence posture is tracked in STATUS.md
 ```
 
 ### Controller App
@@ -155,7 +155,6 @@ web/                      disconnected demo scaffold (not part of the runtime co
 
 ```bash
 swift build
-swift test
 bash scripts/verify-build.sh          # canonical proof — runs all guards + full test suite
 ```
 
@@ -168,7 +167,7 @@ python3 scripts/architecture_guard.py
 python3 scripts/execution_boundary_guard.py
 ```
 
-`bash scripts/verify-build.sh` is the canonical local proof path. It runs the guard scripts, a release build, non-interactive `oracle` CLI smokes, the full Swift test suite, and writes evidence to `local/verify/latest/`. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the `canonical-verify-evidence` artifact.
+`bash scripts/verify-build.sh` is the canonical local proof path. It runs the guard scripts, a release build, non-interactive `oracle` CLI smokes, the full Swift test suite, and writes evidence to `local/verify/latest/`. On machines with full Xcode installed it uses `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift` for the SwiftPM steps. The CI workflow (`.github/workflows/ci.yml`) runs the same path and publishes that directory as the `canonical-verify-evidence` artifact.
 It also records the verification environment in `local/verify/latest/environment.txt`.
 
 ---

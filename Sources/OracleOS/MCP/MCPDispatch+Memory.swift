@@ -4,7 +4,7 @@ import Foundation
 //
 // Covers: oracle_memory_query, oracle_memory_draft
 
-private struct MemoryRecordPayload: Encodable {
+struct MemoryRecordSummary: Encodable {
     let id: String
     let kind: String
     let title: String
@@ -26,8 +26,8 @@ private struct MemoryRecordPayload: Encodable {
     }
 }
 
-private struct MemoryQueryPayload: Encodable {
-    let records: [MemoryRecordPayload]
+struct MemoryQueryPayload: Encodable {
+    let records: [MemoryRecordSummary]
     let count: Int
 }
 
@@ -80,7 +80,7 @@ extension MCPDispatch {
             }
             let payload = MemoryQueryPayload(
                 records: filtered.map { record in
-                    MemoryRecordPayload(
+                    MemoryRecordSummary(
                         id: record.id,
                         kind: record.kind.rawValue,
                         title: record.title,

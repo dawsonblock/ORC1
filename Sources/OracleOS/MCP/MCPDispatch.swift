@@ -69,13 +69,14 @@ private struct ExperimentSearchPayload: Encodable {
 //   scripts/mcp_boundary_guard.py      – CI shell check
 //   Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift – Swift unit test
 //
-// Architecture note: the public async handle entrypoint is not main-actor bound.
-// It starts a bounded bootstrap race before the tool-specific timeout race so
-// MCP bootstrap latency cannot sit outside the public timeout contract. The
-// synchronous dispatch(request:) path still runs on @MainActor. oracle_screenshot
-// remains an explicit read-only special handler, and oracle_experiment_search
-// remains the sole async sandbox exception because ExperimentManager.run() is
-// async throws.
+// Architecture note: the typed async handle entrypoint is not main-actor bound.
+// The legacy `[String: Any]` adapter stays on @MainActor so non-Sendable transport
+// values remain pinned to the MCP server seam. The typed path starts a bounded
+// bootstrap race before the tool-specific timeout race so MCP bootstrap latency
+// cannot sit outside the public timeout contract. The synchronous
+// dispatch(request:) path still runs on @MainActor. oracle_screenshot remains an
+// explicit read-only special handler, and oracle_experiment_search remains the
+// sole async sandbox exception because ExperimentManager.run() is async throws.
 
 public enum MCPDispatch {
     private static let bootstrapTimeoutSeconds: TimeInterval = 15

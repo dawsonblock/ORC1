@@ -17,8 +17,9 @@ import Foundation
 func mcpLegacyJSONObject<T: Encodable>(from value: T) -> [String: Any]? {
     let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
     guard let data = try? encoder.encode(value),
-          let object = try? JSONSerialization.jsonObject(with: data),
-          let dictionary = object as? [String: Any] else {
+        let object = try? JSONSerialization.jsonObject(with: data),
+        let dictionary = object as? [String: Any]
+    else {
         return nil
     }
     return dictionary
@@ -86,9 +87,9 @@ public enum JSONValue: Sendable, Codable, Equatable {
     public static func from(legacyValue value: Any) -> JSONValue? {
         let wrapped: [String: Any] = ["value": value]
         guard JSONSerialization.isValidJSONObject(wrapped),
-              let data = try? JSONSerialization.data(withJSONObject: wrapped),
-              let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data),
-              let jsonValue = decoded["value"]
+            let data = try? JSONSerialization.data(withJSONObject: wrapped),
+            let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data),
+            let jsonValue = decoded["value"]
         else { return nil }
         return jsonValue
     }
@@ -177,7 +178,9 @@ public struct MCPToolRequest: Sendable, Codable {
     /// passes in. This is the sole legacy request adapter seam.
     /// Returns a typed `Result` so callers can surface specific failure reasons
     /// (missing name, unsupported version, or non-JSON-serializable arguments).
-    public static func decodeResult(from params: [String: Any]) -> Result<MCPToolRequest, MCPDecodeFailure> {
+    public static func decodeResult(from params: [String: Any]) -> Result<
+        MCPToolRequest, MCPDecodeFailure
+    > {
         guard let name = params["name"] as? String else { return .failure(.missingName) }
 
         // Version is conveyed at the transport layer; default to "1" for callers
@@ -219,6 +222,10 @@ public struct MCPToolRequest: Sendable, Codable {
         arguments[key]?.arrayValue
     }
 
+    public func object(_ key: String) -> [String: Any]? {
+        objectValue(key)?.mapValues { $0.toFoundation() }
+    }
+
     public func objectValue(_ key: String) -> [String: JSONValue]? {
         arguments[key]?.objectValue
     }
@@ -256,7 +263,9 @@ public struct MCPToolResponse: Sendable, Codable {
         MCPToolResponse(content: [.text(message)], isError: true)
     }
 
-    public static func imageAndCaption(base64: String, mimeType: String, caption: String) -> MCPToolResponse {
+    public static func imageAndCaption(base64: String, mimeType: String, caption: String)
+        -> MCPToolResponse
+    {
         MCPToolResponse(
             content: [.image(base64: base64, mimeType: mimeType), .text(caption)],
             isError: false

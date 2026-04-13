@@ -50,7 +50,7 @@ private struct WorkflowMinePayload: Encodable {
     let workflows: [WorkflowMineItem]
 }
 
-private struct WorkflowExecutionStep: Encodable {
+struct WorkflowStepSummary: Encodable {
     let step: Int
     let agentKind: String
     let skill: String
@@ -68,12 +68,12 @@ private struct WorkflowExecutionStep: Encodable {
     }
 }
 
-private struct WorkflowExecutePayload: Encodable {
+struct WorkflowExecutePayload: Encodable {
     let workflowID: String
     let goalPattern: String
     let stepCount: Int
     let parameterSlots: [String]
-    let steps: [WorkflowExecutionStep]
+    let steps: [WorkflowStepSummary]
 
     enum CodingKeys: String, CodingKey {
         case workflowID = "workflow_id"
@@ -171,7 +171,7 @@ extension MCPDispatch {
                 stepCount: plan.steps.count,
                 parameterSlots: plan.parameterSlots,
                 steps: plan.steps.enumerated().map { index, step in
-                    WorkflowExecutionStep(
+                    WorkflowStepSummary(
                         step: index + 1,
                         agentKind: step.agentKind.rawValue,
                         skill: step.actionContract.skillName,

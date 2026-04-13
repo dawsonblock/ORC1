@@ -5,14 +5,14 @@ import Foundation
 // Covers: oracle_recipes, oracle_run, oracle_recipe_show,
 //         oracle_recipe_save, oracle_recipe_delete
 
-private struct RecipeSummaryPayload: Encodable {
+struct RecipeSummary: Encodable {
     let name: String
     let description: String
     let parameters: [String]?
 }
 
-private struct RecipesListPayload: Encodable {
-    let recipes: [RecipeSummaryPayload]
+struct RecipeSummaryPayload: Encodable {
+    let recipes: [RecipeSummary]
     let count: Int
 }
 
@@ -35,14 +35,14 @@ extension MCPDispatch {
 
         case MCPToolName.recipes:
             let recipes = RecipeStore.listRecipes()
-            let payload = RecipesListPayload(
+            let payload = RecipeSummaryPayload(
                 recipes: recipes.map { recipe in
                     let parameters =
                         recipe.params.map { params in
                             let names = Array(params.keys).sorted()
                             return names.isEmpty ? nil : names
                         } ?? nil
-                    return RecipeSummaryPayload(
+                    return RecipeSummary(
                         name: recipe.name,
                         description: recipe.description,
                         parameters: parameters

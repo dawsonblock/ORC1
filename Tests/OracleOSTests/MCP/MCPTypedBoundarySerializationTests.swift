@@ -1,6 +1,8 @@
 import XCTest
+
 @testable import OracleOS
 
+@MainActor
 final class MCPTypedBoundarySerializationTests: XCTestCase {
     func testOuterSeamRejectsMissingName() async {
         let response = await MCPDispatch.handle(["arguments": ["query": "Save"]])
@@ -25,7 +27,7 @@ final class MCPTypedBoundarySerializationTests: XCTestCase {
                     domain: "ui",
                     notes: "focus mailbox",
                     query: "Archive"
-                ),
+                )
             ]
         )
 
@@ -47,7 +49,7 @@ final class MCPTypedBoundarySerializationTests: XCTestCase {
                     affectedModules: ["Experiments"],
                     body: "Details",
                     evidenceRefs: ["Tests/OracleOSTests/Experiments"]
-                ),
+                )
             ],
             count: 1
         )
@@ -60,7 +62,10 @@ final class MCPTypedBoundarySerializationTests: XCTestCase {
 
     func testRecipePayloadSerializesStableKeys() {
         let payload = RecipeSummaryPayload(
-            recipes: [RecipeSummary(name: "gmail_archive", description: "Archive mail", parameters: ["label"])],
+            recipes: [
+                RecipeSummary(
+                    name: "gmail_archive", description: "Archive mail", parameters: ["label"])
+            ],
             count: 1
         )
 
@@ -83,7 +88,7 @@ final class MCPTypedBoundarySerializationTests: XCTestCase {
                     riskScore: 0.7,
                     affectedModules: ["MCP"],
                     evidence: ["Sources/OracleOS/MCP/MCPDispatch.swift"]
-                ),
+                )
             ],
             refactorProposal: RefactorProposalPayload(
                 id: "proposal-1",

@@ -4,13 +4,13 @@ import PackageDescription
 
 let concurrencySettings: [SwiftSetting] = [
     .enableExperimentalFeature("StrictConcurrency"),
-    .enableUpcomingFeature("ExistentialAny")
+    .enableUpcomingFeature("ExistentialAny"),
 ]
 
 let package = Package(
     name: "OracleOS",
     platforms: [
-        .macOS(.v14),
+        .macOS(.v14)
     ],
     products: [
         .library(name: "OracleOS", targets: ["OracleOS"]),
@@ -24,12 +24,15 @@ let package = Package(
         // The v0.1.0 tag bumped swift-tools-version to 6.2 which is
         // incompatible with this package's 6.0 toolchain.
         .package(path: "Vendor/AXorcist"),
+        // This environment's SwiftPM test path needs an explicit Testing package
+        // to satisfy Swift Testing dependencies under xcrun.
+        .package(url: "https://github.com/swiftlang/swift-testing.git", exact: "6.2.4"),
     ],
     targets: [
         .target(
             name: "OracleOS",
             dependencies: [
-                .product(name: "AXorcist", package: "AXorcist"),
+                .product(name: "AXorcist", package: "AXorcist")
             ],
             path: "Sources/OracleOS",
             exclude: ["Persistence/README.md"],
@@ -69,20 +72,32 @@ let package = Package(
         ),
         .testTarget(
             name: "OracleOSTests",
-            dependencies: ["OracleOS"],
+            dependencies: [
+                "OracleOS",
+                .product(name: "Testing", package: "swift-testing"),
+            ],
             path: "Tests/OracleOSTests",
             swiftSettings: concurrencySettings
         ),
         .testTarget(
             name: "OracleOSEvals",
-            dependencies: ["OracleOS"],
+            dependencies: [
+                "OracleOS",
+                .product(name: "Testing", package: "swift-testing"),
+            ],
             path: "Tests/OracleOSEvals",
             exclude: ["README.md"],
             swiftSettings: concurrencySettings
         ),
         .testTarget(
             name: "OracleControllerTests",
-            dependencies: ["OracleController", "OracleControllerHost", "OracleControllerShared", "OracleOS"],
+            dependencies: [
+                "OracleController",
+                "OracleControllerHost",
+                "OracleControllerShared",
+                "OracleOS",
+                .product(name: "Testing", package: "swift-testing"),
+            ],
             path: "Tests/OracleControllerTests",
             swiftSettings: concurrencySettings
         ),

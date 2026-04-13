@@ -4,7 +4,7 @@ import Foundation
 //
 // Covers: oracle_architecture_review, oracle_candidate_review
 
-private struct ArchitectureFindingPayload: Encodable {
+struct ArchitectureFindingPayload: Encodable {
     let id: String
     let title: String
     let summary: String
@@ -22,9 +22,27 @@ private struct ArchitectureFindingPayload: Encodable {
         case affectedModules = "affected_modules"
         case evidence
     }
+
+    init(
+        id: String = "",
+        title: String,
+        summary: String,
+        severity: String,
+        riskScore: Double,
+        affectedModules: [String],
+        evidence: [String]?
+    ) {
+        self.id = id
+        self.title = title
+        self.summary = summary
+        self.severity = severity
+        self.riskScore = riskScore
+        self.affectedModules = affectedModules
+        self.evidence = evidence
+    }
 }
 
-private struct RefactorProposalPayload: Encodable {
+struct RefactorProposalPayload: Encodable {
     let id: String
     let title: String
     let summary: String
@@ -42,9 +60,27 @@ private struct RefactorProposalPayload: Encodable {
         case invariantRefs = "invariant_refs"
         case riskScore = "risk_score"
     }
+
+    init(
+        id: String = "",
+        title: String,
+        summary: String,
+        affectedModules: [String] = [],
+        steps: [String],
+        invariantRefs: [String] = [],
+        riskScore: Double
+    ) {
+        self.id = id
+        self.title = title
+        self.summary = summary
+        self.affectedModules = affectedModules
+        self.steps = steps
+        self.invariantRefs = invariantRefs
+        self.riskScore = riskScore
+    }
 }
 
-private struct ArchitectureReviewPayload: Encodable {
+struct ArchitectureReviewPayload: Encodable {
     let triggered: Bool
     let riskScore: Double
     let affectedModules: [String]

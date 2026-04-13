@@ -23,9 +23,12 @@ They remain only for historical traceability of the failed capture attempt.
 Swift environment. Use `bash scripts/verify-build.sh` for the repo-standard
 capture. It writes current evidence to `local/verify/latest/`, and
 `.github/workflows/ci.yml` publishes that same directory as the
-`canonical-verify-evidence` CI artifact. The underlying core commands remain:
+`canonical-verify-evidence` CI artifact. When full Xcode is installed the
+verifier auto-prefers `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`
+and runs the SwiftPM steps through `xcrun`. The underlying core commands on that
+proof path are:
 
 ```sh
-swift build -c release
-swift test
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift build -c release
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test
 ```
