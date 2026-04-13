@@ -25,6 +25,33 @@ public enum VisionBridge {
         let statusCode: Int
     }
 
+    enum SidecarAvailability: Equatable {
+        case ready
+        case warming
+        case degraded(String)
+        case unavailable(VisionRequestFailure)
+
+        var isUsable: Bool {
+            switch self {
+            case .ready, .warming:
+                return true
+            case .degraded, .unavailable:
+                return false
+            }
+        }
+
+        var diagnostic: String? {
+            switch self {
+            case .ready, .warming:
+                return nil
+            case .degraded(let message):
+                return message
+            case .unavailable(let failure):
+                return failure.description
+            }
+        }
+    }
+
     enum VisionRequestFailure: Error, Sendable, Equatable, CustomStringConvertible {
         case invalidURL(String)
         case requestEncodingFailed
@@ -173,12 +200,7 @@ public enum VisionBridge {
 
     /// Check if the vision sidecar is running and responsive.
     public static func isAvailable() -> Bool {
-        switch healthCheckResult() {
-        case .success:
-            return true
-        case .failure:
-            return false
-        }
+        currentAvailability().isUsable
     }
 
     /// Get detailed health status from the sidecar.
@@ -255,12 +277,19 @@ public enum VisionBridge {
         case .success(let decoded):
             response = decoded
         case .failure(let failure):
-            if case .timedOut = failure, lifecycle.hasCompletedFirstGround == false,
-                let health = healthCheck()
-            {
-                Log.warn(
-                    "Vision sidecar /ground timed out while sidecar remained reachable (status=\(health.status)); the model may still be warming"
-                )
+            if case .timedOut = failure, lifecycle.hasCompletedFirstGround == false {
+                switch currentAvailability() {
+                case .warming:
+                    Log.warn(
+                        "Vision sidecar /ground timed out while the sidecar remained reachable; the model may still be warming"
+                    )
+                case .degraded(let message):
+                    Log.warn(
+                        "Vision sidecar /ground timed out while health was degraded: \(message)"
+                    )
+                case .ready, .unavailable:
+                    break
+                }
             }
             logRequestFailure(failure, prefix: "Vision sidecar /ground request failed")
             return nil
@@ -332,11 +361,22 @@ public enum VisionBridge {
     /// Uses a state machine to prevent concurrent double-start attempts.
     @discardableResult
     public static func startSidecar() -> Bool {
-        // Check if already running
-        if isAvailable() {
+        // Check if already running or already degraded.
+        switch currentAvailability() {
+        case .ready:
             lifecycle.state = .ready
-            Log.info("Vision sidecar already running")
+            Log.info("Vision sidecar already running and ready")
             return true
+        case .warming:
+            lifecycle.state = .ready
+            Log.info("Vision sidecar already running and warming")
+            return true
+        case .degraded(let message):
+            lifecycle.state = .failed
+            Log.warn(message)
+            return false
+        case .unavailable:
+            break
         }
 
         // Atomically claim the starting transition; if another caller is already
@@ -457,15 +497,76 @@ public enum VisionBridge {
     }
 
     /// Wait for the sidecar to become responsive (up to 10 seconds).
-    private static func waitForSidecar() -> Bool {
-        for _ in 0..<100 {
-            Thread.sleep(forTimeInterval: 0.1)
-            if case .success = healthCheckResult() {
+    static func waitForSidecar(
+        maxAttempts: Int = 100,
+        sleep: (TimeInterval) -> Void = defaultStartupSleep,
+        availabilityProbe: () -> SidecarAvailability = defaultAvailabilityProbe
+    ) -> Bool {
+        var lastFailure: VisionRequestFailure?
+        for _ in 0..<maxAttempts {
+            switch availabilityProbe() {
+            case .ready, .warming:
                 return true
+            case .degraded(let message):
+                Log.warn("Vision sidecar reported degraded health during startup: \(message)")
+                return false
+            case .unavailable(let failure):
+                lastFailure = failure
+                sleep(0.1)
             }
         }
-        Log.warn("Vision sidecar started but not responding after 10s")
+        let timeoutSeconds = Double(maxAttempts) * 0.1
+        if let lastFailure {
+            Log.warn(
+                "Vision sidecar started but not responding after \(timeoutSeconds)s: \(lastFailure.description)"
+            )
+        } else {
+            Log.warn("Vision sidecar started but not responding after \(timeoutSeconds)s")
+        }
         return false
+    }
+
+    static func assessSidecarAvailability(_ response: VisionHealthResponse) -> SidecarAvailability {
+        if let loadError = response.vlmLoadError?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !loadError.isEmpty
+        {
+            return .degraded("Vision sidecar model load failed: \(loadError)")
+        }
+
+        if response.modelExists == false {
+            return .degraded("Vision sidecar model path not found: \(response.modelPath)")
+        }
+
+        switch response.status {
+        case "ready":
+            return .ready
+        case "idle":
+            return .warming
+        default:
+            return .degraded(
+                "Vision sidecar reported unexpected health status '\(response.status)'")
+        }
+    }
+
+    static func currentAvailability() -> SidecarAvailability {
+        switch healthCheckResult() {
+        case .success(let response):
+            return assessSidecarAvailability(response)
+        case .failure(let failure):
+            return .unavailable(failure)
+        }
+    }
+
+    static func availabilityDiagnostic() -> String? {
+        currentAvailability().diagnostic
+    }
+
+    private static func defaultStartupSleep(_ interval: TimeInterval) {
+        Thread.sleep(forTimeInterval: interval)
+    }
+
+    private static func defaultAvailabilityProbe() -> SidecarAvailability {
+        currentAvailability()
     }
 
     /// Find the oracle-vision launcher script/binary.

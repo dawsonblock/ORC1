@@ -1,0 +1,32 @@
+{
+  "status": "success",
+  "elements": [
+    {
+      "id": "compose_button",
+      "type": "button",
+      "confidence": 0.97,
+      "box": [1188.0, 84.0, 96.0, 38.0],
+      "text": "Compose",
+      "source": "yolo"
+    },
+    {
+      "id": "search_field",
+      "type": "text_field",
+      "confidence": 0.91,
+      "box": [332.0, 28.0, 420.0, 40.0],
+      "text": "Search mail",
+      "source": "ocr"
+    },
+    {
+      "id": "message_list",
+      "type": "list",
+      "confidence": 0.86,
+      "box": [284.0, 156.0, 1032.0, 612.0],
+      "text": null,
+      "source": "parser"
+    }
+  ],
+  "count": 3,
+  "suggestion": "Detection complete. See /parse for full screen context.",
+  "error": null
+}

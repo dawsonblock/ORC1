@@ -7,6 +7,23 @@ import Testing
 @Suite("Vision Scanner")
 struct VisionScannerTests {
 
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fm = FileManager.default
+        while true {
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url
+            }
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path { return url }
+            url = parent
+        }
+    }
+
+    private func fixtureData(_ relativePath: String) throws -> Data {
+        try Data(contentsOf: repositoryRoot().appendingPathComponent(relativePath))
+    }
+
     @Test("Crop box validation rejects malformed payloads")
     func validateCropBoxRejectsMalformedPayloads() {
         #expect(VisionScanner.validateCropBox(nil) == nil)
@@ -142,6 +159,28 @@ struct VisionScannerTests {
             #expect(
                 failure.violations.contains(where: { $0.contains("no detections") })
             )
+        }
+    }
+
+    @Test("Parse perception frame accepts representative fixture payload")
+    func parsePerceptionFrameAcceptsFixturePayload() throws {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let data = try fixtureData("Tests/OracleOSTests/Fixtures/Vision/parse-success.json")
+        let response = try JSONDecoder().decode(VisionParseResponse.self, from: data)
+
+        switch VisionScanner.parsePerceptionFrame(
+            from: response,
+            screenWidth: 1440,
+            screenHeight: 900,
+            timestamp: timestamp
+        ) {
+        case .success(let frame):
+            #expect(frame.detections.count == 3)
+            #expect(frame.detections[0].id == "compose_button")
+            #expect(frame.detections[1].text == "Search mail")
+            #expect(frame.overallConfidence > 0.8)
+        case .failure:
+            #expect(Bool(false))
         }
     }
 }

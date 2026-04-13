@@ -477,10 +477,15 @@ public enum VisionScanner {
 
     /// Standard error result when the vision sidecar is not available.
     private static func sidecarUnavailableResult(tool: String) -> ToolResult {
-        ToolResult(
+        let diagnostic = VisionBridge.availabilityDiagnostic()
+        return ToolResult(
             success: false,
-            error: "Vision sidecar not running. \(tool) requires the Python vision sidecar.",
-            suggestion: "Start the sidecar: cd vision-sidecar && python3 server.py &\n"
+            error: diagnostic.map {
+                "Vision sidecar unavailable. \($0). \(tool) requires the Python vision sidecar."
+            } ?? "Vision sidecar not running. \(tool) requires the Python vision sidecar.",
+            suggestion:
+                "Start the sidecar: cd vision-sidecar && python3 server.py &\n"
+                + "If it is already running, inspect GET /health for model_exists and vlm_load_error.\n"
                 + "Or use oracle_find for AX-based element search (works without sidecar)."
         )
     }

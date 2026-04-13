@@ -524,6 +524,23 @@ final class VisionSidecarContractTests: XCTestCase {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let fm = FileManager.default
+        while true {
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url
+            }
+            let parent = url.deletingLastPathComponent()
+            if parent.path == url.path { return url }
+            url = parent
+        }
+    }
+
+    private func fixtureData(_ relativePath: String) throws -> Data {
+        try Data(contentsOf: repositoryRoot().appendingPathComponent(relativePath))
+    }
+
     func testVisionGroundRequest_encodesSnakeCaseFields() throws {
         let request = VisionGroundRequest(
             image: "image-bytes",
@@ -602,6 +619,37 @@ final class VisionSidecarContractTests: XCTestCase {
         XCTAssertEqual(decoded.context, "Focused form view")
         XCTAssertEqual(decoded.elements?.first?.text, "Email")
         XCTAssertEqual(decoded.elements?.first?.source, "parser")
+    }
+
+    func testVisionDetectResponse_fixtureDecodesRepresentativePayload() throws {
+        let data = try fixtureData("Tests/OracleOSTests/Fixtures/Vision/detect-success.json")
+
+        let decoded = try decoder.decode(VisionDetectResponse.self, from: data)
+        let reencoded = try encoder.encode(decoded)
+        let reparsed = try decoder.decode(VisionDetectResponse.self, from: reencoded)
+
+        XCTAssertEqual(decoded.status, "success")
+        XCTAssertEqual(decoded.count, 3)
+        XCTAssertEqual(decoded.count, decoded.elements.count)
+        XCTAssertEqual(decoded.elements.first?.id, "compose_button")
+        XCTAssertEqual(decoded.elements.first?.source, "yolo")
+        XCTAssertEqual(decoded.elements[1].text, "Search mail")
+        XCTAssertEqual(reparsed.count, decoded.count)
+    }
+
+    func testVisionParseResponse_fixtureDecodesRepresentativePayload() throws {
+        let data = try fixtureData("Tests/OracleOSTests/Fixtures/Vision/parse-success.json")
+
+        let decoded = try decoder.decode(VisionParseResponse.self, from: data)
+        let reencoded = try encoder.encode(decoded)
+        let reparsed = try decoder.decode(VisionParseResponse.self, from: reencoded)
+
+        XCTAssertEqual(decoded.status, "success")
+        XCTAssertEqual(decoded.count, 3)
+        XCTAssertEqual(decoded.context, "Mail inbox with compose action and search field")
+        XCTAssertEqual(decoded.elements?.first?.type, "button")
+        XCTAssertEqual(decoded.elements?[2].source, "parser")
+        XCTAssertEqual(reparsed.context, decoded.context)
     }
 }
 

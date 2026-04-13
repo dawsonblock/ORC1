@@ -18,6 +18,24 @@ struct VisionBridgeLifecycleTests {
         }
     }
 
+    private func health(
+        status: String = "ready",
+        modelPath: String = "/tmp/ShowUI-2B",
+        modelExists: Bool = true,
+        vlmLoadError: String? = nil
+    ) -> VisionHealthResponse {
+        VisionHealthResponse(
+            status: status,
+            version: "2.0.6",
+            modelsLoaded: status == "ready" ? ["showui-2b"] : [],
+            modelPath: modelPath,
+            modelExists: modelExists,
+            vlmLoadError: vlmLoadError,
+            idleTimeout: 600,
+            pid: 4242
+        )
+    }
+
     @Test("Failed sidecar start terminates spawned background process")
     func failedStartTerminatesSpawnedProcess() {
         let process = StubBackgroundProcess(processIdentifier: 4242)
@@ -45,5 +63,58 @@ struct VisionBridgeLifecycleTests {
             message
                 == "invalid request | missing image | Suggestion: capture a fresh screenshot"
         )
+    }
+
+    @Test("Health classification distinguishes ready, warming, and degraded sidecars")
+    func classifiesHealthStates() {
+        #expect(VisionBridge.assessSidecarAvailability(health(status: "ready")) == .ready)
+        #expect(VisionBridge.assessSidecarAvailability(health(status: "idle")) == .warming)
+        #expect(
+            VisionBridge.assessSidecarAvailability(
+                health(status: "idle", modelPath: "/missing/model", modelExists: false)
+            ) == .degraded("Vision sidecar model path not found: /missing/model")
+        )
+        #expect(
+            VisionBridge.assessSidecarAvailability(
+                health(status: "idle", vlmLoadError: "mlx_vlm import failed")
+            ) == .degraded("Vision sidecar model load failed: mlx_vlm import failed")
+        )
+    }
+
+    @Test("Startup wait succeeds when sidecar becomes reachable while warming")
+    func waitForSidecarSucceedsForWarmingHealth() {
+        var attempts = 0
+
+        let result = VisionBridge.waitForSidecar(
+            maxAttempts: 3,
+            sleep: { _ in attempts += 1 },
+            availabilityProbe: {
+                switch attempts {
+                case 0:
+                    return .unavailable(.timedOut)
+                default:
+                    return .warming
+                }
+            }
+        )
+
+        #expect(result)
+        #expect(attempts == 1)
+    }
+
+    @Test("Startup wait fails immediately on degraded health")
+    func waitForSidecarFailsImmediatelyForDegradedHealth() {
+        var sleepCalls = 0
+
+        let result = VisionBridge.waitForSidecar(
+            maxAttempts: 5,
+            sleep: { _ in sleepCalls += 1 },
+            availabilityProbe: {
+                .degraded("Vision sidecar model load failed: missing weights")
+            }
+        )
+
+        #expect(result == false)
+        #expect(sleepCalls == 0)
     }
 }
