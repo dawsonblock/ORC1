@@ -12,11 +12,25 @@ final class HardeningProofTests: XCTestCase {
 
         for path in files {
             let content = try String(contentsOfFile: path, encoding: .utf8)
-            XCTAssertFalse(content.contains("[[String: Any]]"), "\(path) must not build nested raw dictionary payloads")
-            XCTAssertFalse(content.contains("[String: Any] = ["), "\(path) must not assemble ad hoc raw dictionaries")
-            XCTAssertTrue(content.contains("Encodable"), "\(path) should define typed response payload models")
-            XCTAssertTrue(content.contains("mcpLegacyJSONObject(from:"), "\(path) must export through the shared typed legacy seam")
+            XCTAssertFalse(
+                content.contains("[[String: Any]]"),
+                "\(path) must not build nested raw dictionary payloads")
+            XCTAssertFalse(
+                content.contains("[String: Any] = ["),
+                "\(path) must not assemble ad hoc raw dictionaries")
+            XCTAssertTrue(
+                content.contains("Encodable"), "\(path) should define typed response payload models"
+            )
+            XCTAssertTrue(
+                content.contains("typedResult("),
+                "\(path) must return payloads through the shared typed ToolResult helper")
         }
+
+        let dispatchPath = "Sources/OracleOS/MCP/MCPDispatch.swift"
+        let dispatchContent = try String(contentsOfFile: dispatchPath, encoding: .utf8)
+        XCTAssertTrue(
+            dispatchContent.contains("mcpLegacyJSONObject(from:"),
+            "\(dispatchPath) must route typed payload export through the shared typed legacy seam")
     }
 
     func testMCPToolsCatalogIsTypedSourceOfTruth() throws {
@@ -27,7 +41,8 @@ final class HardeningProofTests: XCTestCase {
         XCTAssertTrue(content.contains("struct MCPToolInputSchema"))
         XCTAssertTrue(content.contains("struct MCPPropertySchema"))
         XCTAssertFalse(content.contains("private static let perception: [[String: Any]]"))
-        XCTAssertFalse(content.contains("private static func tool(") && content.contains("-> [String: Any]"))
+        XCTAssertFalse(
+            content.contains("private static func tool(") && content.contains("-> [String: Any]"))
     }
 
     func testControllerBridgeConsumesTypedResultFields() throws {
@@ -36,7 +51,9 @@ final class HardeningProofTests: XCTestCase {
 
         XCTAssertTrue(content.contains("result.actionResult"))
         XCTAssertTrue(content.contains("result.codeExecutionResult"))
-        XCTAssertFalse(content.contains("result.data?["), "Controller mapping should not infer core truth from legacy dictionary probing")
+        XCTAssertFalse(
+            content.contains("result.data?["),
+            "Controller mapping should not infer core truth from legacy dictionary probing")
     }
 
     func testCLIConfigPathsUseTypedClaudeConfigModel() throws {
@@ -51,7 +68,8 @@ final class HardeningProofTests: XCTestCase {
         XCTAssertTrue(setup.contains("ClaudeConfigFile.load"))
         XCTAssertTrue(doctor.contains("ClaudeConfigFile.load"))
         XCTAssertFalse(setup.contains("JSONSerialization.jsonObject(with: data) as? [String: Any]"))
-        XCTAssertFalse(doctor.contains("JSONSerialization.jsonObject(with: data) as? [String: Any]"))
+        XCTAssertFalse(
+            doctor.contains("JSONSerialization.jsonObject(with: data) as? [String: Any]"))
         XCTAssertTrue(config.contains("var root: [String: JSONValue]"))
     }
 }

@@ -360,14 +360,7 @@ public enum MCPDispatch {
     }
 
     static func legacyDict<T: Encodable>(for value: T) -> [String: Any]? {
-        let encoder = OracleJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
-        guard let data = try? encoder.encode(value),
-            let object = try? JSONSerialization.jsonObject(with: data),
-            let dictionary = object as? [String: Any]
-        else {
-            return nil
-        }
-        return dictionary
+        mcpLegacyJSONObject(from: value)
     }
 
     static func typedResult<T: Encodable>(
