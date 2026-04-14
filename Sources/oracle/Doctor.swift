@@ -11,9 +11,9 @@
 // → VerifiedExecutor). Doctor runs OUTSIDE the bootstrapped runtime by design.
 // The governance tests scan Sources/OracleOS/ only; this target is explicitly excluded.
 
+import AXorcist
 import AppKit
 import ApplicationServices
-import AXorcist
 import Foundation
 import OracleOS
 
@@ -86,7 +86,9 @@ struct Doctor {
         if lines.isEmpty {
             print("  [ok] Processes: no oracle MCP processes running")
         } else if lines.count == 1 {
-            print("  [ok] Processes: 1 oracle MCP process (PID: \(lines[0].split(separator: " ").first ?? "?"))")
+            print(
+                "  [ok] Processes: 1 oracle MCP process (PID: \(lines[0].split(separator: " ").first ?? "?"))"
+            )
         } else {
             print("  [FAIL] Processes: \(lines.count) oracle MCP processes found (expect 0 or 1)")
             for line in lines {
@@ -119,7 +121,8 @@ struct Doctor {
         // which health-checks every server and takes 30+ seconds.
         let configPath = NSHomeDirectory() + "/.claude.json"
         if let config = ClaudeConfigFile.load(from: configPath),
-           let oracleConfig = config.server(named: ClaudeConfigFile.defaultServerName) {
+            let oracleConfig = config.server(named: ClaudeConfigFile.defaultServerName)
+        {
             print("  [ok] MCP Config: oracle-os configured")
             print("    Binary: \(oracleConfig.command)")
         } else {
@@ -142,7 +145,8 @@ struct Doctor {
         }
 
         let recipes = RecipeStore.listRecipes()
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: recipesDir))?
+        let files =
+            (try? FileManager.default.contentsOfDirectory(atPath: recipesDir))?
             .filter { $0.hasSuffix(".json") } ?? []
 
         if files.count > recipes.count {
@@ -228,7 +232,8 @@ struct Doctor {
             // Check venv fallback
             let venvPython = NSHomeDirectory() + "/.oracle-os/venv/bin/python3"
             if FileManager.default.isExecutableFile(atPath: venvPython) {
-                let result = await runShell("\(venvPython) -c 'import mlx_vlm; print(\"ok\")' 2>/dev/null")
+                let result = await runShell(
+                    "\(venvPython) -c 'import mlx_vlm; print(\"ok\")' 2>/dev/null")
                 if result.exitCode == 0 && result.output.contains("ok") {
                     print("  [ok] Vision Python: ~/.oracle-os/venv/ (mlx_vlm available)")
                     found = true
@@ -237,7 +242,8 @@ struct Doctor {
 
             if !found {
                 // Check system Python
-                let result = await runShell("python3 -c 'import mlx_vlm; print(\"ok\")' 2>/dev/null")
+                let result = await runShell(
+                    "python3 -c 'import mlx_vlm; print(\"ok\")' 2>/dev/null")
                 if result.exitCode == 0 && result.output.contains("ok") {
                     print("  [ok] Vision Python: system python3 (mlx_vlm available)")
                     found = true
@@ -258,15 +264,20 @@ struct Doctor {
     private mutating func checkShowUIModel() {
         if let modelPath = VisionBridge.findModelPath() {
             // Check file sizes
-            let safetensorsPath = (modelPath as NSString).appendingPathComponent("model.safetensors")
+            let safetensorsPath = (modelPath as NSString).appendingPathComponent(
+                "model.safetensors")
             if let attrs = try? FileManager.default.attributesOfItem(atPath: safetensorsPath),
-               let size = attrs[.size] as? UInt64
+                let size = attrs[.size] as? UInt64
             {
                 let sizeGB = Double(size) / 1_000_000_000
                 if sizeGB > 1.0 {
-                    print("  [ok] ShowUI-2B model: \(modelPath) (\(String(format: "%.1f", sizeGB)) GB)")
+                    print(
+                        "  [ok] ShowUI-2B model: \(modelPath) (\(String(format: "%.1f", sizeGB)) GB)"
+                    )
                 } else {
-                    print("  [!] ShowUI-2B model: file seems too small (\(String(format: "%.2f", sizeGB)) GB)")
+                    print(
+                        "  [!] ShowUI-2B model: file seems too small (\(String(format: "%.2f", sizeGB)) GB)"
+                    )
                     print("    Expected: ~2.8 GB. May be incomplete download.")
                     print("    Fix: rm -rf \(modelPath) && oracle setup")
                     warningCount += 1
@@ -288,7 +299,8 @@ struct Doctor {
                 }
             }
             if !missingFiles.isEmpty {
-                print("  [!] ShowUI-2B model: missing files: \(missingFiles.joined(separator: ", "))")
+                print(
+                    "  [!] ShowUI-2B model: missing files: \(missingFiles.joined(separator: ", "))")
                 warningCount += 1
             }
         } else {
@@ -305,8 +317,11 @@ struct Doctor {
     // MARK: - Vision Sidecar
 
     private mutating func checkVisionSidecar() {
-        if VisionBridge.isAvailable() {
-            if let health = VisionBridge.healthCheck() {
+        let status = VisionBridge.sidecarStatus()
+
+        switch status.state {
+        case .ready:
+            if let health = status.health {
                 var detail = health.status
                 detail += " v\(health.version)"
                 detail += " (PID \(health.pid))"
@@ -320,7 +335,38 @@ struct Doctor {
             } else {
                 print("  [ok] Vision Sidecar: running (health details unavailable)")
             }
-        } else {
+        case .warming:
+            if let health = status.health {
+                var detail = "warming"
+                detail += " v\(health.version)"
+                detail += " (PID \(health.pid))"
+                print("  [ok] Vision Sidecar: \(detail)")
+                print(
+                    "    Reachable, but the model is still loading. The first oracle_ground call may still take longer."
+                )
+                if health.idleTimeout > 0 {
+                    print("    Auto-exit: after \(health.idleTimeout)s idle")
+                }
+            } else {
+                print("  [ok] Vision Sidecar: warming")
+            }
+        case .degraded:
+            if let health = status.health {
+                var detail = "degraded"
+                detail += " v\(health.version)"
+                detail += " (PID \(health.pid))"
+                print("  [!] Vision Sidecar: \(detail)")
+            } else {
+                print("  [!] Vision Sidecar: degraded")
+            }
+            if let diagnostic = status.diagnostic {
+                print("    \(diagnostic)")
+            }
+            print(
+                "    Fix: inspect GET /health and restart the sidecar after correcting the model/runtime issue."
+            )
+            warningCount += 1
+        case .unavailable:
             print("  [ok] Vision Sidecar: not running (auto-starts when needed)")
             print("    oracle_ground will start the sidecar automatically on first call.")
         }

@@ -115,6 +115,29 @@ public enum VisionBridge {
         case failed
     }
 
+    /// Shared operator-facing status for the optional vision sidecar.
+    public struct SidecarStatus: Sendable {
+        public enum State: String, Sendable {
+            case ready
+            case warming
+            case degraded
+            case unavailable
+        }
+
+        public let state: State
+        public let health: VisionHealthResponse?
+        public let diagnostic: String?
+
+        public var isUsable: Bool {
+            switch state {
+            case .ready, .warming:
+                return true
+            case .degraded, .unavailable:
+                return false
+            }
+        }
+    }
+
     /// Thread-safe container for mutable sidecar state.
     private final class SidecarLifecycle: @unchecked Sendable {
         private let lock = NSLock()
@@ -207,6 +230,16 @@ public enum VisionBridge {
     /// Get detailed health status from the sidecar.
     public static func healthCheck() -> VisionHealthResponse? {
         try? healthCheckResult().get()
+    }
+
+    /// Get the current sidecar status without changing sidecar lifecycle state.
+    public static func sidecarStatus() -> SidecarStatus {
+        switch healthCheckResult() {
+        case .success(let response):
+            return sidecarStatus(for: assessSidecarAvailability(response), health: response)
+        case .failure(let failure):
+            return sidecarStatus(for: .unavailable(failure), health: nil)
+        }
     }
 
     // MARK: - VLM Grounding
@@ -616,6 +649,23 @@ public enum VisionBridge {
             return assessSidecarAvailability(response)
         case .failure(let failure):
             return .unavailable(failure)
+        }
+    }
+
+    static func sidecarStatus(
+        for availability: SidecarAvailability,
+        health: VisionHealthResponse?
+    ) -> SidecarStatus {
+        switch availability {
+        case .ready:
+            return SidecarStatus(state: .ready, health: health, diagnostic: nil)
+        case .warming:
+            return SidecarStatus(state: .warming, health: health, diagnostic: nil)
+        case .degraded(let message):
+            return SidecarStatus(state: .degraded, health: health, diagnostic: message)
+        case .unavailable(let failure):
+            return SidecarStatus(
+                state: .unavailable, health: health, diagnostic: failure.description)
         }
     }
 

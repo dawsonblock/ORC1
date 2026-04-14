@@ -17,9 +17,9 @@
 // → VerifiedExecutor). SetupWizard runs OUTSIDE the bootstrapped runtime by design.
 // The governance tests scan Sources/OracleOS/ only; this target is explicitly excluded.
 
+import AXorcist
 import AppKit
 import ApplicationServices
-import AXorcist
 import Foundation
 import OracleOS
 
@@ -105,7 +105,9 @@ struct SetupWizard {
 
         if AXIsProcessTrusted() {
             // Verify with actual AX tree read
-            let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+            let apps = NSWorkspace.shared.runningApplications.filter {
+                $0.activationPolicy == .regular
+            }
             var axCount = 0
             for app in apps {
                 if Element.application(for: app.processIdentifier) != nil {
@@ -124,7 +126,8 @@ struct SetupWizard {
         print("  \(hostApp) needs the Accessibility permission.")
         print("")
         print("  Opening System Settings...")
-        openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        openSystemSettings(
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         print("")
         print("  Add \"\(hostApp)\" to the Accessibility list.")
         print("  You may need to toggle it off and on if it's already there.")
@@ -174,7 +177,8 @@ struct SetupWizard {
         }
 
         ScreenCapture.requestPermission()
-        openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        openSystemSettings(
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
         print("")
         print("  Add \"\(hostApp)\" to the Screen Recording list.")
         print("  Press Enter after granting...")
@@ -198,7 +202,8 @@ struct SetupWizard {
 
         // Check if claude CLI exists
         let claudeInPath = await runShell("which claude 2>/dev/null").exitCode == 0
-        let claudeExists = FileManager.default.isExecutableFile(atPath: "/usr/local/bin/claude")
+        let claudeExists =
+            FileManager.default.isExecutableFile(atPath: "/usr/local/bin/claude")
             || FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/claude")
             || claudeInPath
 
@@ -215,19 +220,21 @@ struct SetupWizard {
         // Check if already configured (read config file directly — claude mcp list hangs)
         let configPath = NSHomeDirectory() + "/.claude.json"
         if let config = ClaudeConfigFile.load(from: configPath),
-           config.server(named: ClaudeConfigFile.defaultServerName) != nil {
+            config.server(named: ClaudeConfigFile.defaultServerName) != nil
+        {
             printOK("Already configured")
         }
 
         // Write config directly — claude mcp add also hangs.
         var config = ClaudeConfigFile.load(from: configPath) ?? ClaudeConfigFile()
         if FileManager.default.fileExists(atPath: configPath),
-           ClaudeConfigFile.load(from: configPath) == nil {
-                print("  WARNING: ~/.claude.json contains non-standard JSON.")
-                print("  Please add Oracle OS manually:")
-                print("    claude mcp add oracle-os \(binaryPath) -- mcp")
-                print("")
-                return
+            ClaudeConfigFile.load(from: configPath) == nil
+        {
+            print("  WARNING: ~/.claude.json contains non-standard JSON.")
+            print("  Please add Oracle OS manually:")
+            print("    claude mcp add oracle-os \(binaryPath) -- mcp")
+            print("")
+            return
         }
 
         config.setServer(
@@ -249,7 +256,8 @@ struct SetupWizard {
         let settingsPath = NSHomeDirectory() + "/.claude/settings.json"
         var settings = ClaudeConfigFile.load(from: settingsPath) ?? ClaudeConfigFile()
         if FileManager.default.fileExists(atPath: settingsPath),
-           ClaudeConfigFile.load(from: settingsPath) == nil {
+            ClaudeConfigFile.load(from: settingsPath) == nil
+        {
             print("  Could not parse ~/.claude/settings.json; keeping existing file unchanged.")
             print("  You may be prompted to approve oracle-os tools on first use.")
             printOK("Configured")
@@ -282,13 +290,16 @@ struct SetupWizard {
         printStep(5, "Bundled Recipes")
 
         let recipesDir = NSHomeDirectory() + "/.oracle-os/recipes"
-        try? FileManager.default.createDirectory(atPath: recipesDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            atPath: recipesDir, withIntermediateDirectories: true)
 
         // Find bundled recipes in the repo's recipes/ directory
         let bundledDir = findBundledRecipesDir()
         var installed = 0
 
-        if let bundledDir, let files = try? FileManager.default.contentsOfDirectory(atPath: bundledDir) {
+        if let bundledDir,
+            let files = try? FileManager.default.contentsOfDirectory(atPath: bundledDir)
+        {
             for file in files where file.hasSuffix(".json") {
                 let srcPath = (bundledDir as NSString).appendingPathComponent(file)
                 let dstPath = (recipesDir as NSString).appendingPathComponent(file)
@@ -372,18 +383,28 @@ struct SetupWizard {
                 printFail("Model download failed")
                 print("  You can download manually:")
                 print("    pip3 install huggingface-hub")
-                print("    huggingface-cli download showlab/ShowUI-2B --local-dir ~/.oracle-os/models/ShowUI-2B")
+                print(
+                    "    huggingface-cli download showlab/ShowUI-2B --local-dir ~/.oracle-os/models/ShowUI-2B"
+                )
                 print("")
                 return false
             }
         }
 
         // Step 6c: Verify vision pipeline
-        let visionWorks = testVision()
-        if visionWorks {
+        let visionStatus = testVision()
+        switch visionStatus.state {
+        case .ready:
             printOK("Vision ready")
-        } else {
-            printOK("Vision installed (model will load on first use)")
+        case .warming:
+            printOK("Vision sidecar warming (model load is still in progress)")
+        case .degraded:
+            printOK("Vision installed (sidecar health is degraded)")
+            if let diagnostic = visionStatus.diagnostic {
+                print("    \(diagnostic)")
+            }
+        case .unavailable:
+            printOK("Vision installed (sidecar will auto-start on first use)")
         }
 
         return true
@@ -409,12 +430,17 @@ struct SetupWizard {
 
         // Find system Python
         let pythonPath: String
-        let candidates = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3"]
-        if let found = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
+        let candidates = [
+            "/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3",
+        ]
+        if let found = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) })
+        {
             pythonPath = found
         } else {
             let which = await runShell("which python3 2>/dev/null")
-            guard which.exitCode == 0, !which.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard which.exitCode == 0,
+                !which.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
                 print("  ERROR: python3 not found. Install Python 3.9+ first.")
                 return false
             }
@@ -449,7 +475,8 @@ struct SetupWizard {
         }
 
         // Verify
-        let verifyResult = await runShell("\"\(venvPath)/bin/python3\" -c 'import mlx_vlm; print(\"ok\")' 2>&1")
+        let verifyResult = await runShell(
+            "\"\(venvPath)/bin/python3\" -c 'import mlx_vlm; print(\"ok\")' 2>&1")
         if verifyResult.exitCode != 0 || !verifyResult.output.contains("ok") {
             print("  ERROR: mlx_vlm verification failed")
             return false
@@ -487,30 +514,30 @@ struct SetupWizard {
         // Use snapshot_download which handles all files + progress.
         // Pass dest dir as sys.argv[1] to avoid string interpolation injection.
         let downloadScript = """
-        import sys
-        dest = sys.argv[1]
-        try:
-            from huggingface_hub import snapshot_download
-            path = snapshot_download(
-                "showlab/ShowUI-2B",
-                local_dir=dest,
-                local_dir_use_symlinks=False,
-            )
-            print(f"Downloaded to: {path}")
-        except ImportError:
-            import subprocess
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "huggingface-hub"])
-            from huggingface_hub import snapshot_download
-            path = snapshot_download(
-                "showlab/ShowUI-2B",
-                local_dir=dest,
-                local_dir_use_symlinks=False,
-            )
-            print(f"Downloaded to: {path}")
-        except Exception as e:
-            print(f"ERROR: {e}", file=sys.stderr)
-            sys.exit(1)
-        """
+            import sys
+            dest = sys.argv[1]
+            try:
+                from huggingface_hub import snapshot_download
+                path = snapshot_download(
+                    "showlab/ShowUI-2B",
+                    local_dir=dest,
+                    local_dir_use_symlinks=False,
+                )
+                print(f"Downloaded to: {path}")
+            except ImportError:
+                import subprocess
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "huggingface-hub"])
+                from huggingface_hub import snapshot_download
+                path = snapshot_download(
+                    "showlab/ShowUI-2B",
+                    local_dir=dest,
+                    local_dir_use_symlinks=False,
+                )
+                print(f"Downloaded to: {path}")
+            except Exception as e:
+                print(f"ERROR: {e}", file=sys.stderr)
+                sys.exit(1)
+            """
 
         let tmpScript = NSTemporaryDirectory() + "oracle_download_model_\(UUID().uuidString).py"
         try? downloadScript.write(toFile: tmpScript, atomically: true, encoding: .utf8)
@@ -529,7 +556,7 @@ struct SetupWizard {
         if FileManager.default.fileExists(atPath: safetensorsPath) {
             // Check file size (should be > 2GB)
             if let attrs = try? FileManager.default.attributesOfItem(atPath: safetensorsPath),
-               let size = attrs[.size] as? UInt64
+                let size = attrs[.size] as? UInt64
             {
                 let sizeGB = Double(size) / 1_000_000_000
                 if sizeGB > 1.0 {
@@ -545,15 +572,8 @@ struct SetupWizard {
     }
 
     /// Test the vision pipeline end-to-end
-    private func testVision() -> Bool {
-        // Quick check: is the sidecar already running?
-        if VisionBridge.isAvailable() {
-            return true
-        }
-
-        // Don't start the sidecar during setup — it takes ~10s to load
-        // Just verify the components are in place
-        return false
+    private func testVision() -> VisionBridge.SidecarStatus {
+        VisionBridge.sidecarStatus()
     }
 
     /// Find oracle-vision launcher
@@ -574,7 +594,8 @@ struct SetupWizard {
 
     // MARK: - Step 7: Self-Test
 
-    private func selfTest(hasAccess: Bool, hasScreenRecording: Bool, hasVision: Bool) async -> Bool {
+    private func selfTest(hasAccess: Bool, hasScreenRecording: Bool, hasVision: Bool) async -> Bool
+    {
         printStep(7, "Self-Test")
 
         guard hasAccess else {
@@ -610,7 +631,24 @@ struct SetupWizard {
             if let modelPath = findModelPath() {
                 print("  Vision model: \(modelPath)")
             }
-            print("  Vision: ready (model loads on first oracle_ground call)")
+
+            let visionStatus = testVision()
+            switch visionStatus.state {
+            case .ready:
+                print("  Vision: ready (sidecar running)")
+            case .warming:
+                print("  Vision: warming (reachable, but the model is still loading)")
+            case .degraded:
+                if let diagnostic = visionStatus.diagnostic {
+                    print("  Vision: degraded (\(diagnostic))")
+                } else {
+                    print("  Vision: degraded")
+                }
+            case .unavailable:
+                print(
+                    "  Vision: configured (sidecar not running; auto-starts on first oracle_ground call)"
+                )
+            }
         } else {
             print("  Vision: not configured (oracle_ground won't work)")
         }
@@ -637,9 +675,23 @@ struct SetupWizard {
             print("  Then try: \"Send an email via Gmail\"")
             print("  Or:       \"Search arxiv for transformers\"")
             if vision {
+                let visionStatus = testVision()
                 print("")
-                print("  Vision grounding is enabled.")
-                print("  oracle_ground will auto-start the vision sidecar when needed.")
+                switch visionStatus.state {
+                case .ready:
+                    print("  Vision grounding is enabled (sidecar ready).")
+                case .warming:
+                    print("  Vision grounding is enabled (sidecar warming).")
+                    print("  The first oracle_ground call may still finish loading the model.")
+                case .degraded:
+                    print("  Vision grounding is configured but degraded.")
+                    if let diagnostic = visionStatus.diagnostic {
+                        print("  \(diagnostic)")
+                    }
+                case .unavailable:
+                    print("  Vision grounding is enabled.")
+                    print("  oracle_ground will auto-start the vision sidecar when needed.")
+                }
             }
         } else {
             print("  Setup incomplete.")
@@ -716,7 +768,8 @@ struct SetupWizard {
         }
 
         // Development: .build/debug/oracle -> project root/recipes/
-        let projectRoot = ((binaryDir as NSString)
+        let projectRoot =
+            ((binaryDir as NSString)
             .deletingLastPathComponent as NSString)
             .deletingLastPathComponent
         let recipesPath = (projectRoot as NSString).appendingPathComponent("recipes")

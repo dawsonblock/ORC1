@@ -128,4 +128,33 @@ struct VisionBridgeLifecycleTests {
             ) == .failed
         )
     }
+
+    @Test("Public sidecar status preserves readiness and diagnostic truth")
+    func publicSidecarStatusReflectsAvailabilityTruthfully() {
+        let readyStatus = VisionBridge.sidecarStatus(for: .ready, health: health(status: "ready"))
+        #expect(readyStatus.state == .ready)
+        #expect(readyStatus.health?.status == "ready")
+        #expect(readyStatus.diagnostic == nil)
+        #expect(readyStatus.isUsable)
+
+        let warmingStatus = VisionBridge.sidecarStatus(
+            for: .warming, health: health(status: "idle"))
+        #expect(warmingStatus.state == .warming)
+        #expect(warmingStatus.health?.status == "idle")
+        #expect(warmingStatus.isUsable)
+
+        let degradedStatus = VisionBridge.sidecarStatus(
+            for: .degraded("Vision sidecar model load failed: missing weights"),
+            health: health(status: "idle", vlmLoadError: "missing weights")
+        )
+        #expect(degradedStatus.state == .degraded)
+        #expect(degradedStatus.diagnostic == "Vision sidecar model load failed: missing weights")
+        #expect(degradedStatus.isUsable == false)
+
+        let unavailableStatus = VisionBridge.sidecarStatus(
+            for: .unavailable(.timedOut), health: nil)
+        #expect(unavailableStatus.state == .unavailable)
+        #expect(unavailableStatus.diagnostic == "Vision sidecar request timed out")
+        #expect(unavailableStatus.isUsable == false)
+    }
 }

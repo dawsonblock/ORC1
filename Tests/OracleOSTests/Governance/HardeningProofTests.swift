@@ -72,4 +72,21 @@ final class HardeningProofTests: XCTestCase {
             doctor.contains("JSONSerialization.jsonObject(with: data) as? [String: Any]"))
         XCTAssertTrue(config.contains("var root: [String: JSONValue]"))
     }
+
+    func testCLIVisionDiagnosticsReuseBridgeStatusTruth() throws {
+        let setupPath = "Sources/oracle/SetupWizard.swift"
+        let doctorPath = "Sources/oracle/Doctor.swift"
+
+        let setup = try String(contentsOfFile: setupPath, encoding: .utf8)
+        let doctor = try String(contentsOfFile: doctorPath, encoding: .utf8)
+
+        XCTAssertTrue(
+            setup.contains("VisionBridge.sidecarStatus()"),
+            "SetupWizard should consume the shared bridge sidecar status truth"
+        )
+        XCTAssertTrue(
+            doctor.contains("VisionBridge.sidecarStatus()"),
+            "Doctor should consume the shared bridge sidecar status truth"
+        )
+    }
 }
