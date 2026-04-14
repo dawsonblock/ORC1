@@ -1,5 +1,9 @@
 import Foundation
 
+// BOUNDED SERVICE PERSISTENCE — NOT part of the main-path execution contract.
+// Workflow plans are cached support material for reuse and promotion; they are
+// persisted as workflow-owned files rather than committed runtime state.
+
 public final class WorkflowIndex: @unchecked Sendable {
     private var plans: [String: WorkflowPlan]
     private let decayPolicy: WorkflowDecayPolicy
@@ -15,15 +19,18 @@ public final class WorkflowIndex: @unchecked Sendable {
 
     private func loadFromDisk() {
         let dir = OracleProductPaths.workflowsDirectory
-        guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
-        
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else {
+            return
+        }
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        
+
         for file in files where file.hasSuffix(".json") {
             let url = dir.appendingPathComponent(file)
             guard let data = try? Data(contentsOf: url),
-                  let plan = try? decoder.decode(WorkflowPlan.self, from: data) else {
+                let plan = try? decoder.decode(WorkflowPlan.self, from: data)
+            else {
                 continue
             }
             plans[plan.id] = plan
@@ -33,11 +40,11 @@ public final class WorkflowIndex: @unchecked Sendable {
     private func saveToDisk(_ plan: WorkflowPlan) {
         let dir = OracleProductPaths.workflowsDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        
+
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .prettyPrinted
-        
+
         let url = dir.appendingPathComponent("\(plan.id).json")
         if let data = try? encoder.encode(plan) {
             try? data.write(to: url)
@@ -61,7 +68,9 @@ public final class WorkflowIndex: @unchecked Sendable {
 
     public func remove(id: String) {
         plans.removeValue(forKey: id)
-        if !CommandLine.arguments.contains(where: { $0.contains("xctest") }) { deleteFromDisk(id: id) }
+        if !CommandLine.arguments.contains(where: { $0.contains("xctest") }) {
+            deleteFromDisk(id: id)
+        }
     }
 
     public func allPlans() -> [WorkflowPlan] {
@@ -77,10 +86,8 @@ public final class WorkflowIndex: @unchecked Sendable {
         allPlans().filter { plan in
             plan.promotionStatus == .promoted
                 && !decayPolicy.isStale(plan)
-                && (
-                agentKind == nil
-                                        || plan.agentKind == agentKind
-            )
+                && (agentKind == nil
+                    || plan.agentKind == agentKind)
         }
     }
 

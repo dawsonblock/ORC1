@@ -2,6 +2,10 @@ import Foundation
 
 // MCPDispatch+Recipes.swift — Recipe tool implementations.
 //
+// Recipe catalog persistence in this file is a bounded service surface.
+// It delegates definition storage to RecipeStore instead of claiming main-path
+// runtime commit authority.
+//
 // Covers: oracle_recipes, oracle_run, oracle_recipe_show,
 //         oracle_recipe_save, oracle_recipe_delete
 

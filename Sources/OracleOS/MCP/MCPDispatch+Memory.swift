@@ -2,6 +2,10 @@ import Foundation
 
 // MCPDispatch+Memory.swift — Project memory tool implementations.
 //
+// This remains a bounded service-persistence surface.
+// Query and draft operations delegate to UnifiedMemoryStore and
+// ProjectMemoryStore rather than changing commit-authoritative runtime state.
+//
 // Covers: oracle_memory_query, oracle_memory_draft
 
 struct MemoryRecordSummary: Encodable {

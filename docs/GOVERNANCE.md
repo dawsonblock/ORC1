@@ -94,6 +94,12 @@ governance contract. It proves that:
   boundary's outer request adapter instead of spreading into category handlers
 - the MCP tool catalog remains defined by typed schema models in
   `Sources/OracleOS/MCP/MCPTools.swift`
+- experiment diagnostics recover persisted search results from repository
+  snapshot or sandbox-derived workspace roots before using the historical
+  trace-only fallback path
+- recipe, workflow, and project-memory persistence remain explicit
+  service-owned write surfaces guarded by `scripts/execution_boundary_guard.py`
+  instead of becoming hidden commit-authority paths
 - `ControllerRuntimeBridge` consumes typed `ToolResult` views for authoritative
   action and code-execution truth
 - CLI-only exception paths (`oracle setup`, `oracle doctor`) still reuse shared

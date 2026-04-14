@@ -98,4 +98,68 @@ final class HardeningProofTests: XCTestCase {
             "Doctor should consume the shared bridge sidecar status truth"
         )
     }
+
+    func testServicePersistenceSurfacesStayBoundedAndExplicit() throws {
+        let guardPath = "scripts/execution_boundary_guard.py"
+        let recipeStorePath = "Sources/OracleOS/Learning/Recipes/RecipeStore.swift"
+        let workflowIndexPath = "Sources/OracleOS/Planning/Workflows/WorkflowIndex.swift"
+        let projectMemoryStorePath = "Sources/OracleOS/Learning/Project/ProjectMemoryStore.swift"
+        let recipeDispatchPath = "Sources/OracleOS/MCP/MCPDispatch+Recipes.swift"
+        let workflowDispatchPath = "Sources/OracleOS/MCP/MCPDispatch+Workflow.swift"
+        let memoryDispatchPath = "Sources/OracleOS/MCP/MCPDispatch+Memory.swift"
+
+        let guardContent = try String(contentsOfFile: guardPath, encoding: .utf8)
+        let recipeStore = try String(contentsOfFile: recipeStorePath, encoding: .utf8)
+        let workflowIndex = try String(contentsOfFile: workflowIndexPath, encoding: .utf8)
+        let projectMemoryStore = try String(contentsOfFile: projectMemoryStorePath, encoding: .utf8)
+        let recipeDispatch = try String(contentsOfFile: recipeDispatchPath, encoding: .utf8)
+        let workflowDispatch = try String(contentsOfFile: workflowDispatchPath, encoding: .utf8)
+        let memoryDispatch = try String(contentsOfFile: memoryDispatchPath, encoding: .utf8)
+
+        let writeAuthorities = [
+            "Sources/OracleOS/Learning/Recipes/RecipeStore.swift",
+            "Sources/OracleOS/Learning/Project/ProjectMemoryIndexer.swift",
+            "Sources/OracleOS/Learning/Project/ProjectMemoryStore.swift",
+            "Sources/OracleOS/Planning/Workflows/WorkflowIndex.swift",
+        ]
+
+        for authority in writeAuthorities {
+            XCTAssertTrue(
+                guardContent.contains("\"\(authority)\""),
+                "execution_boundary_guard.py must explicitly bless service-persistence write authority: \(authority)"
+            )
+        }
+
+        XCTAssertTrue(recipeStore.contains("BOUNDED SERVICE PERSISTENCE"))
+        XCTAssertTrue(workflowIndex.contains("BOUNDED SERVICE PERSISTENCE"))
+        XCTAssertTrue(projectMemoryStore.contains("NOT live runtime memory"))
+        XCTAssertTrue(recipeDispatch.contains("bounded service surface"))
+        XCTAssertTrue(workflowDispatch.contains("bounded service-persistence surface"))
+        XCTAssertTrue(memoryDispatch.contains("bounded service-persistence surface"))
+
+        XCTAssertTrue(recipeDispatch.contains("RecipeStore."))
+        XCTAssertTrue(workflowDispatch.contains("WorkflowIndex()"))
+        XCTAssertTrue(memoryDispatch.contains("container.memoryStore"))
+
+        let boundedEntrypoints = [
+            (recipeDispatchPath, recipeDispatch),
+            (workflowDispatchPath, workflowDispatch),
+            (memoryDispatchPath, memoryDispatch),
+        ]
+
+        for (path, content) in boundedEntrypoints {
+            XCTAssertFalse(
+                content.contains("CommitCoordinator("),
+                "\(path) must not instantiate CommitCoordinator"
+            )
+            XCTAssertFalse(
+                content.contains("VerifiedExecutor("),
+                "\(path) must not instantiate VerifiedExecutor"
+            )
+            XCTAssertFalse(
+                content.contains("makeBootstrappedRuntime"),
+                "\(path) must not bootstrap its own runtime authority"
+            )
+        }
+    }
 }

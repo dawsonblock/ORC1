@@ -93,6 +93,112 @@ struct ExperimentResultIsolationTests {
         #expect(summaries.first?.committedToWorkspace == false)
     }
 
+    @Test("Persisted experiment summaries are recovered from repository snapshot roots")
+    func persistedExperimentSummariesRecoverFromRepositorySnapshotRoots() throws {
+        let workspaceRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString,
+            isDirectory: true
+        )
+        defer { try? FileManager.default.removeItem(at: workspaceRoot) }
+
+        try persistResults(
+            [
+                makePersistedResult(
+                    workspaceRoot: workspaceRoot,
+                    experimentID: "exp-1",
+                    candidateID: "candidate-1",
+                    title: "persisted patch"
+                )
+            ],
+            workspaceRoot: workspaceRoot,
+            experimentID: "exp-1"
+        )
+
+        let traceEvents = [
+            TraceEvent(
+                sessionID: "session",
+                taskID: nil,
+                stepID: 1,
+                toolName: "oracle_experiment_search",
+                actionName: "oracle_experiment_search",
+                verified: true,
+                success: true,
+                repositorySnapshotID: "\(workspaceRoot.path)|swiftpm|main|clean",
+                experimentID: "exp-1",
+                candidateID: "candidate-1",
+                selectedCandidate: true,
+                elapsedMs: 5
+            )
+        ]
+
+        let summaries = RuntimeDiagnosticsBuilder().experimentSummaries(traceEvents: traceEvents)
+
+        #expect(summaries.count == 1)
+        #expect(summaries.first?.id == "exp-1")
+        #expect(summaries.first?.selectedCandidateID == "candidate-1")
+        #expect(
+            summaries.first?.winningSandboxPath
+                == "\(workspaceRoot.path)/.oracle/experiments/exp-1/candidate-1")
+        #expect(summaries.first?.candidates.first?.title == "persisted patch")
+    }
+
+    @Test("Persisted experiment summaries ignore unrelated workspace experiments")
+    func persistedExperimentSummariesIgnoreUnrelatedWorkspaceExperiments() throws {
+        let workspaceRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString,
+            isDirectory: true
+        )
+        defer { try? FileManager.default.removeItem(at: workspaceRoot) }
+
+        try persistResults(
+            [
+                makePersistedResult(
+                    workspaceRoot: workspaceRoot,
+                    experimentID: "exp-1",
+                    candidateID: "candidate-1",
+                    title: "relevant patch"
+                )
+            ],
+            workspaceRoot: workspaceRoot,
+            experimentID: "exp-1"
+        )
+        try persistResults(
+            [
+                makePersistedResult(
+                    workspaceRoot: workspaceRoot,
+                    experimentID: "exp-2",
+                    candidateID: "candidate-2",
+                    title: "unrelated patch"
+                )
+            ],
+            workspaceRoot: workspaceRoot,
+            experimentID: "exp-2"
+        )
+
+        let traceEvents = [
+            TraceEvent(
+                sessionID: "session",
+                taskID: nil,
+                stepID: 1,
+                toolName: "oracle_experiment_search",
+                actionName: "oracle_experiment_search",
+                verified: true,
+                success: true,
+                repositorySnapshotID: "\(workspaceRoot.path)|swiftpm|main|clean",
+                experimentID: "exp-1",
+                candidateID: "candidate-1",
+                selectedCandidate: true,
+                elapsedMs: 5
+            )
+        ]
+
+        let summaries = RuntimeDiagnosticsBuilder().experimentSummaries(traceEvents: traceEvents)
+
+        #expect(summaries.count == 1)
+        #expect(summaries.first?.id == "exp-1")
+        #expect(summaries.first?.candidates.first?.title == "relevant patch")
+    }
+
     private func makeResult(selected: Bool) -> ExperimentResult {
         ExperimentResult(
             experimentID: "exp-1",
@@ -145,5 +251,62 @@ struct ExperimentResultIsolationTests {
                 )
             )
         )
+    }
+
+    private func makePersistedResult(
+        workspaceRoot: URL,
+        experimentID: String,
+        candidateID: String,
+        title: String
+    ) -> ExperimentResult {
+        ExperimentResult(
+            experimentID: experimentID,
+            candidate: CandidatePatch(
+                id: candidateID,
+                title: title,
+                summary: "persisted experiment result",
+                workspaceRelativePath: "Sources/Example.swift",
+                content: "// persisted"
+            ),
+            sandboxPath:
+                workspaceRoot
+                .appendingPathComponent(
+                    ".oracle/experiments/\(experimentID)/\(candidateID)", isDirectory: true
+                )
+                .path,
+            commandResults: [
+                CommandResult(
+                    succeeded: true,
+                    exitCode: 0,
+                    stdout: "ok",
+                    stderr: "",
+                    elapsedMs: 10,
+                    workspaceRoot: workspaceRoot.path,
+                    category: .test,
+                    summary: "sandbox tests passed"
+                )
+            ],
+            diffSummary: "1 file changed",
+            architectureRiskScore: 0.1,
+            selected: true
+        )
+    }
+
+    private func persistResults(
+        _ results: [ExperimentResult],
+        workspaceRoot: URL,
+        experimentID: String
+    ) throws {
+        let resultsDirectory = workspaceRoot.appendingPathComponent(
+            ".oracle/experiments/\(experimentID)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: resultsDirectory,
+            withIntermediateDirectories: true
+        )
+        let data = try JSONEncoder().encode(results)
+        try data.write(
+            to: resultsDirectory.appendingPathComponent("results.json", isDirectory: false))
     }
 }

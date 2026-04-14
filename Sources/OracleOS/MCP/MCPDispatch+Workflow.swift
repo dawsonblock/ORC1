@@ -2,6 +2,10 @@ import Foundation
 
 // MCPDispatch+Workflow.swift — Workflow tool implementations.
 //
+// Workflow indexing here remains a bounded service-persistence surface.
+// Persisted workflow plans are support material and do not redefine the main
+// execution spine or commit authority.
+//
 // Covers: oracle_workflow_list, oracle_workflow_mine, oracle_workflow_execute
 
 private struct WorkflowListItem: Encodable {

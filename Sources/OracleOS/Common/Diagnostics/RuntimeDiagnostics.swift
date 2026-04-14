@@ -542,7 +542,11 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
     private func buildExperimentSummaries(traceEvents: [TraceEvent])
         -> [DiagnosticsExperimentSummary]
     {
-        let persistedResults = loadPersistedExperimentResults(traceEvents: traceEvents)
+        let experimentIDs = Set(traceEvents.compactMap(\.experimentID))
+        let persistedResults = loadPersistedExperimentResults(
+            traceEvents: traceEvents,
+            experimentIDs: experimentIDs
+        )
         let groupedResults = Dictionary(grouping: persistedResults, by: \.experimentID)
         if !groupedResults.isEmpty {
             return groupedResults.keys.sorted().compactMap { experimentID in
@@ -627,12 +631,15 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
             .sorted { $0.stepID < $1.stepID }
     }
 
-    private func loadPersistedExperimentResults(traceEvents: [TraceEvent]) -> [ExperimentResult] {
-        let roots = Set(traceEvents.compactMap { workspaceRoot(fromSandboxPath: $0.sandboxPath) })
+    private func loadPersistedExperimentResults(
+        traceEvents: [TraceEvent],
+        experimentIDs: Set<String>
+    ) -> [ExperimentResult] {
+        let roots = workspaceRoots(for: traceEvents)
         let fileManager = FileManager.default
         let decoder = JSONDecoder()
 
-        return roots.sorted { $0.path < $1.path }.flatMap { workspaceRoot -> [ExperimentResult] in
+        return roots.flatMap { workspaceRoot -> [ExperimentResult] in
             let experimentsRoot = workspaceRoot.appendingPathComponent(
                 ".oracle/experiments", isDirectory: true)
             guard fileManager.fileExists(atPath: experimentsRoot.path),
@@ -646,6 +653,11 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
             }
 
             return directories.compactMap { directory -> [ExperimentResult]? in
+                if experimentIDs.isEmpty == false,
+                    experimentIDs.contains(directory.lastPathComponent) == false
+                {
+                    return nil
+                }
                 let resultsURL = directory.appendingPathComponent(
                     "results.json", isDirectory: false)
                 guard let data = try? Data(contentsOf: resultsURL),
@@ -653,10 +665,23 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
                 else {
                     return nil
                 }
-                return results
+                let filteredResults =
+                    experimentIDs.isEmpty
+                    ? results
+                    : results.filter { experimentIDs.contains($0.experimentID) }
+                return filteredResults.isEmpty ? nil : filteredResults
             }
             .flatMap { $0 }
         }
+    }
+
+    private func workspaceRoot(fromRepositorySnapshotID repositorySnapshotID: String?) -> URL? {
+        guard let repositorySnapshotID,
+            let workspaceRoot = repositorySnapshotID.split(separator: "|", maxSplits: 1).first
+        else {
+            return nil
+        }
+        return URL(fileURLWithPath: String(workspaceRoot), isDirectory: true)
     }
 
     private func workspaceRoot(fromSandboxPath sandboxPath: String?) -> URL? {
@@ -666,6 +691,17 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
             return nil
         }
         return URL(fileURLWithPath: String(sandboxPath[..<range.lowerBound]), isDirectory: true)
+    }
+
+    private func workspaceRoots(for traceEvents: [TraceEvent]) -> [URL] {
+        Array(
+            Set(
+                traceEvents.compactMap { event in
+                    workspaceRoot(fromRepositorySnapshotID: event.repositorySnapshotID)
+                        ?? workspaceRoot(fromSandboxPath: event.sandboxPath)
+                })
+        )
+        .sorted { $0.path < $1.path }
     }
 
     private func buildRecoverySnapshot(traceEvents: [TraceEvent]) -> DiagnosticsRecoverySnapshot {
@@ -770,22 +806,11 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
     }
 
     private func buildRepositoryIndexes(traceEvents: [TraceEvent]) -> [DiagnosticsRepositoryIndex] {
-        let roots = Set(
-            traceEvents.compactMap { event -> URL? in
-                if let repositorySnapshotID = event.repositorySnapshotID,
-                    let workspaceRoot = repositorySnapshotID.split(separator: "|", maxSplits: 1)
-                        .first
-                {
-                    return URL(fileURLWithPath: String(workspaceRoot), isDirectory: true)
-                }
-                return workspaceRoot(fromSandboxPath: event.sandboxPath)
-            })
-
         let policyEngine = PolicyEngine.shared
         let indexer = RepositoryIndexer(
             processAdapter: DefaultProcessAdapter(policyEngine: policyEngine))
         return
-            roots
+            workspaceRoots(for: traceEvents)
             .compactMap { indexer.loadPersistedSnapshot(workspaceRoot: $0) }
             .map(DiagnosticsRepositoryIndex.init)
             .sorted { lhs, rhs in

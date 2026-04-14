@@ -11,7 +11,9 @@ This file is the current truth ledger for the repository.
 - MCP tool definitions are authored as typed Swift schema values and exported to the legacy MCP dictionary shape in one place.
 - `oracle_experiment_search` remains a bounded side path and records explicit sandbox evidence, canonical roots, executed commands, and cleanup outcome.
 - Experiment result ranking resolves equal-score ties through canonical candidate ordering rather than incidental candidate IDs or caller-supplied input order.
+- Experiment diagnostics recover persisted search results from workspace roots derived from repository snapshots or sandbox paths before falling back to trace-only annotations.
 - The controller bridge maps from typed runtime payload views instead of nested legacy dictionary probing for core action, trace, recipe, and code-execution truth.
+- Recipe, workflow, and project-memory persistence stay on explicit service-owned write authorities guarded by `scripts/execution_boundary_guard.py` instead of the main execution spine.
 - `oracle setup` and `oracle doctor` remain tooling-only exceptions outside the bootstrapped runtime authority path.
 
 ## Bounded Exceptions
@@ -54,6 +56,5 @@ Verification notes:
 ## Remaining Bounded Risks
 
 - The legacy MCP request adapter still defaults a missing request version to `"1"` at the outer seam for backward compatibility with pre-version callers. Unsupported explicit versions are rejected, and the fallback is now covered by boundary tests.
-- Controller trace-step views can still infer sandbox-only badges from experiment-tagged `TraceEvent` rows when richer persisted experiment diagnostics are unavailable; experiment summaries and MCP experiment payloads remain typed.
-- Recipe, workflow, and project-memory persistence remain bounded service-persistence surfaces rather than main-spine executor flows by design.
+- Controller trace-step views can still infer sandbox-only badges from experiment-tagged `TraceEvent` rows only when persisted experiment results cannot be recovered from workspace roots derived from repository snapshots or sandbox paths; experiment summaries and MCP experiment payloads remain typed.
 - The repository is verifier-clean on the supported source proof path, but this file does not claim tagged release certification, signed controller packaging, or notarization beyond what `docs/RELEASE_CHECKLIST.md` and `.github/workflows/controller-release.yml` verify.

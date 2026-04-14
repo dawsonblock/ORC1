@@ -1,5 +1,9 @@
 // RecipeStore.swift - File-based recipe storage
 //
+// BOUNDED SERVICE PERSISTENCE — NOT part of the main-path execution contract.
+// Recipe definitions are user-owned support material persisted under the
+// recipes directory, separate from commit-authoritative runtime state.
+//
 // Loads/saves/lists/deletes recipes from the user-owned Oracle OS recipes directory.
 // Logs decode errors so broken recipes are visible, not silently skipped.
 
@@ -85,14 +89,18 @@ public enum RecipeStore {
             // Give the agent a helpful error message about what's wrong with the JSON
             let detail: String
             switch decodingError {
-            case let .keyNotFound(key, context):
-                detail = "Missing key '\(key.stringValue)' at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
-            case let .typeMismatch(type, context):
-                detail = "Type mismatch: expected \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
-            case let .valueNotFound(type, context):
-                detail = "Missing value of type \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
-            case let .dataCorrupted(context):
-                detail = "Corrupted data at \(context.codingPath.map(\.stringValue).joined(separator: ".")): \(context.debugDescription)"
+            case .keyNotFound(let key, let context):
+                detail =
+                    "Missing key '\(key.stringValue)' at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+            case .typeMismatch(let type, let context):
+                detail =
+                    "Type mismatch: expected \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+            case .valueNotFound(let type, let context):
+                detail =
+                    "Missing value of type \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+            case .dataCorrupted(let context):
+                detail =
+                    "Corrupted data at \(context.codingPath.map(\.stringValue).joined(separator: ".")): \(context.debugDescription)"
             @unknown default:
                 detail = "\(decodingError)"
             }
