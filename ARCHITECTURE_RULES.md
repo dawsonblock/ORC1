@@ -25,7 +25,7 @@ New runtime behavior must route through this spine unless it is an already-appro
 - `MCPDispatch.handle(_ params: [String: Any])` is the outer compatibility seam only.
 - After decode into `MCPToolRequest`, normal MCP dispatch must use typed transport (`JSONValue`, typed request helpers, typed payload structs).
 - Internal MCP dispatch code must not introduce new raw `[String: Any]` transport or legacy dictionary probing after decode.
-- MCP tool schemas must be authored as typed Swift schema values and exported to the legacy dictionary shape in one final conversion step.
+- MCP tool schemas must be authored as typed Swift schema values (`MCPToolDefinition`, `MCPToolInputSchema`, `MCPPropertySchema`) and exported to the legacy dictionary shape in one final conversion step.
 
 ## Side-Effect Authority
 
@@ -34,6 +34,7 @@ New runtime behavior must route through this spine unless it is an already-appro
 - Runtime code must not add new direct `Process()` spawning outside approved adapter boundaries.
 - Process execution in runtime code must route through `ProcessAdapter` / `DefaultProcessAdapter`.
 - `oracle setup` and `oracle doctor` remain explicit tooling-only exceptions outside the runtime spine.
+- Those tooling exceptions must still reuse shared typed seams for config and bridge health (`ClaudeConfigFile`, `VisionBridge.sidecarStatus()`) instead of raw JSON probing or duplicated status truth.
 
 ## Controller Bridge
 
@@ -215,7 +216,7 @@ Governance test suites (all in `Tests/OracleOSTests/Governance/`):
 - `LayerImportRulesTests` — R3 import enforcement
 - `RuntimeInvariantTests` — Runtime sequence invariants
 - `StateMutationTests` — Committed state write authority
-- `HardeningProofTests` — R13, R14, R15, R17 seam and typed-boundary assertions
+- `HardeningProofTests` — typed MCP payload/schema export, typed controller bridge truth, and CLI tooling-seam hardening
 
 ---
 

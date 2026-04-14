@@ -10,10 +10,10 @@ These documents describe the runtime as it actually works and MUST be kept curre
 
 | Document | Purpose |
 | --- | --- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System overview, component relationships |
-| [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md) | Invariants, anti-patterns, enforcement |
-| [docs/runtime_invariants.md](docs/runtime_invariants.md) | Core runtime laws that cannot be broken |
-| [docs/architecture/runtime_spine.md](docs/architecture/runtime_spine.md) | Execution flow, commit protocol |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | System overview, component relationships |
+| [../ARCHITECTURE_RULES.md](../ARCHITECTURE_RULES.md) | Invariants, anti-patterns, enforcement |
+| [runtime_invariants.md](runtime_invariants.md) | Core runtime laws that cannot be broken |
+| [architecture/runtime_spine.md](architecture/runtime_spine.md) | Execution flow, commit protocol |
 
 ### Archival Documents
 
@@ -26,7 +26,9 @@ These documents were accurate at specific points in development but may not refl
 
 ## Architectural Invariants
 
-The following rules are enforced by `scripts/architecture_guard.py`:
+The following rules are enforced by guard scripts and governance tests.
+`scripts/architecture_guard.py` owns the broad runtime freeze, while focused
+guards and tests pin seam-level hardening that a tree scan alone cannot prove.
 
 ### 1. Single Commit Authority
 
@@ -66,12 +68,34 @@ The following rules are enforced by `scripts/architecture_guard.py`:
 # Run architecture guard
 python3 scripts/architecture_guard.py
 
+# Run focused boundary guards
+python3 scripts/execution_boundary_guard.py
+python3 scripts/mcp_boundary_guard.py
+python3 scripts/cli_contract_guard.py
+
 # Run all tests
 swift test
 
 # Build oracle product
 swift build --product oracle
+
+# Canonical local proof
+bash scripts/verify-build.sh
 ```
+
+### Hardening Proof Coverage
+
+`Tests/OracleOSTests/Governance/HardeningProofTests.swift` is part of the live
+governance contract. It proves that:
+
+- MCP category handlers keep typed payloads after request decode and export
+  through the shared legacy seam rather than ad hoc nested dictionaries
+- the MCP tool catalog remains defined by typed schema models in
+  `Sources/OracleOS/MCP/MCPTools.swift`
+- `ControllerRuntimeBridge` consumes typed `ToolResult` views for authoritative
+  action and code-execution truth
+- CLI-only exception paths (`oracle setup`, `oracle doctor`) still reuse shared
+  typed seams for Claude Desktop config and vision bridge status
 
 ### CI Requirements
 

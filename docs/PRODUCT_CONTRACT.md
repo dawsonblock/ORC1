@@ -92,6 +92,8 @@ Candidate patching, repair ranking, and advisory code workflows in this checkout
 
 OracleOS currently exposes 30 tools across 9 categories. Tool names are declared in `Sources/OracleOS/MCP/MCPTools.swift` and dispatched in `Sources/OracleOS/MCP/MCPDispatch.swift`.
 
+The catalog and input schemas are defined as typed Swift models (`MCPToolDefinition`, `MCPToolInputSchema`, `MCPPropertySchema`), and category handlers return `Encodable` payloads through the shared typed export helper rather than assembling new nested dictionary payloads in-line.
+
 The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift` enforce declared-tool coverage.
 
 | Category | Count |
@@ -135,6 +137,8 @@ This means `oracle_screenshot`, `oracle_wait`, `oracle_parse_screen`, and `oracl
 ### 5. The live controller/runtime result seam is typed internally
 
 The live controller/runtime result seam is typed internally. `ToolResult` exposes `actionResult`, `traceResult`, `codeExecutionResult`, and `recipeRunResult`, and the controller host mapping layer consumes those typed views directly. Legacy nested dictionaries remain only as compatibility export at the outer result seam.
+
+The CLI-only setup and diagnostics paths follow the same rule. `oracle setup` and `oracle doctor` load Claude Desktop config through `ClaudeConfigFile` and obtain vision bridge status from `VisionBridge.sidecarStatus()` instead of re-parsing raw JSON or maintaining a second status truth.
 
 ### 6. Evidence must come from the canonical verifier path
 
