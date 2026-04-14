@@ -158,6 +158,7 @@ final class MCPToolRequestTests: XCTestCase {
 
     func testDecodeFromLegacyDict_happyPath() {
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_type",
             "arguments": ["text": "hello"],
         ]
@@ -195,7 +196,10 @@ final class MCPToolRequestTests: XCTestCase {
     }
 
     func testDecodeFromLegacyDict_emptyArgsProducesEmptyObject() {
-        let params: [String: Any] = ["name": "oracle_noop"]
+        let params: [String: Any] = [
+            "version": "1",
+            "name": "oracle_noop",
+        ]
         let req = MCPToolRequest.decode(from: params)
         XCTAssertNotNil(req)
         XCTAssertEqual(req?.arguments, .object([:]))
