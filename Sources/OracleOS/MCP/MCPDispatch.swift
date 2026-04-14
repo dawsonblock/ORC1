@@ -395,7 +395,7 @@ public enum MCPDispatch {
     // MARK: - Synchronous dispatch (all tools except oracle_screenshot and oracle_experiment_search)
 
     @MainActor
-    private static func dispatch(request: MCPToolRequest) -> ToolResult {
+    private static func dispatch(request: MCPToolRequest) async -> ToolResult {
         let tool = request.name
         guard let bootstrapped = runtimeHost.existingRuntime else {
             return ToolResult(success: false, error: "Runtime not bootstrapped")
@@ -596,7 +596,7 @@ public enum MCPDispatch {
         // MARK: Workflows
 
         case MCPToolName.workflowList, MCPToolName.workflowMine, MCPToolName.workflowExecute:
-            return dispatchWorkflow(request, container: container)
+            return await dispatchWorkflow(request, container: container, runtime: runtime)
 
         default:
             return ToolResult(success: false, error: "Unknown tool: \(tool)")

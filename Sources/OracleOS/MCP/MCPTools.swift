@@ -544,7 +544,8 @@ public enum MCPTools {
         ),
         tool(
             name: MCPToolName.workflowExecute,
-            description: "Execute a synthesized workflow by its ID using the specified parameters.",
+            description:
+                "Execute the current applicable step of a synthesized workflow by its ID using parameter substitutions.",
             properties: [
                 "workflow_id": prop("string", "The ID of the workflow to execute."),
                 "parameters": prop("object", "Parameter substitutions for the workflow slots."),

@@ -316,7 +316,7 @@ List available workflows.
 
 ### 30. `oracle_workflow_execute`
 
-Purpose: execute a synthesized workflow by ID.
+Purpose: execute the current applicable step of a synthesized workflow by ID.
 
 Example ask:
 

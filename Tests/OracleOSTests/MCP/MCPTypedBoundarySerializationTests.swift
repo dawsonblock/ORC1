@@ -14,27 +14,26 @@ final class MCPTypedBoundarySerializationTests: XCTestCase {
     }
 
     func testWorkflowPayloadSerializesStableKeys() {
-        let payload = WorkflowExecutePayload(
+        let payload = WorkflowExecutionPayload(
             workflowID: "wf-1",
             goalPattern: "archive mail",
+            executedStepID: "step-1",
+            executedStepIndex: 1,
             stepCount: 2,
             parameterSlots: ["account"],
-            steps: [
-                WorkflowStepSummary(
-                    step: 1,
-                    agentKind: "ui",
-                    skill: "click",
-                    domain: "ui",
-                    notes: "focus mailbox",
-                    query: "Archive"
-                )
-            ]
+            parameters: ["account": "personal"],
+            skill: "click",
+            domain: "ui",
+            query: "Archive"
         )
 
         let dict = MCPDispatch.legacyDict(for: payload)
         XCTAssertEqual(dict?["workflow_id"] as? String, "wf-1")
         XCTAssertEqual(dict?["goal_pattern"] as? String, "archive mail")
+        XCTAssertEqual(dict?["executed_step_id"] as? String, "step-1")
+        XCTAssertEqual(dict?["executed_step_index"] as? Int, 1)
         XCTAssertEqual(dict?["step_count"] as? Int, 2)
+        XCTAssertEqual(dict?["skill"] as? String, "click")
     }
 
     func testMemoryPayloadSerializesStableKeys() {

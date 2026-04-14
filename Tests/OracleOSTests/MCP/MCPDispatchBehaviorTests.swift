@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 /// Direct runtime behavior checks for the live MCP dispatch boundary.
@@ -13,7 +14,9 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fm = FileManager.default
         while true {
-            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) { return url }
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url
+            }
             let parent = url.deletingLastPathComponent()
             if parent.path == url.path { return url }
             url = parent
@@ -33,7 +36,8 @@ final class MCPDispatchBehaviorTests: XCTestCase {
 
         XCTAssertTrue(response.isError)
         XCTAssertTrue(response.textPayload.contains("Unknown tool: oracle_not_a_real_tool"))
-        XCTAssertLessThan(elapsed, 15, "Unknown-tool responses must not wait for the full MCP timeout")
+        XCTAssertLessThan(
+            elapsed, 15, "Unknown-tool responses must not wait for the full MCP timeout")
     }
 
     func testExperimentSearchRejectsEmptyCandidates() async {
@@ -52,7 +56,9 @@ final class MCPDispatchBehaviorTests: XCTestCase {
 
         XCTAssertTrue(response.isError)
         XCTAssertTrue(response.textPayload.contains("No valid candidates provided"))
-        XCTAssertLessThan(elapsed, 15, "Empty experiment-search validation must not wait for the long async timeout")
+        XCTAssertLessThan(
+            elapsed, 15,
+            "Empty experiment-search validation must not wait for the long async timeout")
     }
 
     func testBootstrapFailureReturnsExplicitErrorResponse() async {
@@ -100,7 +106,8 @@ final class MCPDispatchBehaviorTests: XCTestCase {
 
         XCTAssertTrue(response.isError)
         XCTAssertTrue(response.textPayload.contains("Bootstrap timeout"))
-        XCTAssertLessThan(elapsed, 1, "Bootstrap timeout must fail before the per-tool timeout elapses")
+        XCTAssertLessThan(
+            elapsed, 1, "Bootstrap timeout must fail before the per-tool timeout elapses")
     }
 
     func testDispatchReusesBootstrappedRuntimeAcrossSequentialRequests() async throws {
@@ -181,7 +188,8 @@ final class MCPDispatchBehaviorTests: XCTestCase {
     }
 
     func testBootstrapTimeoutPolicyRemainsExplicitInSource() throws {
-        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let sourcePath = repositoryRoot().appendingPathComponent(
+            "Sources/OracleOS/MCP/MCPDispatch.swift")
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
 
         XCTAssertTrue(
@@ -199,7 +207,8 @@ final class MCPDispatchBehaviorTests: XCTestCase {
     }
 
     func testExperimentSearchRemainsExplicitAsyncExceptionPath() throws {
-        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let sourcePath = repositoryRoot().appendingPathComponent(
+            "Sources/OracleOS/MCP/MCPDispatch.swift")
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
 
         XCTAssertTrue(
@@ -227,7 +236,8 @@ final class MCPDispatchBehaviorTests: XCTestCase {
     }
 
     func testExperimentSearchSerializationAdvertisesSandboxOnlyContext() throws {
-        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let sourcePath = repositoryRoot().appendingPathComponent(
+            "Sources/OracleOS/MCP/MCPDispatch.swift")
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
 
         XCTAssertTrue(
@@ -245,7 +255,8 @@ final class MCPDispatchBehaviorTests: XCTestCase {
     }
 
     func testObservationalAndExperimentalToolsRemainExplicitDispatchPaths() throws {
-        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/MCP/MCPDispatch.swift")
+        let sourcePath = repositoryRoot().appendingPathComponent(
+            "Sources/OracleOS/MCP/MCPDispatch.swift")
         let content = try String(contentsOf: sourcePath, encoding: .utf8)
 
         XCTAssertTrue(
@@ -269,10 +280,71 @@ final class MCPDispatchBehaviorTests: XCTestCase {
             "oracle_ground must remain on the optional experimental vision path"
         )
     }
+
+    func testWorkflowExecuteRunsCurrentCodeStepThroughRuntimeBridge() async throws {
+        let runtimeHost = MCPRuntimeHost {
+            try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+        let bootstrapped = try await runtimeHost.runtime(
+            currentWorkspaceRoot: repositoryRoot().path
+        )
+
+        let plan = WorkflowPlan(
+            id: "wf-search",
+            agentKind: .code,
+            goalPattern: "search repository",
+            steps: [
+                WorkflowStep(
+                    id: "step-1",
+                    agentKind: .code,
+                    stepPhase: .engineering,
+                    actionContract: ActionContract(
+                        id: "workflow|code|search",
+                        agentKind: .code,
+                        skillName: "searchRepository",
+                        targetRole: nil,
+                        targetLabel: "{{query_0}}",
+                        locatorStrategy: "workflow",
+                        commandCategory: CodeCommandCategory.searchCode.rawValue,
+                        plannerFamily: PlannerFamily.code.rawValue
+                    )
+                )
+            ],
+            parameterSlots: ["query_0"],
+            successRate: 1,
+            promotionStatus: .promoted
+        )
+        let request = MCPToolRequest(
+            version: "1",
+            name: MCPToolName.workflowExecute,
+            arguments: .object([
+                "workflow_id": .string(plan.id),
+                "parameters": .object([
+                    "query_0": .string("MCPDispatch")
+                ]),
+            ])
+        )
+
+        let result = await MCPDispatch.executeWorkflowPlan(
+            plan,
+            request: request,
+            container: bootstrapped.container,
+            runtime: bootstrapped.orchestrator
+        )
+
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.data?["workflow_id"] as? String, "wf-search")
+        XCTAssertEqual(result.data?["executed_step_index"] as? Int, 1)
+        XCTAssertEqual(result.data?["skill"] as? String, "searchRepository")
+        XCTAssertEqual(
+            result.codeExecutionResult?.commandCategory, CodeCommandCategory.searchCode.rawValue)
+        XCTAssertEqual(result.actionResult?.executedThroughExecutor, true)
+        XCTAssertFalse(result.traceResult?.intentID.isEmpty ?? true)
+    }
 }
 
-private extension MCPToolResponse {
-    var textPayload: String {
+extension MCPToolResponse {
+    fileprivate var textPayload: String {
         content.compactMap { item in
             if case .text(let text) = item {
                 return text
