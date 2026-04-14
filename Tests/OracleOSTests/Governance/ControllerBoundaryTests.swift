@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 /// Verifies that OracleController/OracleControllerHost only access the runtime
@@ -11,7 +12,9 @@ final class ControllerBoundaryTests: XCTestCase {
         var url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fm = FileManager.default
         while true {
-            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) { return url }
+            if fm.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
+                return url
+            }
             let parent = url.deletingLastPathComponent()
             if parent.path == url.path { return url }
             url = parent
@@ -20,11 +23,13 @@ final class ControllerBoundaryTests: XCTestCase {
 
     private func swiftFiles(under directory: String) -> [URL] {
         let root = repositoryRoot().appendingPathComponent(directory, isDirectory: true)
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return [] }
         return enumerator.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
     }
 
@@ -33,7 +38,8 @@ final class ControllerBoundaryTests: XCTestCase {
     /// IntentResponse and RuntimeSnapshot must be defined in the API layer only.
     func test_api_types_are_in_api_module() {
         // These types should be constructable without importing runtime internals
-        let response = IntentResponse(intentID: UUID(), outcome: .skipped, summary: "test", cycleID: UUID())
+        let response = IntentResponse(
+            intentID: UUID(), outcome: .skipped, summary: "test", cycleID: UUID())
         let snapshot = RuntimeSnapshot(timestamp: Date(), status: .idle, summary: "test")
         XCTAssertNotNil(response)
         XCTAssertNotNil(snapshot)
@@ -42,7 +48,8 @@ final class ControllerBoundaryTests: XCTestCase {
     /// RuntimeOrchestrator must conform to IntentAPI — it is the sole implementation.
     @MainActor
     func test_runtime_orchestrator_conforms_to_intent_api() async throws {
-        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(
+            configuration: .test())
         let orchestrator = bootstrapped.orchestrator
 
         // RuntimeOrchestrator must be usable as IntentAPI — this is the controller boundary
@@ -55,7 +62,7 @@ final class ControllerBoundaryTests: XCTestCase {
         let controllerFiles = swiftFiles(under: "Sources/OracleControllerHost")
         let bannedPatterns = [
             "planner.nextStep(",
-            "planner.plan("
+            "planner.plan(",
         ]
 
         for url in controllerFiles {
@@ -75,7 +82,7 @@ final class ControllerBoundaryTests: XCTestCase {
         let bannedPatterns = [
             "VerifiedExecutor(",
             "verifiedExecutor.execute(",
-            "commandRouter.execute("
+            "commandRouter.execute(",
         ]
 
         for url in controllerFiles {
@@ -91,32 +98,43 @@ final class ControllerBoundaryTests: XCTestCase {
 
     /// AutomationHost may only be used for observational snapshots from the host bridge.
     func test_controller_runtime_bridge_uses_automation_host_only_for_snapshots() throws {
-        let bridgeFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
+        let bridgeFile = repositoryRoot().appendingPathComponent(
+            "Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
         let content = try String(contentsOf: bridgeFile)
 
         let automationHostOccurrences = content.components(separatedBy: "automationHost").count - 1
-        XCTAssertEqual(automationHostOccurrences, 1, "ControllerRuntimeBridge should reference AutomationHost exactly once")
-        XCTAssertTrue(content.contains("container.automationHost.snapshots.captureSnapshot("),
-                      "AutomationHost usage in ControllerRuntimeBridge must stay observational-only")
+        XCTAssertEqual(
+            automationHostOccurrences, 1,
+            "ControllerRuntimeBridge should reference AutomationHost exactly once")
+        XCTAssertTrue(
+            content.contains("container.automationHost.snapshots.captureSnapshot("),
+            "AutomationHost usage in ControllerRuntimeBridge must stay observational-only")
     }
 
     /// WaitManager is the only direct non-executor action path allowed in the host bridge.
     func test_controller_runtime_bridge_limits_direct_wait_manager_usage() throws {
-        let bridgeFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
+        let bridgeFile = repositoryRoot().appendingPathComponent(
+            "Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
         let content = try String(contentsOf: bridgeFile)
 
         let waitOccurrences = content.components(separatedBy: "WaitManager.waitFor(").count - 1
-        XCTAssertEqual(waitOccurrences, 1, "ControllerRuntimeBridge should contain a single explicit WaitManager bypass")
+        XCTAssertEqual(
+            waitOccurrences, 1,
+            "ControllerRuntimeBridge should contain a single explicit WaitManager bypass")
 
         guard let waitStart = content.range(of: "case .wait:"),
-              let waitEnd = content.range(of: "\n        }\n\n        return mapActionResult", range: waitStart.upperBound..<content.endIndex)
+            let waitEnd = content.range(
+                of: "return mapActionResult(request: request, result: result)",
+                range: waitStart.upperBound..<content.endIndex
+            )
         else {
             XCTFail("Could not isolate the .wait case in ControllerRuntimeBridge.swift")
             return
         }
 
         let waitCase = String(content[waitStart.lowerBound..<waitEnd.lowerBound])
-        let nonCommentWaitCase = waitCase
+        let nonCommentWaitCase =
+            waitCase
             .components(separatedBy: .newlines)
             .filter { line in
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -124,18 +142,30 @@ final class ControllerBoundaryTests: XCTestCase {
             }
             .joined(separator: "\n")
 
-        XCTAssertTrue(nonCommentWaitCase.contains("WaitManager.waitFor("), "Wait case must stay host-local through WaitManager")
-        XCTAssertFalse(nonCommentWaitCase.contains("Actions."), "Wait case must stay observational and must not dispatch UI actions")
-        XCTAssertFalse(nonCommentWaitCase.contains("oracleRuntime"), "Wait case must not route through the runtime orchestrator")
-        XCTAssertFalse(nonCommentWaitCase.contains("submitIntent("), "Wait case must not submit an intent into the main execution spine")
-        XCTAssertFalse(nonCommentWaitCase.contains("VerifiedExecutor"), "Wait case must not reference executor authority")
+        XCTAssertTrue(
+            nonCommentWaitCase.contains("WaitManager.waitFor("),
+            "Wait case must stay host-local through WaitManager")
+        XCTAssertFalse(
+            nonCommentWaitCase.contains("Actions."),
+            "Wait case must stay observational and must not dispatch UI actions")
+        XCTAssertFalse(
+            nonCommentWaitCase.contains("oracleRuntime"),
+            "Wait case must not route through the runtime orchestrator")
+        XCTAssertFalse(
+            nonCommentWaitCase.contains("submitIntent("),
+            "Wait case must not submit an intent into the main execution spine")
+        XCTAssertFalse(
+            nonCommentWaitCase.contains("VerifiedExecutor"),
+            "Wait case must not reference executor authority")
     }
 
     /// Controller host mapping must consume typed ToolResult views instead of
     /// re-probing legacy data dictionaries for action or recipe fields.
     func test_controller_runtime_bridge_avoids_legacy_toolresult_fallback_probes() throws {
-        let bridgeFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
-        let mappingFile = repositoryRoot().appendingPathComponent("Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift")
+        let bridgeFile = repositoryRoot().appendingPathComponent(
+            "Sources/OracleControllerHost/ControllerRuntimeBridge.swift")
+        let mappingFile = repositoryRoot().appendingPathComponent(
+            "Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift")
 
         let bridgeContent = try String(contentsOf: bridgeFile)
         let mappingContent = try String(contentsOf: mappingFile)
@@ -155,7 +185,7 @@ final class ControllerBoundaryTests: XCTestCase {
         let controllerFiles = swiftFiles(under: "Sources/OracleControllerHost")
         let bannedPatterns = [
             "commitCoordinator.commit(",
-            "eventStore.append("
+            "eventStore.append(",
         ]
 
         for url in controllerFiles {
@@ -170,9 +200,13 @@ final class ControllerBoundaryTests: XCTestCase {
     }
 
     func test_code_intents_do_not_emit_ui_payloads() throws {
-        let sourcePath = repositoryRoot().appendingPathComponent("Sources/OracleOS/Planning/MainPlanner+Planner.swift")
+        let sourcePath = repositoryRoot().appendingPathComponent(
+            "Sources/OracleOS/Planning/MainPlanner+Planner.swift")
         guard let text = try? String(contentsOf: sourcePath, encoding: .utf8) else { return }
-        XCTAssertFalse(text.contains("type: .code, payload: .ui") || text.contains("Command(type: .code, payload: .ui"), "MainPlanner emits .ui for .code")
+        XCTAssertFalse(
+            text.contains("type: .code, payload: .ui")
+                || text.contains("Command(type: .code, payload: .ui"),
+            "MainPlanner emits .ui for .code")
     }
 
 }
