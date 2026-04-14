@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 @MainActor
@@ -15,7 +16,9 @@ final class MCPBoundarySeamTests: XCTestCase {
         let text = content?.compactMap { $0["text"] as? String }.joined(separator: "\n") ?? ""
 
         XCTAssertEqual(response["isError"] as? Bool, true)
-        XCTAssertTrue(text.contains("missing") || text.contains("name"), "Expected missing-name decode error, got: \(text)")
+        XCTAssertTrue(
+            text.contains("missing") || text.contains("name"),
+            "Expected missing-name decode error, got: \(text)")
     }
 
     func testLegacyParamsAdapterRejectsInvalidArguments() async {
@@ -31,8 +34,9 @@ final class MCPBoundarySeamTests: XCTestCase {
         let text = content?.compactMap { $0["text"] as? String }.joined(separator: "\n") ?? ""
 
         XCTAssertEqual(response["isError"] as? Bool, true)
-        XCTAssertTrue(text.contains("invalidArguments") || text.contains("not JSON-serializable"),
-                      "Response should surface specific decode failure reason, got: \(text)")
+        XCTAssertTrue(
+            text.contains("invalidArguments") || text.contains("not JSON-serializable"),
+            "Response should surface specific decode failure reason, got: \(text)")
     }
 
     func testLegacyParamsAdapterAcceptsScalarArguments() async {
@@ -54,7 +58,8 @@ final class MCPBoundarySeamTests: XCTestCase {
         let boundaryPath = "Sources/OracleOS/MCP/MCPBoundary.swift"
         let content = try String(contentsOfFile: boundaryPath, encoding: .utf8)
 
-        XCTAssertTrue(content.contains("func from(legacyValue value: Any)"),
-                      "JSONValue must support generic legacy Foundation bridging via from(legacyValue:)")
+        XCTAssertTrue(
+            content.contains("func from(legacyValue value: Any)"),
+            "JSONValue must support generic legacy Foundation bridging via from(legacyValue:)")
     }
 }
