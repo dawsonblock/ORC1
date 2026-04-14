@@ -363,7 +363,9 @@ public enum MCPDecodeFailure: Error, Sendable, Equatable {
 
 // MARK: - Version Error
 
-/// Error returned when the version field is missing or unsupported.
+/// Legacy descriptive error retained for compatibility-focused contract coverage.
+/// Live request decode uses `MCPDecodeFailure`, and omitted versions are defaulted
+/// to "1" at the outer request seam before validation.
 public enum MCPVersionError: Error, Sendable {
     case missingVersion
     case unsupportedVersion(String)

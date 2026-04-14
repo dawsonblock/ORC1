@@ -66,6 +66,33 @@ struct ExperimentResultIsolationTests {
         #expect(summary.committedToWorkspace == false)
     }
 
+    @Test("Trace-only diagnostics fallback stays sandbox-only")
+    func traceOnlyDiagnosticsFallbackStaysSandboxOnly() {
+        let traceEvents = [
+            TraceEvent(
+                sessionID: "session",
+                taskID: nil,
+                stepID: 1,
+                toolName: "oracle_experiment_search",
+                actionName: "oracle_experiment_search",
+                verified: true,
+                success: true,
+                commandSummary: "trace-only experiment",
+                experimentID: "exp-1",
+                candidateID: "candidate-1",
+                sandboxPath: "/tmp/oracle/workspace/.oracle/experiments/exp-1/candidate-1",
+                selectedCandidate: true,
+                elapsedMs: 5
+            )
+        ]
+
+        let summaries = RuntimeDiagnosticsBuilder().experimentSummaries(traceEvents: traceEvents)
+
+        #expect(summaries.count == 1)
+        #expect(summaries.first?.executionContext == "sandbox")
+        #expect(summaries.first?.committedToWorkspace == false)
+    }
+
     private func makeResult(selected: Bool) -> ExperimentResult {
         ExperimentResult(
             experimentID: "exp-1",

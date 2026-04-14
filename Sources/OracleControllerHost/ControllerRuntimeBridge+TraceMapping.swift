@@ -4,9 +4,46 @@ import Foundation
 import OracleControllerShared
 import OracleOS
 
+struct ExperimentTraceProjection: Equatable {
+    let executionContext: String?
+    let committedToWorkspace: Bool?
+
+    static func resolve(
+        event: TraceEvent,
+        experimentSummary: DiagnosticsExperimentSummary?
+    ) -> ExperimentTraceProjection {
+        if let experimentSummary {
+            return ExperimentTraceProjection(
+                executionContext: experimentSummary.executionContext,
+                committedToWorkspace: experimentSummary.committedToWorkspace
+            )
+        }
+
+        guard event.experimentID != nil else {
+            return ExperimentTraceProjection(executionContext: nil, committedToWorkspace: nil)
+        }
+
+        // Historical trace-only sessions do not carry persisted experiment result
+        // metadata. Keep the fallback explicit and sandbox-only rather than implying
+        // committed runtime state.
+        return ExperimentTraceProjection(
+            executionContext: ExperimentExecutionContext.sandbox.rawValue,
+            committedToWorkspace: false
+        )
+    }
+}
+
 extension ControllerRuntimeBridge {
     func map(_ event: TraceEvent) -> TraceStepViewModel {
-        let notePaths = event.notes?
+        map(event, experimentSummariesByID: [:])
+    }
+
+    func map(
+        _ event: TraceEvent,
+        experimentSummariesByID: [String: DiagnosticsExperimentSummary]
+    ) -> TraceStepViewModel {
+        let notePaths =
+            event.notes?
             .split(separator: "|")
             .compactMap { segment -> String? in
                 let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -16,7 +53,12 @@ extension ControllerRuntimeBridge {
                 return trimmed.hasPrefix("/") ? trimmed : nil
             } ?? []
 
-        let artifactPaths = Array(Set(([event.screenshotPath].compactMap { $0 } + notePaths))).sorted()
+        let artifactPaths = Array(Set(([event.screenshotPath].compactMap { $0 } + notePaths)))
+            .sorted()
+        let experimentProjection = ExperimentTraceProjection.resolve(
+            event: event,
+            experimentSummary: event.experimentID.flatMap { experimentSummariesByID[$0] }
+        )
 
         return TraceStepViewModel(
             sessionID: event.sessionID,
@@ -57,8 +99,8 @@ extension ControllerRuntimeBridge {
             experimentID: event.experimentID,
             candidateID: event.candidateID,
             sandboxPath: event.sandboxPath,
-            experimentExecutionContext: event.experimentID == nil ? nil : ExperimentExecutionContext.sandbox.rawValue,
-            experimentCommittedToWorkspace: event.experimentID == nil ? nil : false,
+            experimentExecutionContext: experimentProjection.executionContext,
+            experimentCommittedToWorkspace: experimentProjection.committedToWorkspace,
             selectedCandidate: event.selectedCandidate,
             experimentOutcome: event.experimentOutcome,
             architectureFindings: event.architectureFindings ?? [],

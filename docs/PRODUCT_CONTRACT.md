@@ -94,6 +94,8 @@ OracleOS currently exposes 30 tools across 9 categories. Tool names are declared
 
 The catalog and input schemas are defined as typed Swift models (`MCPToolDefinition`, `MCPToolInputSchema`, `MCPPropertySchema`), and category handlers return `Encodable` payloads through the shared typed export helper rather than assembling new nested dictionary payloads in-line.
 
+At the outer request seam, `MCPToolRequest.decodeResult(from:)` defaults an omitted request version to `"1"` for pre-version callers, then immediately validates the typed request. Raw legacy export remains confined to the single `mcpLegacyJSONObject(from:)` helper.
+
 The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift` enforce declared-tool coverage.
 
 | Category | Count |
@@ -149,6 +151,8 @@ The verifier runs `scripts/cli_contract_guard.py` alongside the existing boundar
 Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the `canonical-verify-evidence` CI artifact.
 
 Repo-owned workflow roles are intentionally narrow: `.github/workflows/ci.yml` is canonical proof, `.github/workflows/architecture.yml` is supplemental enforcement, and `.github/workflows/controller-release.yml` validates unsigned controller build/package outputs on PRs and pushes while handling signed/notarized release packaging on version tags. Security scanners such as CodeQL, Codacy, and Frogbot are supplemental signals and are not part of the product-certification contract.
+
+`controller-release.yml` is intentionally packaging-only. It must not be treated as a replacement for the canonical verifier or as an alternate build/test certification path.
 
 Direct `swift build` and `swift test` remain useful local commands, but archived repair notes, milestone docs, checked-in diagnostics, and ad hoc command output are historical only. The current tree should not be described as a zero-warning build unless it has been re-verified through the supported verifier path.
 

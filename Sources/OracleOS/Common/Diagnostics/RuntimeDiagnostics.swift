@@ -416,25 +416,29 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
         from sessionsDirectory: URL = ExperienceStore.resolveSessionsDirectory()
     ) -> [TraceEvent] {
         let fileManager = FileManager.default
-        guard let files = try? fileManager.contentsOfDirectory(
-            at: sessionsDirectory,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        ) else {
+        guard
+            let files = try? fileManager.contentsOfDirectory(
+                at: sessionsDirectory,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+        else {
             return []
         }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        return files
+        return
+            files
             .filter { $0.pathExtension == "jsonl" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .flatMap { fileURL -> [TraceEvent] in
                 guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else {
                     return []
                 }
-                return contents
+                return
+                    contents
                     .split(separator: "\n")
                     .compactMap { try? decoder.decode(TraceEvent.self, from: Data($0.utf8)) }
             }
@@ -470,21 +474,29 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
         )
     }
 
+    public func experimentSummaries(traceEvents: [TraceEvent]) -> [DiagnosticsExperimentSummary] {
+        buildExperimentSummaries(traceEvents: traceEvents)
+    }
+
     private func buildGraphSnapshot(graphStore: GraphStore) -> DiagnosticsGraphSnapshot {
         let globalSuccessRate = graphStore.globalSuccessRate()
-        let promotionsFrozen = promotionPolicy.promotionsFrozen(globalVerifiedSuccessRate: globalSuccessRate)
+        let promotionsFrozen = promotionPolicy.promotionsFrozen(
+            globalVerifiedSuccessRate: globalSuccessRate)
         let stableEdges = graphStore.allStableEdges()
             .map { DiagnosticsGraphEdge(edge: $0, promotionEligible: false) }
         let candidateTransitions = graphStore.allCandidateEdges()
-        let candidateEdges = candidateTransitions
+        let candidateEdges =
+            candidateTransitions
             .filter { $0.knowledgeTier == .candidate || $0.knowledgeTier == .exploration }
             .map {
                 DiagnosticsGraphEdge(
                     edge: $0,
-                    promotionEligible: !promotionsFrozen && promotionPolicy.shouldPromote(edge: $0, now: Date())
+                    promotionEligible: !promotionsFrozen
+                        && promotionPolicy.shouldPromote(edge: $0, now: Date())
                 )
             }
-        let recoveryEdges = candidateTransitions
+        let recoveryEdges =
+            candidateTransitions
             .filter { $0.knowledgeTier == .recovery || $0.recoveryTagged }
             .map { DiagnosticsGraphEdge(edge: $0, promotionEligible: false) }
 
@@ -502,10 +514,14 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
         let repeated = TraceSegmenter.repeatedSegments(events: traceEvents)
 
         return repeated.compactMap { group in
-            let goalPattern = group.segments.first?.events.map(\.actionName).joined(separator: " -> ") ?? group.fingerprint
-            guard let plan = workflowSynthesizer
-                .synthesize(goalPattern: goalPattern, events: group.segments.flatMap(\.events))
-                .first
+            let goalPattern =
+                group.segments.first?.events.map(\.actionName).joined(separator: " -> ")
+                ?? group.fingerprint
+            guard
+                let plan =
+                    workflowSynthesizer
+                    .synthesize(goalPattern: goalPattern, events: group.segments.flatMap(\.events))
+                    .first
             else {
                 return nil
             }
@@ -523,13 +539,16 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
         }
     }
 
-    private func buildExperimentSummaries(traceEvents: [TraceEvent]) -> [DiagnosticsExperimentSummary] {
+    private func buildExperimentSummaries(traceEvents: [TraceEvent])
+        -> [DiagnosticsExperimentSummary]
+    {
         let persistedResults = loadPersistedExperimentResults(traceEvents: traceEvents)
         let groupedResults = Dictionary(grouping: persistedResults, by: \.experimentID)
         if !groupedResults.isEmpty {
             return groupedResults.keys.sorted().compactMap { experimentID in
                 guard let results = groupedResults[experimentID] else { return nil }
-                let candidates = results
+                let candidates =
+                    results
                     .map(DiagnosticsExperimentCandidate.init)
                     .sorted { lhs, rhs in lhs.title < rhs.title }
                 return DiagnosticsExperimentSummary(
@@ -537,7 +556,8 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
                     candidateCount: candidates.count,
                     selectedCandidateID: candidates.first(where: \.selected)?.id,
                     winningSandboxPath: candidates.first(where: \.selected)?.sandboxPath,
-                    executionContext: candidates.first?.executionContext ?? ExperimentExecutionContext.sandbox.rawValue,
+                    executionContext: candidates.first?.executionContext
+                        ?? ExperimentExecutionContext.sandbox.rawValue,
                     committedToWorkspace: candidates.contains(where: \.committedToWorkspace),
                     succeededCandidateCount: candidates.filter(\.succeeded).count,
                     candidates: candidates
@@ -545,46 +565,56 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
             }
         }
 
-        let groupedEvents = Dictionary(grouping: traceEvents.compactMap { event -> TraceEvent? in
-            guard event.experimentID != nil else { return nil }
-            return event
-        }) { $0.experimentID ?? "unknown" }
+        // Compatibility-only fallback for historical trace-only sessions that do not
+        // have persisted experiment results available on disk.
+        let groupedEvents = Dictionary(
+            grouping: traceEvents.compactMap { event -> TraceEvent? in
+                guard event.experimentID != nil else { return nil }
+                return event
+            }
+        ) { $0.experimentID ?? "unknown" }
 
         return groupedEvents.keys.sorted().map { experimentID in
             let events = groupedEvents[experimentID] ?? []
-            let candidates = Dictionary(grouping: events, by: { $0.candidateID ?? $0.patchID ?? "\($0.stepID)" })
-                .keys.sorted()
-                .map { candidateID -> DiagnosticsExperimentCandidate in
-                    let candidateEvents = candidatesEvents(events: events, candidateID: candidateID)
-                    let selected = candidateEvents.contains { $0.selectedCandidate == true }
-                    return DiagnosticsExperimentCandidate(
-                        result: ExperimentResult(
-                            experimentID: experimentID,
-                            candidate: CandidatePatch(
-                                id: candidateID,
-                                title: candidateEvents.last?.patchID ?? candidateID,
-                                summary: candidateEvents.last?.commandSummary ?? "trace-derived candidate",
-                                workspaceRelativePath: candidateEvents.last?.workspaceRelativePath ?? "workspace",
-                                content: "",
-                                hypothesis: candidateEvents.last?.notes
-                            ),
-                            sandboxPath: candidateEvents.last?.sandboxPath ?? "",
-                            commandResults: [],
-                            diffSummary: candidateEvents.last?.notes ?? "",
-                            architectureRiskScore: Double(candidateEvents.last?.architectureFindings?.count ?? 0) / 10,
-                            architectureFindings: [],
-                            refactorProposalID: candidateEvents.last?.refactorProposalID,
-                            selected: selected
-                        )
+            let candidates = Dictionary(
+                grouping: events, by: { $0.candidateID ?? $0.patchID ?? "\($0.stepID)" }
+            )
+            .keys.sorted()
+            .map { candidateID -> DiagnosticsExperimentCandidate in
+                let candidateEvents = candidatesEvents(events: events, candidateID: candidateID)
+                let selected = candidateEvents.contains { $0.selectedCandidate == true }
+                return DiagnosticsExperimentCandidate(
+                    result: ExperimentResult(
+                        experimentID: experimentID,
+                        candidate: CandidatePatch(
+                            id: candidateID,
+                            title: candidateEvents.last?.patchID ?? candidateID,
+                            summary: candidateEvents.last?.commandSummary
+                                ?? "trace-derived candidate",
+                            workspaceRelativePath: candidateEvents.last?.workspaceRelativePath
+                                ?? "workspace",
+                            content: "",
+                            hypothesis: candidateEvents.last?.notes
+                        ),
+                        sandboxPath: candidateEvents.last?.sandboxPath ?? "",
+                        commandResults: [],
+                        diffSummary: candidateEvents.last?.notes ?? "",
+                        architectureRiskScore: Double(
+                            candidateEvents.last?.architectureFindings?.count ?? 0) / 10,
+                        architectureFindings: [],
+                        refactorProposalID: candidateEvents.last?.refactorProposalID,
+                        selected: selected
                     )
-                }
+                )
+            }
 
             return DiagnosticsExperimentSummary(
                 id: experimentID,
                 candidateCount: candidates.count,
                 selectedCandidateID: candidates.first(where: \.selected)?.id,
                 winningSandboxPath: candidates.first(where: \.selected)?.sandboxPath,
-                executionContext: candidates.first?.executionContext ?? ExperimentExecutionContext.sandbox.rawValue,
+                executionContext: candidates.first?.executionContext
+                    ?? ExperimentExecutionContext.sandbox.rawValue,
                 committedToWorkspace: candidates.contains(where: \.committedToWorkspace),
                 succeededCandidateCount: candidates.filter(\.succeeded).count,
                 candidates: candidates
@@ -603,21 +633,23 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
         let decoder = JSONDecoder()
 
         return roots.sorted { $0.path < $1.path }.flatMap { workspaceRoot -> [ExperimentResult] in
-            let experimentsRoot = workspaceRoot.appendingPathComponent(".oracle/experiments", isDirectory: true)
+            let experimentsRoot = workspaceRoot.appendingPathComponent(
+                ".oracle/experiments", isDirectory: true)
             guard fileManager.fileExists(atPath: experimentsRoot.path),
-                  let directories = try? fileManager.contentsOfDirectory(
-                      at: experimentsRoot,
-                      includingPropertiesForKeys: nil,
-                      options: [.skipsHiddenFiles]
-                  )
+                let directories = try? fileManager.contentsOfDirectory(
+                    at: experimentsRoot,
+                    includingPropertiesForKeys: nil,
+                    options: [.skipsHiddenFiles]
+                )
             else {
                 return []
             }
 
             return directories.compactMap { directory -> [ExperimentResult]? in
-                let resultsURL = directory.appendingPathComponent("results.json", isDirectory: false)
+                let resultsURL = directory.appendingPathComponent(
+                    "results.json", isDirectory: false)
                 guard let data = try? Data(contentsOf: resultsURL),
-                      let results = try? decoder.decode([ExperimentResult].self, from: data)
+                    let results = try? decoder.decode([ExperimentResult].self, from: data)
                 else {
                     return nil
                 }
@@ -629,7 +661,7 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
 
     private func workspaceRoot(fromSandboxPath sandboxPath: String?) -> URL? {
         guard let sandboxPath,
-              let range = sandboxPath.range(of: "/.oracle/experiments/")
+            let range = sandboxPath.range(of: "/.oracle/experiments/")
         else {
             return nil
         }
@@ -637,14 +669,18 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
     }
 
     private func buildRecoverySnapshot(traceEvents: [TraceEvent]) -> DiagnosticsRecoverySnapshot {
-        let recoveryEvents = traceEvents.filter { $0.recoveryTagged == true || $0.plannerSource == PlannerSource.recovery.rawValue }
-        let grouped = Dictionary(grouping: recoveryEvents, by: { $0.recoveryStrategy ?? "recovery" })
+        let recoveryEvents = traceEvents.filter {
+            $0.recoveryTagged == true || $0.plannerSource == PlannerSource.recovery.rawValue
+        }
+        let grouped = Dictionary(
+            grouping: recoveryEvents, by: { $0.recoveryStrategy ?? "recovery" })
 
         let strategies = grouped.keys.sorted().map { name in
             let events = grouped[name] ?? []
             let successes = events.filter(\.success).count
             let failures = events.count - successes
-            let histogram = Dictionary(events.compactMap { $0.failureClass }.map { ($0, 1) }, uniquingKeysWith: +)
+            let histogram = Dictionary(
+                events.compactMap { $0.failureClass }.map { ($0, 1) }, uniquingKeysWith: +)
             return DiagnosticsRecoveryStrategy(
                 id: name,
                 attempts: events.count,
@@ -660,11 +696,13 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
         )
     }
 
-    private func buildProjectMemoryRecords(traceEvents: [TraceEvent]) -> [DiagnosticsProjectMemoryRecord] {
+    private func buildProjectMemoryRecords(traceEvents: [TraceEvent])
+        -> [DiagnosticsProjectMemoryRecord]
+    {
         let refs = Set(traceEvents.flatMap { $0.projectMemoryRefs ?? [] })
         return refs.compactMap { path -> DiagnosticsProjectMemoryRecord? in
             guard FileManager.default.fileExists(atPath: path),
-                  let record = ProjectMemoryIndexer.parseRecord(fileURL: URL(fileURLWithPath: path))
+                let record = ProjectMemoryIndexer.parseRecord(fileURL: URL(fileURLWithPath: path))
             else {
                 return nil
             }
@@ -711,7 +749,8 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
                         id: existing?.id ?? key,
                         title: existing?.title ?? findingTitle,
                         summary: existing?.summary ?? findingTitle,
-                        severity: existing?.severity ?? ArchitectureFindingSeverity.warning.rawValue,
+                        severity: existing?.severity
+                            ?? ArchitectureFindingSeverity.warning.rawValue,
                         affectedModules: existing?.affectedModules ?? [],
                         evidence: existing?.evidence ?? [experiment.id],
                         riskScore: max(existing?.riskScore ?? 0, candidate.architectureRiskScore),
@@ -731,18 +770,22 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
     }
 
     private func buildRepositoryIndexes(traceEvents: [TraceEvent]) -> [DiagnosticsRepositoryIndex] {
-        let roots = Set(traceEvents.compactMap { event -> URL? in
-            if let repositorySnapshotID = event.repositorySnapshotID,
-               let workspaceRoot = repositorySnapshotID.split(separator: "|", maxSplits: 1).first
-            {
-                return URL(fileURLWithPath: String(workspaceRoot), isDirectory: true)
-            }
-            return workspaceRoot(fromSandboxPath: event.sandboxPath)
-        })
+        let roots = Set(
+            traceEvents.compactMap { event -> URL? in
+                if let repositorySnapshotID = event.repositorySnapshotID,
+                    let workspaceRoot = repositorySnapshotID.split(separator: "|", maxSplits: 1)
+                        .first
+                {
+                    return URL(fileURLWithPath: String(workspaceRoot), isDirectory: true)
+                }
+                return workspaceRoot(fromSandboxPath: event.sandboxPath)
+            })
 
         let policyEngine = PolicyEngine.shared
-        let indexer = RepositoryIndexer(processAdapter: DefaultProcessAdapter(policyEngine: policyEngine))
-        return roots
+        let indexer = RepositoryIndexer(
+            processAdapter: DefaultProcessAdapter(policyEngine: policyEngine))
+        return
+            roots
             .compactMap { indexer.loadPersistedSnapshot(workspaceRoot: $0) }
             .map(DiagnosticsRepositoryIndex.init)
             .sorted { lhs, rhs in

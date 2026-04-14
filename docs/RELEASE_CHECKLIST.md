@@ -8,6 +8,7 @@ Use this checklist before tagging any release. Complete every item in order.
 
 ### Build & Tests
 
+- [ ] Canonical verification passed via `bash scripts/verify-build.sh` or the current artifact from `.github/workflows/ci.yml`
 - [ ] `swift build` succeeds
 - [ ] Any build warnings are reviewed and either fixed or explicitly noted in `STATUS.md` or `BASELINE.md`
 - [ ] `swift test` passes (all targets)
@@ -15,6 +16,8 @@ Use this checklist before tagging any release. Complete every item in order.
 - [ ] `python3 scripts/architecture_guard.py` exits 0 (no architectural violations)
 - [ ] `python3 scripts/execution_boundary_guard.py` exits 0
 - [ ] `python3 scripts/vision_contract_guard.py` exits 0 (vision sidecar schema and runtime payload match `VisionSidecarContract.swift`)
+
+`controller-release.yml` is a packaging workflow. It validates controller app and DMG outputs, but it is not the canonical build/test proof path.
 
 ### Code Quality
 

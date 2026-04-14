@@ -11,13 +11,13 @@ final class ControllerRuntimeBridge {
     let oracleRuntime: RuntimeOrchestrator
     let runtimeLifecycle: RuntimeLifecycle
     let diagnosticsBuilder: RuntimeDiagnosticsBuilder
-    
+
     /// The bootstrapped runtime bundle — single authority for all services.
     private let bootstrappedRuntime: BootstrappedRuntime
     private let runtimeControlSettingsStore: RuntimeControlSettingsStore
     private var currentControlPreset: RuntimeControlPreset
     private var currentPolicyMode: PolicyMode
-    
+
     /// Direct container access — the single runtime authority.
     var container: RuntimeContainer { bootstrappedRuntime.container }
 
@@ -29,7 +29,8 @@ final class ControllerRuntimeBridge {
     init() async throws {
         let runtimeControlSettingsStore = RuntimeControlSettingsStore()
         let persistedPreset = runtimeControlSettingsStore.loadSelectedPreset()
-        let initialPreset = persistedPreset ?? RuntimeControlPreset(policyMode: PolicyEngine.defaultMode())
+        let initialPreset =
+            persistedPreset ?? RuntimeControlPreset(policyMode: PolicyEngine.defaultMode())
 
         // Single source of truth: RuntimeBootstrap creates all shared services with recovery
         let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(
@@ -39,17 +40,20 @@ final class ControllerRuntimeBridge {
         self.runtimeControlSettingsStore = runtimeControlSettingsStore
         self.currentControlPreset = initialPreset
         self.currentPolicyMode = initialPreset.policyMode
-        
+
         // Log recovery status
         if bootstrapped.recoveryReport.didRecover {
-            Log.info("Controller runtime recovered: replayed \(bootstrapped.recoveryReport.eventsReplayed) events")
+            Log.info(
+                "Controller runtime recovered: replayed \(bootstrapped.recoveryReport.eventsReplayed) events"
+            )
         }
-        
+
         // Pull context from the unified container
         self.oracleRuntime = bootstrapped.orchestrator
         self.diagnosticsBuilder = RuntimeDiagnosticsBuilder()
-        
-        self.runtimeLifecycle = RuntimeLifecycle(approvalStore: bootstrapped.container.approvalStore)
+
+        self.runtimeLifecycle = RuntimeLifecycle(
+            approvalStore: bootstrapped.container.approvalStore)
         self.sessionID = bootstrapped.container.traceRecorder.sessionID
         self.sessionStartedAt = Date()
         self.runtimeLifecycle.startControllerHeartbeat(sessionID: sessionID)
@@ -80,13 +84,17 @@ final class ControllerRuntimeBridge {
                 id: "accessibility",
                 title: "Accessibility",
                 granted: AXIsProcessTrusted(),
-                detail: AXIsProcessTrusted() ? "Runtime can inspect and act on apps." : "Grant in System Settings > Privacy & Security > Accessibility."
+                detail: AXIsProcessTrusted()
+                    ? "Runtime can inspect and act on apps."
+                    : "Grant in System Settings > Privacy & Security > Accessibility."
             ),
             PermissionStatus(
                 id: "screen-recording",
                 title: "Screen Recording",
                 granted: ScreenCapture.hasPermission(),
-                detail: ScreenCapture.hasPermission() ? "Live monitor screenshots are available." : "Grant in System Settings > Privacy & Security > Screen Recording."
+                detail: ScreenCapture.hasPermission()
+                    ? "Live monitor screenshots are available."
+                    : "Grant in System Settings > Privacy & Security > Screen Recording."
             ),
         ]
 
@@ -113,7 +121,8 @@ final class ControllerRuntimeBridge {
             policyMode: currentPolicyMode.rawValue,
             runningFromAppBundle: OracleProductPaths.runningFromAppBundle,
             bundledHostAvailable: OracleProductPaths.bundledHelperURL != nil,
-            bundledVisionBootstrapAvailable: OracleProductPaths.bundledVisionBootstrapDirectory != nil,
+            bundledVisionBootstrapAvailable: OracleProductPaths.bundledVisionBootstrapDirectory
+                != nil,
             visionInstallPath: OracleProductPaths.visionInstallDirectory.path,
             buildVersion: OracleProductPaths.buildVersion,
             buildNumber: OracleProductPaths.buildNumber
@@ -134,18 +143,29 @@ final class ControllerRuntimeBridge {
 
     private func storageLocationStatuses() -> [StorageLocationStatus] {
         [
-            storageLocationStatus(id: "app-support", title: "Application Support", url: OracleProductPaths.dataRootDirectory),
+            storageLocationStatus(
+                id: "app-support", title: "Application Support",
+                url: OracleProductPaths.dataRootDirectory),
             storageLocationStatus(id: "logs", title: "Logs", url: OracleProductPaths.logsDirectory),
-            storageLocationStatus(id: "traces", title: "Traces", url: OracleProductPaths.tracesRootDirectory),
-            storageLocationStatus(id: "recipes", title: "Recipes", url: OracleProductPaths.recipesDirectory),
-            storageLocationStatus(id: "approvals", title: "Approvals", url: OracleProductPaths.approvalsDirectory),
-            storageLocationStatus(id: "project-memory", title: "Project Memory", url: OracleProductPaths.projectMemoryDirectory),
-            storageLocationStatus(id: "experiments", title: "Experiments", url: OracleProductPaths.experimentsDirectory),
-            storageLocationStatus(id: "graph", title: "Graph Storage", url: OracleProductPaths.graphDirectory),
+            storageLocationStatus(
+                id: "traces", title: "Traces", url: OracleProductPaths.tracesRootDirectory),
+            storageLocationStatus(
+                id: "recipes", title: "Recipes", url: OracleProductPaths.recipesDirectory),
+            storageLocationStatus(
+                id: "approvals", title: "Approvals", url: OracleProductPaths.approvalsDirectory),
+            storageLocationStatus(
+                id: "project-memory", title: "Project Memory",
+                url: OracleProductPaths.projectMemoryDirectory),
+            storageLocationStatus(
+                id: "experiments", title: "Experiments",
+                url: OracleProductPaths.experimentsDirectory),
+            storageLocationStatus(
+                id: "graph", title: "Graph Storage", url: OracleProductPaths.graphDirectory),
         ]
     }
 
-    private func storageLocationStatus(id: String, title: String, url: URL) -> StorageLocationStatus {
+    private func storageLocationStatus(id: String, title: String, url: URL) -> StorageLocationStatus
+    {
         let fileManager = FileManager.default
         var isDirectory: ObjCBool = false
         let exists = fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory)
@@ -173,11 +193,14 @@ final class ControllerRuntimeBridge {
         let traceEvents = diagnosticsBuilder.loadTraceEvents()
         let observation = ObservationBuilder.capture(appName: nil)
         // AutomationHost is diagnostics-only here. It does not execute controller actions.
-        let hostSnapshot = container.automationHost.snapshots.captureSnapshot(appName: observation.app)
+        let hostSnapshot = container.automationHost.snapshots.captureSnapshot(
+            appName: observation.app)
         let browserSession = container.browserController.snapshot(
             appName: observation.app,
             observation: observation
-        ).map { BrowserSession(appName: observation.app ?? $0.browserApp, page: $0, available: true) }
+        ).map {
+            BrowserSession(appName: observation.app ?? $0.browserApp, page: $0, available: true)
+        }
         let snapshot = diagnosticsBuilder.build(
             graphStore: container.graphStore,
             traceEvents: traceEvents,
@@ -188,86 +211,87 @@ final class ControllerRuntimeBridge {
     }
 
     func executeAction(_ request: ActionRequest) -> ActionRunResult {
-        let result: ToolResult = switch request.kind {
-        case .focus:
-            Actions.focusApp(
-                appName: request.appName ?? "",
-                windowTitle: request.windowTitle,
-                runtime: oracleRuntime,
-                surface: .controller,
-                approvalRequestID: request.approvalRequestID,
-                taskID: sessionID,
-                toolName: "oracle_focus"
-            )
+        let result: ToolResult =
+            switch request.kind {
+            case .focus:
+                Actions.focusApp(
+                    appName: request.appName ?? "",
+                    windowTitle: request.windowTitle,
+                    runtime: oracleRuntime,
+                    surface: .controller,
+                    approvalRequestID: request.approvalRequestID,
+                    taskID: sessionID,
+                    toolName: "oracle_focus"
+                )
 
-        case .click:
-            Actions.click(
-                query: request.query,
-                role: request.role,
-                domId: request.domID,
-                appName: request.appName,
-                x: request.x,
-                y: request.y,
-                button: request.button,
-                count: request.count,
-                runtime: oracleRuntime,
-                surface: .controller,
-                approvalRequestID: request.approvalRequestID,
-                taskID: sessionID,
-                toolName: "oracle_click"
-            )
+            case .click:
+                Actions.click(
+                    query: request.query,
+                    role: request.role,
+                    domId: request.domID,
+                    appName: request.appName,
+                    x: request.x,
+                    y: request.y,
+                    button: request.button,
+                    count: request.count,
+                    runtime: oracleRuntime,
+                    surface: .controller,
+                    approvalRequestID: request.approvalRequestID,
+                    taskID: sessionID,
+                    toolName: "oracle_click"
+                )
 
-        case .type:
-            Actions.typeText(
-                text: request.text ?? "",
-                into: request.query,
-                domId: request.domID,
-                appName: request.appName,
-                clear: request.clearExisting,
-                runtime: oracleRuntime,
-                surface: .controller,
-                approvalRequestID: request.approvalRequestID,
-                taskID: sessionID,
-                toolName: "oracle_type"
-            )
+            case .type:
+                Actions.typeText(
+                    text: request.text ?? "",
+                    into: request.query,
+                    domId: request.domID,
+                    appName: request.appName,
+                    clear: request.clearExisting,
+                    runtime: oracleRuntime,
+                    surface: .controller,
+                    approvalRequestID: request.approvalRequestID,
+                    taskID: sessionID,
+                    toolName: "oracle_type"
+                )
 
-        case .press:
-            Actions.pressKey(
-                key: request.key ?? "",
-                modifiers: request.modifiers,
-                appName: request.appName,
-                runtime: oracleRuntime,
-                surface: .controller,
-                approvalRequestID: request.approvalRequestID,
-                taskID: sessionID,
-                toolName: "oracle_press"
-            )
+            case .press:
+                Actions.pressKey(
+                    key: request.key ?? "",
+                    modifiers: request.modifiers,
+                    appName: request.appName,
+                    runtime: oracleRuntime,
+                    surface: .controller,
+                    approvalRequestID: request.approvalRequestID,
+                    taskID: sessionID,
+                    toolName: "oracle_press"
+                )
 
-        case .scroll:
-            Actions.scroll(
-                direction: request.direction ?? "down",
-                amount: request.amount,
-                appName: request.appName,
-                x: request.x,
-                y: request.y,
-                runtime: oracleRuntime,
-                surface: .controller,
-                approvalRequestID: request.approvalRequestID,
-                taskID: sessionID,
-                toolName: "oracle_scroll"
-            )
+            case .scroll:
+                Actions.scroll(
+                    direction: request.direction ?? "down",
+                    amount: request.amount,
+                    appName: request.appName,
+                    x: request.x,
+                    y: request.y,
+                    runtime: oracleRuntime,
+                    surface: .controller,
+                    approvalRequestID: request.approvalRequestID,
+                    taskID: sessionID,
+                    toolName: "oracle_scroll"
+                )
 
-        case .wait:
-            // Wait is observational and host-local. It checks a condition without
-            // sending a side effect through VerifiedExecutor or CommandRouter.
-            WaitManager.waitFor(
-                condition: request.waitCondition ?? "appFrontmost",
-                value: request.waitValue,
-                appName: request.appName,
-                timeout: request.timeout ?? 10,
-                interval: request.interval ?? 0.5
-            )
-        }
+            case .wait:
+                // Wait is observational and host-local. It checks a condition without
+                // sending a side effect through VerifiedExecutor or CommandRouter.
+                WaitManager.waitFor(
+                    condition: request.waitCondition ?? "appFrontmost",
+                    value: request.waitValue,
+                    appName: request.appName,
+                    timeout: request.timeout ?? 10,
+                    interval: request.interval ?? 0.5
+                )
+            }
 
         return mapActionResult(request: request, result: result)
     }
@@ -282,7 +306,9 @@ final class ControllerRuntimeBridge {
 
     func saveRecipe(_ document: RecipeDocument) throws -> RecipeDocument {
         let savedName: String
-        if let rawJSON = document.rawJSON, !rawJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let rawJSON = document.rawJSON,
+            !rawJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
             savedName = try RecipeStore.saveRecipeJSON(rawJSON)
         } else {
             try RecipeStore.saveRecipe(try map(document))
@@ -317,7 +343,8 @@ final class ControllerRuntimeBridge {
             runtime: oracleRuntime,
             taskID: sessionID
         )
-        return mapRecipeRunResult(recipeName: name, totalStepsFallback: recipe.steps.count, result: result)
+        return mapRecipeRunResult(
+            recipeName: name, totalStepsFallback: recipe.steps.count, result: result)
     }
 
     func resumeRecipe(resumeToken: String, approvalRequestID: String?) -> RecipeRunResultDocument {
@@ -349,7 +376,11 @@ final class ControllerRuntimeBridge {
     }
 
     func recordedSteps(since count: Int) -> [TraceStepViewModel] {
-        Array(traceRecorder.allEvents().dropFirst(count)).map(map)
+        let traceEvents = traceRecorder.allEvents()
+        let experimentSummariesByID = experimentSummaryIndex(for: traceEvents)
+        return Array(traceEvents.dropFirst(count)).map {
+            map($0, experimentSummariesByID: experimentSummariesByID)
+        }
     }
 
     func recordedStepCount() -> Int {
@@ -358,47 +389,69 @@ final class ControllerRuntimeBridge {
 
     func listTraceSessions() -> [TraceSessionSummary] {
         let directory = ExperienceStore.resolveSessionsDirectory()
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else {
+        guard
+            let files = try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+        else {
             return []
         }
 
-        return files
+        return
+            files
             .filter { $0.pathExtension == "jsonl" }
             .compactMap { fileURL in
                 let sessionID = fileURL.deletingPathExtension().lastPathComponent
-                let lineCount = (try? String(contentsOf: fileURL, encoding: .utf8).split(separator: "\n").count) ?? 0
+                let lineCount =
+                    (try? String(contentsOf: fileURL, encoding: .utf8).split(separator: "\n").count)
+                    ?? 0
                 let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey])
-                return TraceSessionSummary(id: sessionID, stepCount: lineCount, lastUpdated: values?.contentModificationDate)
+                return TraceSessionSummary(
+                    id: sessionID, stepCount: lineCount,
+                    lastUpdated: values?.contentModificationDate)
             }
             .sorted { ($0.lastUpdated ?? .distantPast) > ($1.lastUpdated ?? .distantPast) }
     }
 
     func loadTraceSession(id: String) -> TraceSessionDetail? {
-        let fileURL = ExperienceStore.resolveSessionsDirectory().appendingPathComponent("\(id).jsonl")
+        let fileURL = ExperienceStore.resolveSessionsDirectory().appendingPathComponent(
+            "\(id).jsonl")
         guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else {
             return nil
         }
 
         let decoder = ControllerJSONCoding.makeDecoder()
 
-        let steps = contents
+        let traceEvents =
+            contents
             .split(separator: "\n")
             .compactMap { line -> TraceEvent? in
                 try? decoder.decode(TraceEvent.self, from: Data(line.utf8))
             }
-            .map(map)
+        let experimentSummariesByID = experimentSummaryIndex(for: traceEvents)
+        let steps = traceEvents.map {
+            map($0, experimentSummariesByID: experimentSummariesByID)
+        }
 
         let summary = TraceSessionSummary(
             id: id,
             stepCount: steps.count,
-            lastUpdated: (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            lastUpdated: (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate
         )
 
         return TraceSessionDetail(summary: summary, steps: steps)
+    }
+
+    private func experimentSummaryIndex(
+        for traceEvents: [TraceEvent]
+    ) -> [String: DiagnosticsExperimentSummary] {
+        Dictionary(
+            uniqueKeysWithValues: diagnosticsBuilder.experimentSummaries(traceEvents: traceEvents)
+                .map { ($0.id, $0) }
+        )
     }
 
 }

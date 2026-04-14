@@ -36,11 +36,10 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Build
-        run: swift build
-
-      - name: Test
-        run: swift test
+      - name: Note canonical verifier ownership
+        run: |
+          echo "Build/test certification lives in .github/workflows/ci.yml via bash scripts/verify-build.sh."
+          echo "This workflow validates controller packaging outputs only."
 
       - name: Build app bundle
         run: ./scripts/build-controller-app.sh --configuration release --skip-sign

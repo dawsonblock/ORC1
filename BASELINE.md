@@ -5,6 +5,10 @@ Source-structure facts below are derived from code inspection. Numeric build/tes
 status is NOT certified by the archived diagnostics logs in this repo and must be
 re-generated in a supported Swift environment.
 
+This file is historical archaeology, not the live repo truth ledger. Current state
+belongs in `STATUS.md`, `ARCHITECTURE.md`, `docs/PRODUCT_CONTRACT.md`, and
+`docs/GOVERNANCE.md`.
+
 ## Toolchain
 
 | Property | Value |
@@ -49,16 +53,16 @@ RuntimeBootstrap.makeBootstrappedRuntime()
   → reducers / projections applied
 ```
 
-## Known Issues at Baseline
+## Historical Baseline Notes
 
-- `RuntimeContext` is not instantiated by any live Sources/ code path as of 2026-04-03. It is kept as a guard structure (compile-time `@available(*, unavailable)` blocks on execution-adjacent properties) because enforcement tests scan it. *(Not scheduled for deletion — role is boundary enforcement, not execution authority.)*
-- `RuntimeExecutionDriver` is a translational bridge (ActionIntent → Intent → RuntimeOrchestrator). Retained, not removed; correctly scoped. *(Resolved — no direct executor access.)*
-- `MCPDispatch` held both `_bootstrappedRuntime` and `_runtimeContext`. Dual-path risk. *(Resolved — `_runtimeContext` no longer present in MCPDispatch.)*
-- `[String: Any]` dictionaries cross task-group and actor boundaries in MCPDispatch. *(Partially resolved — typed `MCPToolRequest`/`MCPToolResponse` via `MCPBoundary.swift`. Legacy `handle(_ params: [String: Any])` entry point retained for MCPServer compatibility. 214 occurrences remain, mostly at external perception/API boundaries. See `AUDIT.md`.)*
-- Root contained 46 legacy repair scripts, logs, and one-off test files (now quarantined in `tools/quarantine/`).
-- `vision-sidecar` is an optional external service edge and `web` is demo scaffolding. Neither is the supported operator UI. *(Unchanged.)*
+- At baseline capture, `RuntimeContext` was already unused by any live `Sources/` execution path. It remained in-tree as a guard structure because enforcement tests scanned it. *(Not scheduled for deletion; boundary enforcement only.)*
+- At baseline capture, `RuntimeExecutionDriver` was retained as a translational bridge from `ActionIntent` to `RuntimeOrchestrator`. *(Resolved as correctly scoped; no direct executor access.)*
+- At baseline capture, `MCPDispatch` had recently shed `_runtimeContext`, closing the previously identified dual-path risk.
+- At baseline capture, `[String: Any]` still existed at MCP and perception boundaries even after `MCPBoundary.swift` introduced typed `MCPToolRequest` and `MCPToolResponse`. *(Historical note; see `AUDIT.md` for the period-specific count.)*
+- At baseline capture, legacy repair scripts, logs, and one-off test files had been quarantined under `tools/quarantine/`.
+- At baseline capture, `vision-sidecar` remained an optional external service edge and `web` remained demo scaffolding rather than a supported operator UI.
 
-## Phase 6 Goals — Resolution Status (2026-04-03)
+## Archived Phase 6 Resolution Snapshot (2026-04-03)
 
 1. ~~Delete `RuntimeContext`~~ **Reclassified:** Not instantiated in any live code path; kept as guard structure with enforcement tests. See Objective 3 resolution.
 2. ~~Remove `RuntimeExecutionDriver`~~ **Not done:** `RuntimeExecutionDriver` is retained as a correctly scoped translational bridge (ActionIntent → Intent → RuntimeOrchestrator). It does not access VerifiedExecutor directly. Removal would require changing the controller bridge surface.

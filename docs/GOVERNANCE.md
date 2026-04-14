@@ -90,6 +90,8 @@ governance contract. It proves that:
 
 - MCP category handlers keep typed payloads after request decode and export
   through the shared legacy seam rather than ad hoc nested dictionaries
+- the missing-version compatibility fallback remains confined to the typed MCP
+  boundary's outer request adapter instead of spreading into category handlers
 - the MCP tool catalog remains defined by typed schema models in
   `Sources/OracleOS/MCP/MCPTools.swift`
 - `ControllerRuntimeBridge` consumes typed `ToolResult` views for authoritative
@@ -103,7 +105,8 @@ All PRs must pass:
 
 1. `.github/workflows/ci.yml` runs `bash scripts/verify-build.sh` on macOS and publishes `local/verify/latest/` as the canonical shared proof artifact
 2. `.github/workflows/architecture.yml` passes as the focused supplemental guard job
-3. Historical logs, ad hoc terminal output, and archived milestone notes are never treated as current certification
+3. `.github/workflows/controller-release.yml` is packaging validation only and is not a substitute for the canonical verifier
+4. Historical logs, ad hoc terminal output, and archived milestone notes are never treated as current certification
 
 ## Evolution Process
 

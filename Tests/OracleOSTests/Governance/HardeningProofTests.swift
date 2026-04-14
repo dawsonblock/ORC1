@@ -45,6 +45,15 @@ final class HardeningProofTests: XCTestCase {
             content.contains("private static func tool(") && content.contains("-> [String: Any]"))
     }
 
+    func testMCPBoundaryKeepsCompatibilityFallbackNarrow() throws {
+        let path = "Sources/OracleOS/MCP/MCPBoundary.swift"
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+
+        XCTAssertTrue(content.contains("let version = params[\"version\"] as? String ?? \"1\""))
+        XCTAssertTrue(content.contains("sole legacy request adapter seam"))
+        XCTAssertTrue(content.contains("Live request decode uses `MCPDecodeFailure`"))
+    }
+
     func testControllerBridgeConsumesTypedResultFields() throws {
         let path = "Sources/OracleControllerHost/ControllerRuntimeBridge+Mapping.swift"
         let content = try String(contentsOfFile: path, encoding: .utf8)
