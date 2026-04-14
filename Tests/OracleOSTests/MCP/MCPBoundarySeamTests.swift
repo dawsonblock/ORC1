@@ -5,7 +5,10 @@ import XCTest
 final class MCPBoundarySeamTests: XCTestCase {
 
     func testLegacyParamsAdapterRejectsMissingName() async {
-        let params: [String: Any] = ["arguments": ["query": "Send"]]
+        let params: [String: Any] = [
+            "version": "1",
+            "arguments": ["query": "Send"],
+        ]
 
         let response = await MCPDispatch.handle(params)
         let content = response["content"] as? [[String: Any]]
@@ -18,6 +21,7 @@ final class MCPBoundarySeamTests: XCTestCase {
     func testLegacyParamsAdapterRejectsInvalidArguments() async {
         final class NotJSON {}
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_click",
             "arguments": ["bad": NotJSON()],
         ]
@@ -33,6 +37,7 @@ final class MCPBoundarySeamTests: XCTestCase {
 
     func testLegacyParamsAdapterAcceptsScalarArguments() async {
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_not_a_real_tool",
             "arguments": "draft",
         ]

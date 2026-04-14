@@ -24,6 +24,7 @@ final class MCPBoundaryLegacyValueTests: XCTestCase {
         // Uses a fake tool name to avoid implying oracle_hotkey supports array-shaped arguments.
         // This test only exercises boundary decoding permissiveness, not tool-specific schemas.
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_test_array_args",
             "arguments": ["cmd", "shift", "p"],
         ]
@@ -35,6 +36,7 @@ final class MCPBoundaryLegacyValueTests: XCTestCase {
         // Uses a fake tool name to avoid implying oracle_recipe_show supports scalar arguments.
         // This test only exercises boundary decoding permissiveness, not tool-specific schemas.
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_test_scalar_args",
             "arguments": "draft",
         ]
@@ -45,6 +47,7 @@ final class MCPBoundaryLegacyValueTests: XCTestCase {
     func testDecodeFromLegacyDict_invalidArgumentsReturnNil() {
         final class NotJSON {}
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_click",
             "arguments": ["bad": NotJSON()],
         ]
@@ -54,6 +57,7 @@ final class MCPBoundaryLegacyValueTests: XCTestCase {
     func testDecodeResultFromLegacyDict_invalidArgumentsReturnTypedError() {
         final class NotJSON {}
         let params: [String: Any] = [
+            "version": "1",
             "name": "oracle_click",
             "arguments": ["bad": NotJSON()],
         ]

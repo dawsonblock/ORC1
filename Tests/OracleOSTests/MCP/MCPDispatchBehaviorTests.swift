@@ -290,27 +290,28 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         )
 
         let plan = WorkflowPlan(
-            id: "wf-search",
+            id: "wf-read-package",
             agentKind: .code,
-            goalPattern: "search repository",
+            goalPattern: "read package manifest",
             steps: [
                 WorkflowStep(
                     id: "step-1",
                     agentKind: .code,
                     stepPhase: .engineering,
                     actionContract: ActionContract(
-                        id: "workflow|code|search",
+                        id: "workflow|code|read-file",
                         agentKind: .code,
-                        skillName: "searchRepository",
+                        skillName: "readFile",
                         targetRole: nil,
-                        targetLabel: "{{query_0}}",
+                        targetLabel: "Package.swift",
                         locatorStrategy: "workflow",
-                        commandCategory: CodeCommandCategory.searchCode.rawValue,
+                        workspaceRelativePath: "Package.swift",
+                        commandCategory: CodeCommandCategory.openFile.rawValue,
                         plannerFamily: PlannerFamily.code.rawValue
                     )
                 )
             ],
-            parameterSlots: ["query_0"],
+            parameterSlots: [],
             successRate: 1,
             promotionStatus: .promoted
         )
@@ -318,10 +319,7 @@ final class MCPDispatchBehaviorTests: XCTestCase {
             version: "1",
             name: MCPToolName.workflowExecute,
             arguments: .object([
-                "workflow_id": .string(plan.id),
-                "parameters": .object([
-                    "query_0": .string("MCPDispatch")
-                ]),
+                "workflow_id": .string(plan.id)
             ])
         )
 
@@ -333,11 +331,12 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         )
 
         XCTAssertTrue(result.success)
-        XCTAssertEqual(result.data?["workflow_id"] as? String, "wf-search")
+        XCTAssertEqual(result.data?["workflow_id"] as? String, "wf-read-package")
         XCTAssertEqual(result.data?["executed_step_index"] as? Int, 1)
-        XCTAssertEqual(result.data?["skill"] as? String, "searchRepository")
+        XCTAssertEqual(result.data?["skill"] as? String, "readFile")
         XCTAssertEqual(
-            result.codeExecutionResult?.commandCategory, CodeCommandCategory.searchCode.rawValue)
+            result.codeExecutionResult?.commandCategory, CodeCommandCategory.openFile.rawValue)
+        XCTAssertEqual(result.codeExecutionResult?.workspaceRelativePath, "Package.swift")
         XCTAssertEqual(result.actionResult?.executedThroughExecutor, true)
         XCTAssertFalse(result.traceResult?.intentID.isEmpty ?? true)
     }
