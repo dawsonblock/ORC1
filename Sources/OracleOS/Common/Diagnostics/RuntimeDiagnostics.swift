@@ -568,67 +568,7 @@ public struct RuntimeDiagnosticsBuilder: Sendable {
                 )
             }
         }
-
-        // Compatibility-only fallback for historical trace-only sessions that do not
-        // have persisted experiment results available on disk.
-        let groupedEvents = Dictionary(
-            grouping: traceEvents.compactMap { event -> TraceEvent? in
-                guard event.experimentID != nil else { return nil }
-                return event
-            }
-        ) { $0.experimentID ?? "unknown" }
-
-        return groupedEvents.keys.sorted().map { experimentID in
-            let events = groupedEvents[experimentID] ?? []
-            let candidates = Dictionary(
-                grouping: events, by: { $0.candidateID ?? $0.patchID ?? "\($0.stepID)" }
-            )
-            .keys.sorted()
-            .map { candidateID -> DiagnosticsExperimentCandidate in
-                let candidateEvents = candidatesEvents(events: events, candidateID: candidateID)
-                let selected = candidateEvents.contains { $0.selectedCandidate == true }
-                return DiagnosticsExperimentCandidate(
-                    result: ExperimentResult(
-                        experimentID: experimentID,
-                        candidate: CandidatePatch(
-                            id: candidateID,
-                            title: candidateEvents.last?.patchID ?? candidateID,
-                            summary: candidateEvents.last?.commandSummary
-                                ?? "trace-derived candidate",
-                            workspaceRelativePath: candidateEvents.last?.workspaceRelativePath
-                                ?? "workspace",
-                            content: "",
-                            hypothesis: candidateEvents.last?.notes
-                        ),
-                        sandboxPath: candidateEvents.last?.sandboxPath ?? "",
-                        commandResults: [],
-                        diffSummary: candidateEvents.last?.notes ?? "",
-                        architectureRiskScore: Double(
-                            candidateEvents.last?.architectureFindings?.count ?? 0) / 10,
-                        architectureFindings: [],
-                        refactorProposalID: candidateEvents.last?.refactorProposalID,
-                        selected: selected
-                    )
-                )
-            }
-
-            return DiagnosticsExperimentSummary(
-                id: experimentID,
-                candidateCount: candidates.count,
-                selectedCandidateID: candidates.first(where: \.selected)?.id,
-                winningSandboxPath: candidates.first(where: \.selected)?.sandboxPath,
-                executionContext: candidates.first?.executionContext
-                    ?? ExperimentExecutionContext.sandbox.rawValue,
-                committedToWorkspace: candidates.contains(where: \.committedToWorkspace),
-                succeededCandidateCount: candidates.filter(\.succeeded).count,
-                candidates: candidates
-            )
-        }
-    }
-
-    private func candidatesEvents(events: [TraceEvent], candidateID: String) -> [TraceEvent] {
-        events.filter { ($0.candidateID ?? $0.patchID ?? "\($0.stepID)") == candidateID }
-            .sorted { $0.stepID < $1.stepID }
+        return []
     }
 
     private func loadPersistedExperimentResults(

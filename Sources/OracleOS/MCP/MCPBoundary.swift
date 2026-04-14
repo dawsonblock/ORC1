@@ -5,8 +5,8 @@
 // types. Legacy `[String: Any]` transport is confined to the outer JSON-RPC
 // adapter seam (`MCPDispatch.handle(_ params:)` and legacy export helpers).
 //
-// Responses always carry an explicit version. The legacy JSON-RPC request adapter
-// still defaults omitted request versions to "1" for compatibility at the outer seam.
+// Responses always carry an explicit version. Requests must also provide an
+// explicit version at the legacy JSON-RPC adapter seam.
 
 import Foundation
 
@@ -159,7 +159,7 @@ public enum JSONValue: Sendable, Codable, Equatable {
 // MARK: - MCP Tool Request
 
 /// Typed, Sendable representation of an incoming MCP tools/call payload.
-/// Version field is mandatory. Unknown versions are rejected immediately.
+/// Version field is mandatory. Missing or unknown versions are rejected immediately.
 public struct MCPToolRequest: Sendable, Codable {
     /// Wire version. Current supported value: "1".
     public let version: String
@@ -183,9 +183,9 @@ public struct MCPToolRequest: Sendable, Codable {
     > {
         guard let name = params["name"] as? String else { return .failure(.missingName) }
 
-        // Version is conveyed at the transport layer; default to "1" for callers
-        // that predate explicit versioning.
-        let version = params["version"] as? String ?? "1"
+        guard let version = params["version"] as? String else {
+            return .failure(.missingVersion)
+        }
         guard version == "1" else { return .failure(.unsupportedVersion(version)) }
 
         let arguments: JSONValue
@@ -343,6 +343,8 @@ public enum MCPContent: Sendable, Codable {
 public enum MCPDecodeFailure: Error, Sendable, Equatable {
     /// The `name` field is absent or not a String.
     case missingName
+    /// The `version` field is absent or not a String.
+    case missingVersion
     /// The `version` field is present but not supported by this runtime.
     case unsupportedVersion(String)
     /// The `arguments` field is present but cannot be bridged to `JSONValue`
@@ -353,6 +355,8 @@ public enum MCPDecodeFailure: Error, Sendable, Equatable {
         switch self {
         case .missingName:
             return "MCP request is missing required field \"name\"."
+        case .missingVersion:
+            return "MCP request is missing required field \"version\". Expected version \"1\"."
         case .unsupportedVersion(let v):
             return "MCP request version \"\(v)\" is not supported. Expected version \"1\"."
         case .invalidArguments:
@@ -364,8 +368,8 @@ public enum MCPDecodeFailure: Error, Sendable, Equatable {
 // MARK: - Version Error
 
 /// Legacy descriptive error retained for compatibility-focused contract coverage.
-/// Live request decode uses `MCPDecodeFailure`, and omitted versions are defaulted
-/// to "1" at the outer request seam before validation.
+/// Live request decode uses `MCPDecodeFailure` and requires an explicit
+/// transport version before validation.
 public enum MCPVersionError: Error, Sendable {
     case missingVersion
     case unsupportedVersion(String)

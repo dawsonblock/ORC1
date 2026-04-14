@@ -45,13 +45,16 @@ final class HardeningProofTests: XCTestCase {
             content.contains("private static func tool(") && content.contains("-> [String: Any]"))
     }
 
-    func testMCPBoundaryKeepsCompatibilityFallbackNarrow() throws {
+    func testMCPBoundaryRequiresExplicitRequestVersion() throws {
         let path = "Sources/OracleOS/MCP/MCPBoundary.swift"
         let content = try String(contentsOfFile: path, encoding: .utf8)
 
-        XCTAssertTrue(content.contains("let version = params[\"version\"] as? String ?? \"1\""))
+        XCTAssertTrue(
+            content.contains("guard let version = params[\"version\"] as? String else {")
+        )
+        XCTAssertTrue(content.contains("return .failure(.missingVersion)"))
         XCTAssertTrue(content.contains("sole legacy request adapter seam"))
-        XCTAssertTrue(content.contains("Live request decode uses `MCPDecodeFailure`"))
+        XCTAssertTrue(content.contains("requires an explicit"))
     }
 
     func testControllerBridgeConsumesTypedResultFields() throws {

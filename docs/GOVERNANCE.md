@@ -90,13 +90,13 @@ governance contract. It proves that:
 
 - MCP category handlers keep typed payloads after request decode and export
   through the shared legacy seam rather than ad hoc nested dictionaries
-- the missing-version compatibility fallback remains confined to the typed MCP
-  boundary's outer request adapter instead of spreading into category handlers
+- the typed MCP boundary requires an explicit request version at the outer
+  adapter seam instead of defaulting omitted versions inside category handlers
 - the MCP tool catalog remains defined by typed schema models in
   `Sources/OracleOS/MCP/MCPTools.swift`
 - experiment diagnostics recover persisted search results from repository
-  snapshot or sandbox-derived workspace roots before using the historical
-  trace-only fallback path
+  snapshot or sandbox-derived workspace roots and leave experiment metadata
+  unavailable when persisted evidence cannot be recovered
 - recipe, workflow, and project-memory persistence remain explicit
   service-owned write surfaces guarded by `scripts/execution_boundary_guard.py`
   instead of becoming hidden commit-authority paths

@@ -162,10 +162,7 @@ extension MCPDispatch {
                         body: body
                     )
                 case "risk":
-                    guard let projectStore = memoryStore.projectStore else {
-                        return ToolResult(success: false, error: "Project memory not initialized")
-                    }
-                    _ = try projectStore.writeRiskDraft(
+                    try memoryStore.recordRisk(
                         title: title,
                         summary: summary,
                         knowledgeClass: .reusable,

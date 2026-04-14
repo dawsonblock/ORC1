@@ -6,20 +6,20 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
     public let appMemory: StrategyMemory
     private var projectMemory: ProjectMemoryStore?
     private var currentWorkspaceRoot: String?
-    
+
     public var projectStore: ProjectMemoryStore? {
         projectMemory
     }
 
     private let executionStore: ExecutionMemoryStore
     private let patternStore: PatternMemoryStore
-    
+
     public init(appMemory: StrategyMemory) {
         self.appMemory = appMemory
         self.executionStore = ExecutionMemoryStore(store: appMemory)
         self.patternStore = PatternMemoryStore(store: appMemory)
     }
-    
+
     /// Binds the store to a specific project root, enabling ProjectMemory access.
     public func setWorkspaceRoot(_ root: String) {
         let normalizedRoot = root.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,7 +62,8 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
             store: store,
             limit: limit
         )
-        let records = signals.architectureDecisions
+        let records =
+            signals.architectureDecisions
             + signals.knownGoodPatterns
             + signals.rejectedApproaches
             + signals.risks
@@ -70,7 +71,7 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
 
         return Array(records.map(memoryCandidate(from:)).prefix(limit))
     }
-    
+
     /// Core query API that computes memory influence based on current context.
     public func influence(for context: MemoryQueryContext) -> MemoryInfluence {
         let executionBias = executionStore.rankingBias(
@@ -89,12 +90,14 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
         }
 
         let projectSignals = projectMemorySignals(for: context)
-        let preferredPaths = context.repositorySnapshot.map {
-            projectSignals.preferredPaths(in: $0)
-        } ?? []
-        let avoidedPaths = context.repositorySnapshot.map {
-            projectSignals.avoidedPaths(in: $0)
-        } ?? []
+        let preferredPaths =
+            context.repositorySnapshot.map {
+                projectSignals.preferredPaths(in: $0)
+            } ?? []
+        let avoidedPaths =
+            context.repositorySnapshot.map {
+                projectSignals.avoidedPaths(in: $0)
+            } ?? []
 
         var notes: [String] = []
         var evidence: [MemoryEvidence] = []
@@ -144,7 +147,8 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
             )
         }
 
-        let shouldPreferExperiments = projectSignals.hasRejectedApproaches || projectSignals.hasOpenProblems
+        let shouldPreferExperiments =
+            projectSignals.hasRejectedApproaches || projectSignals.hasOpenProblems
         let riskPenalty = projectSignals.hasRisks ? 0.1 : 0
 
         return MemoryInfluence(
@@ -161,12 +165,12 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
             evidence: evidence
         )
     }
-    
+
     private func projectMemorySignals(
         for context: MemoryQueryContext
     ) -> ProjectMemoryPlanningSignals {
         guard let snapshot = context.repositorySnapshot,
-              (context.agentKind == .code || context.agentKind == nil)
+            context.agentKind == .code || context.agentKind == nil
         else {
             return ProjectMemoryPlanningSignals()
         }
@@ -227,7 +231,8 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
     }
 
     public func recordCommandResult(category: String, workspaceRoot: String, success: Bool) {
-        appMemory.recordCommandResult(category: category, workspaceRoot: workspaceRoot, success: success)
+        appMemory.recordCommandResult(
+            category: category, workspaceRoot: workspaceRoot, success: success)
     }
 
     // MARK: - ProjectMemory Recording Delegates
@@ -302,6 +307,26 @@ public final class UnifiedMemoryStore: @unchecked Sendable {
         body: String
     ) throws {
         _ = try projectMemory?.writeRejectedApproachDraft(
+            title: title,
+            summary: summary,
+            knowledgeClass: knowledgeClass,
+            affectedModules: affectedModules,
+            evidenceRefs: evidenceRefs,
+            sourceTraceIDs: sourceTraceIDs,
+            body: body
+        )
+    }
+
+    public func recordRisk(
+        title: String,
+        summary: String,
+        knowledgeClass: KnowledgeClass,
+        affectedModules: [String] = [],
+        evidenceRefs: [String] = [],
+        sourceTraceIDs: [String] = [],
+        body: String
+    ) throws {
+        _ = try projectMemory?.writeRiskDraft(
             title: title,
             summary: summary,
             knowledgeClass: knowledgeClass,

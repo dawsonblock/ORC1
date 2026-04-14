@@ -28,15 +28,15 @@ struct ControllerTraceMappingTests {
         #expect(projection.committedToWorkspace == false)
     }
 
-    @Test("Projection keeps sandbox-only fallback for trace-only experiment events")
-    func projectionKeepsSandboxOnlyFallbackForTraceOnlyExperimentEvents() {
+    @Test("Projection leaves trace-only experiment events unannotated without persisted metadata")
+    func projectionLeavesTraceOnlyExperimentEventsUnannotatedWithoutPersistedMetadata() {
         let projection = ExperimentTraceProjection.resolve(
             event: makeEvent(experimentID: "exp-1"),
             experimentSummary: nil
         )
 
-        #expect(projection.executionContext == ExperimentExecutionContext.sandbox.rawValue)
-        #expect(projection.committedToWorkspace == false)
+        #expect(projection.executionContext == nil)
+        #expect(projection.committedToWorkspace == nil)
     }
 
     @Test("Projection leaves non-experiment trace events unannotated")

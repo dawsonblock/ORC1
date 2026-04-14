@@ -66,8 +66,8 @@ struct ExperimentResultIsolationTests {
         #expect(summary.committedToWorkspace == false)
     }
 
-    @Test("Trace-only diagnostics fallback stays sandbox-only")
-    func traceOnlyDiagnosticsFallbackStaysSandboxOnly() {
+    @Test("Trace-only diagnostics stay unavailable without persisted experiment results")
+    func traceOnlyDiagnosticsStayUnavailableWithoutPersistedExperimentResults() {
         let traceEvents = [
             TraceEvent(
                 sessionID: "session",
@@ -88,9 +88,7 @@ struct ExperimentResultIsolationTests {
 
         let summaries = RuntimeDiagnosticsBuilder().experimentSummaries(traceEvents: traceEvents)
 
-        #expect(summaries.count == 1)
-        #expect(summaries.first?.executionContext == "sandbox")
-        #expect(summaries.first?.committedToWorkspace == false)
+        #expect(summaries.isEmpty)
     }
 
     @Test("Persisted experiment summaries are recovered from repository snapshot roots")

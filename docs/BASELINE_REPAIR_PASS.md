@@ -155,6 +155,5 @@ update `execution_boundary_guard.py` to scan for file I/O in non-persistence pat
 ## Known Limitations of This Pass
 
 - `oracle_workflow_execute` returns the workflow plan steps for LLM execution rather than running the planning stack directly (WorkflowExecutor requires full PlannerFamily context)
-- `oracle_memory_draft` with `kind=risk` calls `projectStore.writeRiskDraft()` directly since UnifiedMemoryStore has no `recordRisk` wrapper
 - File splits (Actions, AXScanner, RootView) preserve existing public API — no behavior change
 - no changes to runtime spine: `RuntimeBootstrap → BootstrappedRuntime → RuntimeContainer → RuntimeOrchestrator → VerifiedExecutor → CommandRouter`

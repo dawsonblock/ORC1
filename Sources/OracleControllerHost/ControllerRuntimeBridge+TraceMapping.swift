@@ -19,17 +19,8 @@ struct ExperimentTraceProjection: Equatable {
             )
         }
 
-        guard event.experimentID != nil else {
-            return ExperimentTraceProjection(executionContext: nil, committedToWorkspace: nil)
-        }
-
-        // Historical trace-only sessions do not carry persisted experiment result
-        // metadata. Keep the fallback explicit and sandbox-only rather than implying
-        // committed runtime state.
-        return ExperimentTraceProjection(
-            executionContext: ExperimentExecutionContext.sandbox.rawValue,
-            committedToWorkspace: false
-        )
+        _ = event
+        return ExperimentTraceProjection(executionContext: nil, committedToWorkspace: nil)
     }
 }
 

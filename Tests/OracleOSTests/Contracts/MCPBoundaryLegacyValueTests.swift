@@ -75,17 +75,16 @@ final class MCPBoundaryLegacyValueTests: XCTestCase {
         }
     }
 
-    func testDecodeResultFromLegacyDict_missingVersionDefaultsToV1() {
+    func testDecodeResultFromLegacyDict_missingVersionReturnTypedError() {
         let params: [String: Any] = [
             "name": "oracle_click",
             "arguments": ["app": "Notes"],
         ]
         let result = MCPToolRequest.decodeResult(from: params)
-        if case .success(let request) = result {
-            XCTAssertEqual(request.version, "1")
-            XCTAssertEqual(request.name, "oracle_click")
+        if case .failure(let failure) = result {
+            XCTAssertEqual(failure, .missingVersion)
         } else {
-            XCTFail("Expected missing version to default to v1, got \(result)")
+            XCTFail("Expected .failure(.missingVersion), got \(result)")
         }
     }
 

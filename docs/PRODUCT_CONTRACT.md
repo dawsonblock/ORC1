@@ -94,7 +94,7 @@ OracleOS currently exposes 30 tools across 9 categories. Tool names are declared
 
 The catalog and input schemas are defined as typed Swift models (`MCPToolDefinition`, `MCPToolInputSchema`, `MCPPropertySchema`), and category handlers return `Encodable` payloads through the shared typed export helper rather than assembling new nested dictionary payloads in-line.
 
-At the outer request seam, `MCPToolRequest.decodeResult(from:)` defaults an omitted request version to `"1"` for pre-version callers, then immediately validates the typed request. Raw legacy export remains confined to the single `mcpLegacyJSONObject(from:)` helper.
+At the outer request seam, `MCPToolRequest.decodeResult(from:)` requires an explicit request version and rejects missing or unsupported versions before dispatch. Raw legacy export remains confined to the single `mcpLegacyJSONObject(from:)` helper.
 
 The guard script `scripts/mcp_boundary_guard.py` and `Tests/OracleOSTests/MCP/MCPToolCoverageTests.swift` enforce declared-tool coverage.
 
