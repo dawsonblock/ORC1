@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 final class MCPBoundaryLegacyValueTests: XCTestCase {
@@ -71,6 +72,20 @@ final class MCPBoundaryLegacyValueTests: XCTestCase {
             XCTAssertEqual(failure, .missingName)
         } else {
             XCTFail("Expected .failure(.missingName), got \(result)")
+        }
+    }
+
+    func testDecodeResultFromLegacyDict_missingVersionDefaultsToV1() {
+        let params: [String: Any] = [
+            "name": "oracle_click",
+            "arguments": ["app": "Notes"],
+        ]
+        let result = MCPToolRequest.decodeResult(from: params)
+        if case .success(let request) = result {
+            XCTAssertEqual(request.version, "1")
+            XCTAssertEqual(request.name, "oracle_click")
+        } else {
+            XCTFail("Expected missing version to default to v1, got \(result)")
         }
     }
 

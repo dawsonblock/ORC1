@@ -142,6 +142,10 @@ public struct ExperimentResult: Codable, Sendable, Equatable, Identifiable {
     }
 
     public func with(promptDiagnostics: PromptDiagnostics?) -> ExperimentResult {
+        with(selected: selected, promptDiagnostics: promptDiagnostics)
+    }
+
+    public func with(selected: Bool, promptDiagnostics: PromptDiagnostics?) -> ExperimentResult {
         ExperimentResult(
             id: id,
             experimentID: experimentID,

@@ -6,23 +6,21 @@ Normative requirements live in [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md).
 ## Supported Surfaces
 
 The supported product surfaces are:
-MCP transport shape is intentionally split: `MCPDispatch.handle(_ params: [String: Any])` is the legacy JSON-RPC adapter seam, while normal MCP internals run on typed request and payload models (`JSONValue`, typed extractors, `Encodable` category payloads) and export once at the compatibility seam.
-
-Supported surfaces:
 
 - `OracleController` (native macOS operator UI)
 - MCP server
-- `oracle` CLI
 - `oracle` CLI (`mcp`, `setup`, `doctor`, `dashboard`, `status`, `version`, `help`)
 
 `oracle dashboard` is a non-interactive terminal dashboard snapshot within the CLI surface, not a separate host surface.
+
+MCP transport shape is intentionally split: `MCPDispatch.handle(_ params: [String: Any])` is the legacy JSON-RPC adapter seam, while normal MCP internals run on typed request and payload models (`JSONValue`, typed extractors, `Encodable` category payloads) and export once at the compatibility seam. Missing request versions still default to `"1"` at that outer edge for backward compatibility; unsupported explicit versions are rejected after decode.
 
 ## Dominant Subsystems
 
 The system reduces to five dominant layers:
 
 | Layer | Role |
-|-------|------|
+| ----- | ---- |
 | **Execution kernel** | Verified interaction with the environment |
 | **Perception** | Reliable, compressed environment state via PerceptionEngine |
 | **Planner** | Goal decomposition and action selection |
@@ -120,7 +118,7 @@ Responsibilities:
 
 Pipeline:
 
-```
+```text
 previous observation
 ↓
 ObservationChangeDetector.detect(previous:incoming:)
@@ -288,6 +286,10 @@ Explicit experiment commands are typed as experiment-only requests and are mater
 ## Tooling Exceptions
 
 `oracle setup` and `oracle doctor` remain outside the runtime bootstrap/orchestrator path. They are tooling-only helpers, not alternate runtimes. Their Claude config editing now uses a typed config model that preserves unknown JSON fields instead of mutating raw dictionary trees by hand.
+
+## Wait Exception
+
+Controller-host wait checks remain observational and bounded. `OracleControllerHost` evaluates them through `WaitManager.waitFor(...)` rather than `VerifiedExecutor` because they poll for read-only conditions and do not commit side effects or runtime state.
 
 ## Verification Shape
 

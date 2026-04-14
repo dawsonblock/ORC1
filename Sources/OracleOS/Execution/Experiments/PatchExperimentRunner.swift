@@ -94,25 +94,13 @@ public final class PatchExperimentRunner: @unchecked Sendable {
     public func rankResults(
         _ results: [ExperimentResult],
         faultLocationConfidence: Double,
-memoryStore: UnifiedMemoryStore?
+        memoryStore: UnifiedMemoryStore?
     ) -> [ExperimentResult] {
         let ranker = self.ranker
         let ranked = ranker.rank(results)
 
         return ranked.enumerated().map { index, result in
-            ExperimentResult(
-                id: result.id,
-                experimentID: result.experimentID,
-                candidate: result.candidate,
-                sandboxPath: result.sandboxPath,
-                commandResults: result.commandResults,
-                diffSummary: result.diffSummary,
-                architectureRiskScore: result.architectureRiskScore,
-                architectureFindings: result.architectureFindings,
-                refactorProposalID: result.refactorProposalID,
-                selected: index == 0,
-                promptDiagnostics: result.promptDiagnostics
-            )
+            result.with(selected: index == 0, promptDiagnostics: result.promptDiagnostics)
         }
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OracleOS
 
 @Suite("Patch Experiment Runner")
@@ -46,6 +47,76 @@ struct PatchExperimentRunnerTests {
         // compositeScore = 0.4*0.9 + 0.25*(1-0.2) + 0.2*0.7 + 0.15*0.5
         let expected = 0.4 * 0.9 + 0.25 * 0.8 + 0.2 * 0.7 + 0.15 * 0.5
         #expect(abs(signals.compositeScore - expected) < 0.001)
+    }
+
+    @Test("Ranked results preserve sandbox proof metadata")
+    func rankResultsPreserveSandboxProofMetadata() {
+        let runner = PatchExperimentRunner()
+        let results = [
+            ExperimentResult(
+                experimentID: "exp-1",
+                candidate: CandidatePatch(
+                    id: "candidate-1",
+                    title: "Sandbox patch",
+                    summary: "Preserve experiment proof metadata",
+                    workspaceRelativePath: "Sources/Calculator.swift",
+                    content: "// sandbox-only"
+                ),
+                sandboxPath: "/tmp/oracle/experiments/exp-1/candidate-1",
+                commandResults: [
+                    CommandResult(
+                        succeeded: true,
+                        exitCode: 0,
+                        stdout: "ok",
+                        stderr: "",
+                        elapsedMs: 10,
+                        workspaceRoot: "/tmp/oracle/experiments/exp-1/candidate-1",
+                        category: .test,
+                        summary: "sandbox tests passed"
+                    )
+                ],
+                diffSummary: "1 file changed",
+                architectureRiskScore: 0.1,
+                sandboxEvidence: ExperimentSandboxEvidence(
+                    resolvedSandboxRoot: "/tmp/oracle/experiments/exp-1/candidate-1",
+                    canonicalWorkspaceRoot: "/tmp/oracle/workspace",
+                    candidatePaths: ["Sources/Calculator.swift"],
+                    executedCommands: ["swift test"],
+                    cleanupOutcome: ExperimentCleanupOutcome(
+                        worktreeRemoved: true,
+                        branchDeleted: true
+                    )
+                ),
+                sandboxMetadata: SandboxExecutionMetadata(
+                    canonicalWorkspaceRoot: "/tmp/oracle/workspace",
+                    resolvedSandboxRoot: "/tmp/oracle/experiments/exp-1/candidate-1",
+                    candidateRelativePath: "Sources/Calculator.swift",
+                    attemptedPaths: [
+                        "Sources/Calculator.swift",
+                        "/tmp/oracle/experiments/exp-1/candidate-1/Sources/Calculator.swift",
+                    ],
+                    commandsRun: ["swift test"],
+                    cleanup: SandboxCleanupOutcome(
+                        succeeded: true,
+                        removedWorktree: true,
+                        removedBranch: true
+                    )
+                )
+            )
+        ]
+
+        let ranked = runner.rankResults(results, faultLocationConfidence: 0.8, memoryStore: nil)
+
+        #expect(ranked.count == 1)
+        #expect(ranked[0].selected == true)
+        #expect(ranked[0].executionContext == .sandbox)
+        #expect(ranked[0].committedToWorkspace == false)
+        #expect(
+            ranked[0].sandboxEvidence?.resolvedSandboxRoot
+                == "/tmp/oracle/experiments/exp-1/candidate-1")
+        #expect(
+            ranked[0].sandboxMetadata?.resolvedSandboxRoot
+                == "/tmp/oracle/experiments/exp-1/candidate-1")
     }
 
     private func makeCandidatePatch() -> CandidatePatch {

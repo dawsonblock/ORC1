@@ -52,7 +52,8 @@ public final class ExperimentManager: @unchecked Sendable {
         )
         try fileManager.createDirectory(at: experimentsRoot, withIntermediateDirectories: true)
         let snapshot = self.repositoryIndexer.indexIfNeeded(workspaceRoot: workspaceRootURL)
-        let promptDiagnostics = bounded.promptDiagnostics
+        let promptDiagnostics =
+            bounded.promptDiagnostics
             ?? promptEngine.experimentGeneration(
                 spec: bounded,
                 snapshot: snapshot
@@ -66,22 +67,10 @@ public final class ExperimentManager: @unchecked Sendable {
         let ranked = ranker.rank(results)
         let selectedID = ranked.first?.candidate.id
 
-        let finalized = ranked.enumerated().map { _, result in
-            ExperimentResult(
-                id: result.id,
-                experimentID: result.experimentID,
-                candidate: result.candidate,
-                executionContext: .sandbox,
-                committedToWorkspace: false,
-                sandboxPath: result.sandboxPath,
-                commandResults: result.commandResults,
-                diffSummary: result.diffSummary,
-                architectureRiskScore: result.architectureRiskScore,
-                architectureFindings: result.architectureFindings,
-                refactorProposalID: result.refactorProposalID,
+        let finalized = ranked.map { result in
+            result.with(
                 selected: result.candidate.id == selectedID,
-                promptDiagnostics: promptDiagnostics,
-                sandboxMetadata: result.sandboxMetadata
+                promptDiagnostics: promptDiagnostics
             )
         }
         try persistResults(finalized, spec: spec, experimentsRoot: experimentsRoot)
@@ -111,7 +100,8 @@ public final class ExperimentManager: @unchecked Sendable {
     ) throws {
         let resultURL = resultsURL(for: spec, experimentsRoot: experimentsRoot)
         // Direct createDirectory is intentional — this is internal oracle state, not a workspace file.
-        try fileManager.createDirectory(at: resultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: resultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONEncoder().encode(results)
         try data.write(to: resultURL)
     }

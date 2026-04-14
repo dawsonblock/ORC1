@@ -27,6 +27,7 @@ These are deliberate exceptions. They are not part of the guaranteed main-path e
 
 Passed in this session:
 
+- `bash scripts/verify-build.sh`
 - `bash scripts/verify-build.sh --build-only`
 - `python3 scripts/generate_repo_facts.py --check`
 - `python3 scripts/cli_contract_guard.py`
@@ -34,19 +35,14 @@ Passed in this session:
 - `python3 scripts/architecture_guard.py`
 - `python3 scripts/execution_boundary_guard.py`
 
-Still failing in this session:
-
-- `bash scripts/verify-build.sh`
-- underlying failing step: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test`
-
 Verified details from the canonical local proof surface:
 
 - Environment: macOS 26.2, Apple Swift 6.3, Python 3.9.7
 - Dependency resolution: passed
 - Release build: passed
 - Non-interactive CLI smokes: passed for `oracle version`, `oracle help`, `oracle status`, and `oracle dashboard`
-- Full Swift test phase: failed with a bare compiler `fatalError` after compiling deep into `OracleOSTests`; the current test evidence does not surface a precise source diagnostic before termination
-- Because `scripts/verify-build.sh` is fail-fast, its guard stage did not run inside the failing end-to-end invocation; the guard commands above were run separately and passed
+- Full Swift test phase: passed via `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test`
+- The end-to-end verifier completed the guard stage inside the canonical invocation and wrote a `=== VERDICT: PASS ===` summary to `local/verify/latest/verify-result.txt`
 
 Verification notes:
 
@@ -54,9 +50,9 @@ Verification notes:
 - The Command Line Tools-selected `swift` toolchain on this machine does not satisfy the full SwiftPM test path for this checkout by itself.
 - The canonical local proof surface remains `local/verify/latest/`.
 
-## Known Remaining Drift
+## Remaining Bounded Risks
 
-- The legacy MCP request adapter still defaults a missing request version to `"1"` for compatibility at the outer seam.
-- Experiment trace projection in the controller still derives some sandbox display state from stored `TraceEvent` fields rather than from a richer typed experiment-trace contract.
-- Recipe, workflow, and project-memory persistence remain bounded store-level exception surfaces rather than main-spine executor flows.
-- Full release certification is still blocked by the current `swift test` compiler abort described above.
+- The legacy MCP request adapter still defaults a missing request version to `"1"` at the outer seam for backward compatibility with pre-version callers. Unsupported explicit versions are rejected, and the fallback is now covered by boundary tests.
+- Controller trace-step views can still infer sandbox-only badges from experiment-tagged `TraceEvent` rows when richer persisted experiment diagnostics are unavailable; experiment summaries and MCP experiment payloads remain typed.
+- Recipe, workflow, and project-memory persistence remain bounded service-persistence surfaces rather than main-spine executor flows by design.
+- The repository is verifier-clean on the supported source proof path, but this file does not claim tagged release certification, signed controller packaging, or notarization beyond what `docs/RELEASE_CHECKLIST.md` and `.github/workflows/controller-release.yml` verify.

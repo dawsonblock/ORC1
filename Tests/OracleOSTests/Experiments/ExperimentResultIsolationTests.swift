@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OracleOS
 
 @Suite("Experiment Result Isolation")
@@ -18,8 +19,30 @@ struct ExperimentResultIsolationTests {
         #expect(decoded.executionContext == .sandbox)
         #expect(decoded.committedToWorkspace == false)
         #expect(decoded.selected == true)
-        #expect(decoded.sandboxMetadata?.resolvedSandboxRoot == "/tmp/oracle/experiments/exp-1/candidate-1")
+        #expect(
+            decoded.sandboxEvidence?.resolvedSandboxRoot
+                == "/tmp/oracle/experiments/exp-1/candidate-1")
+        #expect(decoded.sandboxEvidence?.commitCoordinatorMutation == false)
+        #expect(
+            decoded.sandboxMetadata?.resolvedSandboxRoot
+                == "/tmp/oracle/experiments/exp-1/candidate-1")
         #expect(decoded.sandboxMetadata?.cleanup.succeeded == true)
+    }
+
+    @Test("Selection updates preserve sandbox proof metadata")
+    func selectionUpdatePreservesSandboxProofMetadata() {
+        let result = makeResult(selected: false)
+        let updated = result.with(selected: true, promptDiagnostics: nil)
+
+        #expect(updated.selected == true)
+        #expect(updated.executionContext == .sandbox)
+        #expect(updated.committedToWorkspace == false)
+        #expect(
+            updated.sandboxEvidence?.resolvedSandboxRoot
+                == "/tmp/oracle/experiments/exp-1/candidate-1")
+        #expect(
+            updated.sandboxMetadata?.resolvedSandboxRoot
+                == "/tmp/oracle/experiments/exp-1/candidate-1")
     }
 
     @Test("Diagnostics keep sandbox context separate from committed runtime state")
@@ -64,11 +87,21 @@ struct ExperimentResultIsolationTests {
                     workspaceRoot: "/tmp/oracle/experiments/exp-1/candidate-1",
                     category: .test,
                     summary: "sandbox tests passed"
-                ),
+                )
             ],
             diffSummary: "1 file changed",
             architectureRiskScore: 0.1,
             selected: selected,
+            sandboxEvidence: ExperimentSandboxEvidence(
+                resolvedSandboxRoot: "/tmp/oracle/experiments/exp-1/candidate-1",
+                canonicalWorkspaceRoot: "/tmp/oracle/workspace",
+                candidatePaths: ["Sources/Example.swift"],
+                executedCommands: ["swift test"],
+                cleanupOutcome: ExperimentCleanupOutcome(
+                    worktreeRemoved: true,
+                    branchDeleted: true
+                )
+            ),
             sandboxMetadata: SandboxExecutionMetadata(
                 canonicalWorkspaceRoot: "/tmp/oracle/workspace",
                 resolvedSandboxRoot: "/tmp/oracle/experiments/exp-1/candidate-1",

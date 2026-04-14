@@ -21,8 +21,8 @@ These documents were accurate at specific points in development but may not refl
 
 | Document | Purpose | Baseline Date |
 | --- | --- | --- |
-| [docs/runtime_baseline_36.md](docs/runtime_baseline_36.md) | Historical baseline | Pre-consolidation |
-| [docs/runtime_baseline_38.md](docs/runtime_baseline_38.md) | Historical baseline | Pre-consolidation |
+| [runtime_baseline_36.md](runtime_baseline_36.md) | Historical baseline | Pre-consolidation |
+| [runtime_baseline_38.md](runtime_baseline_38.md) | Historical baseline | Pre-consolidation |
 
 ## Architectural Invariants
 
