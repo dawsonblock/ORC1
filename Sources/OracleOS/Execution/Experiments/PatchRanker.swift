@@ -42,12 +42,23 @@ public struct PatchRanker: Sendable {
         signals: [String: PatchRankingSignals]
     ) -> [ExperimentResult] {
         let baseRanked = comparator.sort(results)
-        return baseRanked.sorted { lhs, rhs in
-            let lhsSignals = signals[lhs.candidate.id] ?? PatchRankingSignals()
-            let rhsSignals = signals[rhs.candidate.id] ?? PatchRankingSignals()
-            let lhsScore = lhsSignals.compositeScore + (lhs.succeeded ? 0.5 : 0)
-            let rhsScore = rhsSignals.compositeScore + (rhs.succeeded ? 0.5 : 0)
-            return lhsScore > rhsScore
-        }
+        return baseRanked.enumerated()
+            .sorted { lhs, rhs in
+                let lhsSignals = signals[lhs.element.candidate.id] ?? PatchRankingSignals()
+                let rhsSignals = signals[rhs.element.candidate.id] ?? PatchRankingSignals()
+                let lhsScore = lhsSignals.compositeScore + (lhs.element.succeeded ? 0.5 : 0)
+                let rhsScore = rhsSignals.compositeScore + (rhs.element.succeeded ? 0.5 : 0)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                if comparator.orderedBefore(lhs.element, rhs.element) {
+                    return true
+                }
+                if comparator.orderedBefore(rhs.element, lhs.element) {
+                    return false
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 }

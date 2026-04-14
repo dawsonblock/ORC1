@@ -159,7 +159,6 @@ Direct `swift build` and `swift test` remain useful local commands, but archived
 ## Additional Limits
 
 - Vision grounding accuracy
-- Experiment search determinism
 - Workflow synthesis coverage from sparse trace history
 - Sub-second automation latency on all macOS applications
 

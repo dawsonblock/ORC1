@@ -10,6 +10,7 @@ This file is the current truth ledger for the repository.
 - MCP transport is typed after decode: the JSON-RPC edge may still use `[String: Any]`, but normal MCP dispatch uses `MCPToolRequest`, `JSONValue`, typed category payload structs, and shared export helpers.
 - MCP tool definitions are authored as typed Swift schema values and exported to the legacy MCP dictionary shape in one place.
 - `oracle_experiment_search` remains a bounded side path and records explicit sandbox evidence, canonical roots, executed commands, and cleanup outcome.
+- Experiment result ranking resolves equal-score ties through canonical candidate ordering rather than incidental candidate IDs or caller-supplied input order.
 - The controller bridge maps from typed runtime payload views instead of nested legacy dictionary probing for core action, trace, recipe, and code-execution truth.
 - `oracle setup` and `oracle doctor` remain tooling-only exceptions outside the bootstrapped runtime authority path.
 

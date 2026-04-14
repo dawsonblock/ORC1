@@ -49,6 +49,52 @@ struct PatchExperimentRunnerTests {
         #expect(abs(signals.compositeScore - expected) < 0.001)
     }
 
+    @Test("Ranked results resolve ties with canonical candidate ordering")
+    func rankResultsResolveTiesDeterministically() {
+        let runner = PatchExperimentRunner()
+
+        let firstPass = runner.rankResults(
+            [
+                makeTiedResult(
+                    candidateID: "aaa-candidate",
+                    title: "Zeta patch",
+                    workspaceRelativePath: "Sources/Zeta.swift"
+                ),
+                makeTiedResult(
+                    candidateID: "zzz-candidate",
+                    title: "Alpha patch",
+                    workspaceRelativePath: "Sources/Alpha.swift"
+                ),
+            ],
+            faultLocationConfidence: 0.8,
+            memoryStore: nil
+        )
+
+        let secondPass = runner.rankResults(
+            [
+                makeTiedResult(
+                    candidateID: "zzz-candidate",
+                    title: "Alpha patch",
+                    workspaceRelativePath: "Sources/Alpha.swift"
+                ),
+                makeTiedResult(
+                    candidateID: "aaa-candidate",
+                    title: "Zeta patch",
+                    workspaceRelativePath: "Sources/Zeta.swift"
+                ),
+            ],
+            faultLocationConfidence: 0.8,
+            memoryStore: nil
+        )
+
+        #expect(firstPass.first?.candidate.workspaceRelativePath == "Sources/Alpha.swift")
+        #expect(secondPass.first?.candidate.workspaceRelativePath == "Sources/Alpha.swift")
+        #expect(firstPass.first?.selected == true)
+        #expect(firstPass.dropFirst().allSatisfy { !$0.selected })
+        #expect(secondPass.first?.selected == true)
+        #expect(secondPass.dropFirst().allSatisfy { !$0.selected })
+    }
+
     @Test("Ranked results preserve sandbox proof metadata")
     func rankResultsPreserveSandboxProofMetadata() {
         let runner = PatchExperimentRunner()
@@ -126,6 +172,38 @@ struct PatchExperimentRunnerTests {
             summary: "Guard against out-of-bounds array access",
             workspaceRelativePath: "Sources/Calculator.swift",
             content: "+guard index < array.count else { return }"
+        )
+    }
+
+    private func makeTiedResult(
+        candidateID: String,
+        title: String,
+        workspaceRelativePath: String
+    ) -> ExperimentResult {
+        ExperimentResult(
+            experimentID: "exp-1",
+            candidate: CandidatePatch(
+                id: candidateID,
+                title: title,
+                summary: "Deterministic tie-break coverage",
+                workspaceRelativePath: workspaceRelativePath,
+                content: "+// deterministic tie-break"
+            ),
+            sandboxPath: "/tmp/\(candidateID)",
+            commandResults: [
+                CommandResult(
+                    succeeded: true,
+                    exitCode: 0,
+                    stdout: "ok",
+                    stderr: "",
+                    elapsedMs: 20,
+                    workspaceRoot: "/tmp/workspace",
+                    category: .test,
+                    summary: "swift test"
+                )
+            ],
+            diffSummary: "1 file changed",
+            architectureRiskScore: 0.1
         )
     }
 }
