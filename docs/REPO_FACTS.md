@@ -40,7 +40,7 @@ Do not edit manually.
 | Property | Value |
 | --- | --- |
 | Swift source files under `Sources/` | 511 |
-| Swift test files under `Tests/` | 136 |
+| Swift test files under `Tests/` | 137 |
 | Repo-owned Python files under `scripts/` and `vision-sidecar/` | 16 |
 
 ## MCP Surface

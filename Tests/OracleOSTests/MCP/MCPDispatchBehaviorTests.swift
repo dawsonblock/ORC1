@@ -340,6 +340,168 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         XCTAssertEqual(result.actionResult?.executedThroughExecutor, true)
         XCTAssertFalse(result.traceResult?.intentID.isEmpty ?? true)
     }
+
+    func testWorkflowExecuteRejectsMissingParameterValues() async throws {
+        let runtimeHost = MCPRuntimeHost {
+            try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+        let bootstrapped = try await runtimeHost.runtime(
+            currentWorkspaceRoot: repositoryRoot().path
+        )
+
+        let plan = WorkflowPlan(
+            id: "wf-missing-parameter",
+            agentKind: .code,
+            goalPattern: "search package manifest",
+            steps: [
+                WorkflowStep(
+                    id: "step-1",
+                    agentKind: .code,
+                    stepPhase: .engineering,
+                    actionContract: ActionContract(
+                        id: "workflow|code|search",
+                        agentKind: .code,
+                        skillName: "searchRepository",
+                        targetRole: nil,
+                        targetLabel: "{{query_0}}",
+                        locatorStrategy: "workflow",
+                        commandCategory: CodeCommandCategory.searchCode.rawValue,
+                        plannerFamily: PlannerFamily.code.rawValue
+                    )
+                )
+            ],
+            parameterSlots: ["query_0"],
+            successRate: 1,
+            promotionStatus: .promoted
+        )
+        let request = MCPToolRequest(
+            version: "1",
+            name: MCPToolName.workflowExecute,
+            arguments: .object([
+                "workflow_id": .string(plan.id)
+            ])
+        )
+
+        let result = await MCPDispatch.executeWorkflowPlan(
+            plan,
+            request: request,
+            container: bootstrapped.container,
+            runtime: bootstrapped.orchestrator
+        )
+
+        XCTAssertFalse(result.success)
+        XCTAssertTrue(result.error?.contains("missing parameter values") == true)
+        XCTAssertNil(result.traceResult)
+    }
+
+    func testWorkflowExecuteRejectsUnsafeStepReconstruction() async throws {
+        let runtimeHost = MCPRuntimeHost {
+            try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+        let bootstrapped = try await runtimeHost.runtime(
+            currentWorkspaceRoot: repositoryRoot().path
+        )
+
+        let plan = WorkflowPlan(
+            id: "wf-unsupported-step",
+            agentKind: .code,
+            goalPattern: "unsupported workflow step",
+            steps: [
+                WorkflowStep(
+                    id: "step-1",
+                    agentKind: .code,
+                    stepPhase: .engineering,
+                    actionContract: ActionContract(
+                        id: "workflow|code|unsupported",
+                        agentKind: .code,
+                        skillName: "unsupportedStep",
+                        targetRole: nil,
+                        targetLabel: "anything",
+                        locatorStrategy: "workflow",
+                        plannerFamily: PlannerFamily.code.rawValue
+                    )
+                )
+            ],
+            parameterSlots: [],
+            successRate: 1,
+            promotionStatus: .promoted
+        )
+        let request = MCPToolRequest(
+            version: "1",
+            name: MCPToolName.workflowExecute,
+            arguments: .object([
+                "workflow_id": .string(plan.id)
+            ])
+        )
+
+        let result = await MCPDispatch.executeWorkflowPlan(
+            plan,
+            request: request,
+            container: bootstrapped.container,
+            runtime: bootstrapped.orchestrator
+        )
+
+        XCTAssertFalse(result.success)
+        XCTAssertTrue(result.error?.contains("cannot be reconstructed safely") == true)
+        XCTAssertNil(result.traceResult)
+    }
+
+    func testWorkflowExecuteRejectsWhenNoStepMatchesCurrentPlanningState() async throws {
+        let runtimeHost = MCPRuntimeHost {
+            try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+        }
+        let bootstrapped = try await runtimeHost.runtime(
+            currentWorkspaceRoot: repositoryRoot().path
+        )
+        let currentSnapshot = await bootstrapped.container.commitCoordinator.snapshot()
+        let unmatchedState = (currentSnapshot.planningStateID ?? "bootstrap") + "|unmatched"
+
+        let plan = WorkflowPlan(
+            id: "wf-no-matching-step",
+            agentKind: .code,
+            goalPattern: "read package manifest",
+            steps: [
+                WorkflowStep(
+                    id: "step-1",
+                    agentKind: .code,
+                    stepPhase: .engineering,
+                    actionContract: ActionContract(
+                        id: "workflow|code|read-file|strict-state",
+                        agentKind: .code,
+                        skillName: "readFile",
+                        targetRole: nil,
+                        targetLabel: "Package.swift",
+                        locatorStrategy: "workflow",
+                        workspaceRelativePath: "Package.swift",
+                        commandCategory: CodeCommandCategory.openFile.rawValue,
+                        plannerFamily: PlannerFamily.code.rawValue
+                    ),
+                    fromPlanningStateID: unmatchedState
+                )
+            ],
+            parameterSlots: [],
+            successRate: 1,
+            promotionStatus: .promoted
+        )
+        let request = MCPToolRequest(
+            version: "1",
+            name: MCPToolName.workflowExecute,
+            arguments: .object([
+                "workflow_id": .string(plan.id)
+            ])
+        )
+
+        let result = await MCPDispatch.executeWorkflowPlan(
+            plan,
+            request: request,
+            container: bootstrapped.container,
+            runtime: bootstrapped.orchestrator
+        )
+
+        XCTAssertFalse(result.success)
+        XCTAssertTrue(result.error?.contains("no step applicable") == true)
+        XCTAssertNil(result.traceResult)
+    }
 }
 
 extension MCPToolResponse {

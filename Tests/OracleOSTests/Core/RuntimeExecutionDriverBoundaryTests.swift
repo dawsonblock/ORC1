@@ -266,6 +266,40 @@ struct RuntimeExecutionDriverBoundaryTests {
         #expect(uiAction.app == nil)
     }
 
+    @Test("Planner preserves raw search query from ActionIntent code commands")
+    func plannerPreservesRawSearchQueryFromActionIntentCodeCommands() async throws {
+        let planner = MainPlanner()
+        let actionIntent = ActionIntent.code(
+            name: "searchRepository",
+            command: CommandSpec(
+                category: .searchCode,
+                executable: "/usr/bin/env",
+                arguments: ["UniqueWorkflowNeedle"],
+                workspaceRoot: "/tmp/workspace",
+                summary: "search code for UniqueWorkflowNeedle"
+            )
+        )
+        let encoded = try JSONEncoder().encode(actionIntent).base64EncodedString()
+        let intent = Intent(
+            domain: .code,
+            objective: "search UniqueWorkflowNeedle",
+            metadata: ["action_intent_base64": encoded]
+        )
+
+        let command = try await planner.plan(
+            intent: intent,
+            context: PlannerContext(state: WorldStateModel())
+        )
+        guard case .code(let action) = command.payload else {
+            Issue.record("Expected code command payload")
+            return
+        }
+
+        #expect(action.name == "searchRepository")
+        #expect(action.query == "UniqueWorkflowNeedle")
+        #expect(action.workspacePath == "/tmp/workspace")
+    }
+
     private func testPlannerDecision() -> PlannerDecision {
         PlannerDecision(
             actionContract: ActionContract(

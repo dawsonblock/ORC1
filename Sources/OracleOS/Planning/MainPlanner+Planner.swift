@@ -19,7 +19,9 @@ extension MainPlanner: Planner {
 
     private func resolvedWorkspacePath(intent: Intent, context: PlannerContext) -> String? {
         func normalized(_ value: String?) -> String? {
-            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !trimmed.isEmpty
+            else {
                 return nil
             }
             return trimmed
@@ -32,7 +34,9 @@ extension MainPlanner: Planner {
 
     private func preferredModuleHint(from memories: [MemoryCandidate]) -> String? {
         func normalized(_ value: String?) -> String? {
-            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !trimmed.isEmpty
+            else {
                 return nil
             }
             return trimmed
@@ -102,7 +106,8 @@ extension MainPlanner: Planner {
             }
         }
         for source in memories.prefix(2).map(\.source) {
-            let token = sanitized(URL(fileURLWithPath: source).deletingPathExtension().lastPathComponent)
+            let token = sanitized(
+                URL(fileURLWithPath: source).deletingPathExtension().lastPathComponent)
             if !token.isEmpty {
                 let note = "memory-source=\(token)"
                 if !notes.contains(note) {
@@ -125,8 +130,10 @@ extension MainPlanner: Planner {
         let metadata = CommandMetadata(intentID: intent.id, source: "planner.ui")
 
         if objective.contains("click") || objective.contains("tap") || objective.contains("press") {
-            let targetID = intent.metadata["targetID"] ?? intent.metadata["query"] ?? intent.objective
-            let app = intent.metadata["app"] ?? context.state.snapshot.activeApplication ?? "unknown"
+            let targetID =
+                intent.metadata["targetID"] ?? intent.metadata["query"] ?? intent.objective
+            let app =
+                intent.metadata["app"] ?? context.state.snapshot.activeApplication ?? "unknown"
             return Command(
                 type: .ui,
                 payload: .ui(UIAction(name: "click", app: app, query: targetID)),
@@ -134,7 +141,8 @@ extension MainPlanner: Planner {
             )
         }
 
-        if objective.contains("type") || objective.contains("enter") || objective.contains("input") {
+        if objective.contains("type") || objective.contains("enter") || objective.contains("input")
+        {
             let text = intent.metadata["text"] ?? intent.objective
             let targetID = intent.metadata["targetID"] ?? intent.metadata["query"] ?? "focused"
             let app = intent.metadata["app"] ?? context.state.snapshot.activeApplication
@@ -145,8 +153,11 @@ extension MainPlanner: Planner {
             )
         }
 
-        if objective.contains("focus") || objective.contains("switch") || objective.contains("activate") {
-            let app = intent.metadata["app"] ?? context.state.snapshot.activeApplication ?? "unknown"
+        if objective.contains("focus") || objective.contains("switch")
+            || objective.contains("activate")
+        {
+            let app =
+                intent.metadata["app"] ?? context.state.snapshot.activeApplication ?? "unknown"
             return Command(
                 type: .ui,
                 payload: .ui(UIAction(name: "focus", app: app)),
@@ -154,8 +165,10 @@ extension MainPlanner: Planner {
             )
         }
 
-        if objective.contains("read") || objective.contains("get") || objective.contains("observe") {
-            let targetID = intent.metadata["targetID"] ?? intent.metadata["query"] ?? intent.objective
+        if objective.contains("read") || objective.contains("get") || objective.contains("observe")
+        {
+            let targetID =
+                intent.metadata["targetID"] ?? intent.metadata["query"] ?? intent.objective
             let app = intent.metadata["app"] ?? context.state.snapshot.activeApplication
             return Command(
                 type: .ui,
@@ -166,7 +179,8 @@ extension MainPlanner: Planner {
 
         // Default: try to focus the active app
         let app = context.state.snapshot.activeApplication ?? "unknown"
-        return Command(type: .ui, payload: .ui(UIAction(name: "focus", app: app)), metadata: metadata)
+        return Command(
+            type: .ui, payload: .ui(UIAction(name: "focus", app: app)), metadata: metadata)
     }
 
     private func planCodeIntent(_ intent: Intent, context: PlannerContext) async throws -> Command {
@@ -188,10 +202,13 @@ extension MainPlanner: Planner {
             return trimmed
         }
 
-        if objective.contains("search") || objective.contains("find") || objective.contains("query") {
+        if objective.contains("search") || objective.contains("find") || objective.contains("query")
+        {
             return Command(
                 type: CommandType.code,
-                payload: .code(CodeAction(name: "searchRepository", query: searchQuery, workspacePath: workspacePath)),
+                payload: .code(
+                    CodeAction(
+                        name: "searchRepository", query: searchQuery, workspacePath: workspacePath)),
                 metadata: CommandMetadata(
                     intentID: intent.id,
                     source: "planner.code",
@@ -204,16 +221,20 @@ extension MainPlanner: Planner {
             let path = intent.metadata["filePath"] ?? hintedPath ?? intent.objective
             return Command(
                 type: CommandType.code,
-                payload: .code(CodeAction(name: "readFile", filePath: path, workspacePath: workspacePath)),
+                payload: .code(
+                    CodeAction(name: "readFile", filePath: path, workspacePath: workspacePath)),
                 metadata: CommandMetadata(
                     intentID: intent.id,
                     source: "planner.code",
-                    traceTags: memoryTraceTags + (hintedPath == nil || intent.metadata["filePath"] != nil ? [] : ["memory-hint-applied"])
+                    traceTags: memoryTraceTags
+                        + (hintedPath == nil || intent.metadata["filePath"] != nil
+                            ? [] : ["memory-hint-applied"])
                 )
             )
         }
 
-        if objective.contains("edit") || objective.contains("modify") || objective.contains("patch") {
+        if objective.contains("edit") || objective.contains("modify") || objective.contains("patch")
+        {
             let path = intent.metadata["filePath"] ?? ""
             let patch = intent.metadata["patch"] ?? intent.objective
             guard let workspacePath else {
@@ -225,13 +246,18 @@ extension MainPlanner: Planner {
                     metadata: CommandMetadata(
                         intentID: intent.id,
                         source: "planner.code",
-                        traceTags: memoryTraceTags + ["fail-closed", "missing-workspace-root", "edit-demoted-to-read"]
+                        traceTags: memoryTraceTags + [
+                            "fail-closed", "missing-workspace-root", "edit-demoted-to-read",
+                        ]
                     )
                 )
             }
             return Command(
                 type: CommandType.code,
-                payload: .file(FileMutationSpec(path: path, operation: .write, content: patch, workspaceRoot: workspacePath)),
+                payload: .file(
+                    FileMutationSpec(
+                        path: path, operation: .write, content: patch, workspaceRoot: workspacePath)
+                ),
                 metadata: CommandMetadata(
                     intentID: intent.id,
                     source: "planner.code",
@@ -276,7 +302,9 @@ extension MainPlanner: Planner {
 
         return Command(
             type: CommandType.code,
-            payload: .code(CodeAction(name: "searchRepository", query: searchQuery, workspacePath: workspacePath)),
+            payload: .code(
+                CodeAction(
+                    name: "searchRepository", query: searchQuery, workspacePath: workspacePath)),
             metadata: CommandMetadata(
                 intentID: intent.id,
                 source: "planner.code",
@@ -285,7 +313,8 @@ extension MainPlanner: Planner {
         )
     }
 
-    private func planSystemIntent(_ intent: Intent, context: PlannerContext) async throws -> Command {
+    private func planSystemIntent(_ intent: Intent, context: PlannerContext) async throws -> Command
+    {
         if let actionIntent = decodeActionIntent(from: intent) {
             return commandFrom(actionIntent: actionIntent, fallbackIntent: intent)
         }
@@ -293,7 +322,9 @@ extension MainPlanner: Planner {
         let objective = intent.objective.lowercased()
         let metadata = CommandMetadata(intentID: intent.id, source: "planner.system")
 
-        if objective.contains("launch") || objective.contains("open app") || objective.contains("start") {
+        if objective.contains("launch") || objective.contains("open app")
+            || objective.contains("start")
+        {
             let bundleID = intent.metadata["bundleID"] ?? intent.objective
             return Command(
                 type: .ui,
@@ -302,7 +333,8 @@ extension MainPlanner: Planner {
             )
         }
 
-        if objective.contains("url") || objective.contains("http") || objective.contains("website") {
+        if objective.contains("url") || objective.contains("http") || objective.contains("website")
+        {
             let urlString = intent.metadata["url"] ?? intent.objective
             return Command(
                 type: .ui,
@@ -323,7 +355,7 @@ extension MainPlanner: Planner {
 
     private func decodeActionIntent(from intent: Intent) -> ActionIntent? {
         guard let encoded = intent.metadata["action_intent_base64"],
-              let data = Data(base64Encoded: encoded)
+            let data = Data(base64Encoded: encoded)
         else {
             return nil
         }
@@ -343,12 +375,12 @@ extension MainPlanner: Planner {
                 return nil
             }
             return trimmed
-        }()        // Note: actionIntent.codeCommand is a deprecated field. New code should use typed specs.
+        }()  // Note: actionIntent.codeCommand is a deprecated field. New code should use typed specs.
         if let codeCommand = actionIntent.codeCommand {
             let workspace = codeCommand.workspaceRoot
             let path = codeCommand.workspaceRelativePath ?? ""
             let content = actionIntent.text
-            
+
             switch codeCommand.category {
             case .build:
                 let spec = BuildSpec(workspaceRoot: workspace)
@@ -357,28 +389,45 @@ extension MainPlanner: Planner {
                 let spec = TestSpec(workspaceRoot: workspace)
                 return Command(type: .code, payload: .test(spec), metadata: metadata)
             case .editFile, .writeFile, .generatePatch:
-                let spec = FileMutationSpec(path: path, operation: .write, content: content, workspaceRoot: workspace)
+                let spec = FileMutationSpec(
+                    path: path, operation: .write, content: content, workspaceRoot: workspace)
                 return Command(type: .code, payload: .file(spec), metadata: metadata)
             case .gitStatus:
-                let spec = GitSpec(operation: .status, args: codeCommand.arguments, workspaceRoot: workspace)
+                let spec = GitSpec(
+                    operation: .status, args: codeCommand.arguments, workspaceRoot: workspace)
                 return Command(type: .code, payload: .git(spec), metadata: metadata)
             case .gitCommit:
-                let spec = GitSpec(operation: .commit, args: codeCommand.arguments, workspaceRoot: workspace)
+                let spec = GitSpec(
+                    operation: .commit, args: codeCommand.arguments, workspaceRoot: workspace)
                 return Command(type: .code, payload: .git(spec), metadata: metadata)
             case .gitBranch:
-                let spec = GitSpec(operation: .branch, args: codeCommand.arguments, workspaceRoot: workspace)
+                let spec = GitSpec(
+                    operation: .branch, args: codeCommand.arguments, workspaceRoot: workspace)
                 return Command(type: .code, payload: .git(spec), metadata: metadata)
             case .gitPush:
-                let spec = GitSpec(operation: .push, args: codeCommand.arguments, workspaceRoot: workspace)
+                let spec = GitSpec(
+                    operation: .push, args: codeCommand.arguments, workspaceRoot: workspace)
                 return Command(type: .code, payload: .git(spec), metadata: metadata)
             case .openFile:
                 let action = CodeAction(name: "readFile", filePath: path, workspacePath: workspace)
                 return Command(type: .code, payload: .code(action), metadata: metadata)
-            case .searchCode, .indexRepository:
-                let action = CodeAction(name: "searchRepository", query: codeCommand.summary, workspacePath: workspace)
+            case .searchCode:
+                let searchQuery =
+                    actionIntent.text ?? codeCommand.arguments.first ?? codeCommand.summary
+                let action = CodeAction(
+                    name: "searchRepository",
+                    query: searchQuery,
+                    workspacePath: workspace
+                )
+                return Command(type: .code, payload: .code(action), metadata: metadata)
+            case .indexRepository:
+                let action = CodeAction(
+                    name: "searchRepository", query: codeCommand.summary, workspacePath: workspace)
                 return Command(type: .code, payload: .code(action), metadata: metadata)
             default:
-                let action = CodeAction(name: codeCommand.category.rawValue, query: codeCommand.summary, workspacePath: workspace)
+                let action = CodeAction(
+                    name: codeCommand.category.rawValue, query: codeCommand.summary,
+                    workspacePath: workspace)
                 return Command(type: .code, payload: .code(action), metadata: metadata)
             }
         }
@@ -387,8 +436,8 @@ extension MainPlanner: Planner {
             if let explicit = actionIntent.modifiers {
                 return explicit
             }
-            guard (actionIntent.action == "press" || actionIntent.action == "hotkey"),
-                  let encoded = actionIntent.role
+            guard actionIntent.action == "press" || actionIntent.action == "hotkey",
+                let encoded = actionIntent.role
             else {
                 return nil
             }
@@ -422,7 +471,10 @@ extension MainPlanner: Planner {
         )
         let isCode = actionIntent.agentKind == .code
         if isCode {
-            return Command(type: CommandType.code, payload: .code(CodeAction(name: actionIntent.action, query: actionIntent.query)), metadata: metadata)
+            return Command(
+                type: CommandType.code,
+                payload: .code(CodeAction(name: actionIntent.action, query: actionIntent.query)),
+                metadata: metadata)
         }
         return Command(type: .ui, payload: .ui(uiAction), metadata: metadata)
     }
