@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
-import SwiftUI
 import OracleControllerShared
+import SwiftUI
 
 struct RootView: View {
     @Bindable var store: ControllerStore
@@ -11,7 +11,8 @@ struct RootView: View {
     var body: some View {
         NavigationSplitView {
             sidebar
-                .navigationSplitViewColumnWidth(min: 320, ideal: layout.sidebarColumnWidth, max: 520)
+                .navigationSplitViewColumnWidth(
+                    min: 320, ideal: layout.sidebarColumnWidth, max: 520)
         } content: {
             content
         } detail: {
@@ -41,7 +42,9 @@ struct RootView: View {
                 .keyboardShortcut("r", modifiers: [.command])
 
                 Toggle(isOn: $store.autoRefreshEnabled) {
-                    Label("Auto Refresh", systemImage: store.autoRefreshEnabled ? "wave.3.right" : "pause.circle")
+                    Label(
+                        "Auto Refresh",
+                        systemImage: store.autoRefreshEnabled ? "wave.3.right" : "pause.circle")
                 }
                 .toggleStyle(.button)
                 .onChange(of: store.autoRefreshEnabled) { oldValue, _ in
@@ -87,7 +90,7 @@ struct RootView: View {
             ),
             actions: {
                 if store.hostConnection.requiresAttention,
-                   store.errorMessage == store.hostConnection.detailText
+                    store.errorMessage == store.hostConnection.detailText
                 {
                     Button("Retry Host") {
                         store.errorMessage = nil
@@ -118,15 +121,23 @@ struct RootView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: layout.stackSpacing) {
-            PanelCard("Oracle Controller", subtitle: "Supervised local operator console", style: .hero) {
-                Text("Control the runtime, inspect traces, review approvals, and keep local readiness visible from one native workspace.")
+            PanelCard(
+                "Oracle Controller", subtitle: "Supervised local operator console", style: .hero
+            ) {
+                Text(store.readinessSummary.detail)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(ControllerTheme.muted)
 
                 HStack(spacing: 8) {
-                    StatusBadge(label: store.selectedSection.title, tone: .neutral)
-                    StatusBadge(label: store.autoRefreshEnabled ? "Auto Refresh" : "Manual", tone: store.autoRefreshEnabled ? .good : .warning)
-                    if let appName = store.snapshot?.observation.appName ?? store.session?.activeAppName {
+                    StatusBadge(
+                        label: store.readinessSummary.statusLabel,
+                        tone: store.readinessSummary.level.badgeTone)
+                    StatusBadge(
+                        label: store.autoRefreshEnabled ? "Auto Refresh" : "Manual",
+                        tone: store.autoRefreshEnabled ? .good : .warning)
+                    if let appName = store.snapshot?.observation.appName
+                        ?? store.session?.activeAppName
+                    {
                         StatusBadge(label: appName, tone: .neutral)
                     }
                 }
@@ -137,7 +148,9 @@ struct RootView: View {
                     Image(systemName: section.systemImage)
                         .font(.system(size: 14, weight: .semibold))
                         .frame(width: 18)
-                        .foregroundStyle(store.selectedSection == section ? ControllerTheme.accent : ControllerTheme.muted)
+                        .foregroundStyle(
+                            store.selectedSection == section
+                                ? ControllerTheme.accent : ControllerTheme.muted)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(section.title)
@@ -167,14 +180,17 @@ struct RootView: View {
                     MetricTile(
                         label: "Runtime",
                         value: session.activeAppName ?? "No app",
-                        detail: session.autoRefreshEnabled ? "Automatic monitor refresh is active." : "Monitoring is paused.",
+                        detail: session.autoRefreshEnabled
+                            ? "Automatic monitor refresh is active." : "Monitoring is paused.",
                         tone: session.autoRefreshEnabled ? .good : .warning
                     )
                     KVRow(key: "Session ID", value: session.id, monospaced: true)
                 } else {
-                    Text("The controller will populate runtime context after the first successful bootstrap.")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(ControllerTheme.muted)
+                    Text(
+                        "The controller will populate runtime context after the first successful bootstrap."
+                    )
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(ControllerTheme.muted)
                 }
 
                 if let inlineMessage = store.inlineMessage, !inlineMessage.isEmpty {
@@ -246,11 +262,12 @@ private struct ControllerShellHeader: View {
 
             HStack(spacing: 8) {
                 StatusBadge(label: store.selectedSection.title, tone: .neutral)
-                if let appName = store.snapshot?.observation.appName ?? store.session?.activeAppName {
+                StatusBadge(
+                    label: store.readinessSummary.statusLabel,
+                    tone: store.readinessSummary.level.badgeTone)
+                if let appName = store.snapshot?.observation.appName ?? store.session?.activeAppName
+                {
                     StatusBadge(label: appName, tone: .good)
-                }
-                if store.hostConnection.requiresAttention {
-                    StatusBadge(label: "Host Attention", tone: .danger)
                 }
             }
         }
@@ -260,7 +277,10 @@ private struct ControllerShellHeader: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [ControllerTheme.panelRaised.opacity(0.92), ControllerTheme.panelTint.opacity(0.84)],
+                        colors: [
+                            ControllerTheme.panelRaised.opacity(0.92),
+                            ControllerTheme.panelTint.opacity(0.84),
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -276,7 +296,7 @@ private struct ControllerShellHeader: View {
     private var sectionSummary: String {
         switch store.selectedSection {
         case .missionControl:
-            return "Scan readiness, recent activity, and the next safest move."
+            return store.readinessSummary.detail
         case .control:
             return "Operate the runtime manually with visible host, policy, and approval state."
         case .recipes:
@@ -286,7 +306,7 @@ private struct ControllerShellHeader: View {
         case .diagnostics:
             return "Review graph, workflow, repository, and host diagnostics in one place."
         case .health:
-            return "Keep permissions, storage, host readiness, and optional integrations honest."
+            return "Clear setup blockers, fix storage drift, and keep optional integrations honest."
         case .settings:
             return "Manage setup, data, diagnostics exports, and optional packaged assets."
         }
@@ -296,19 +316,18 @@ private struct ControllerShellHeader: View {
 private func sectionDescription(for section: WorkspaceSection) -> String {
     switch section {
     case .missionControl:
-        return "Alerts, KPIs, and recent runtime signals"
+        return "What needs attention next"
     case .control:
         return "Manual actions and approvals"
     case .recipes:
-        return "Replayable workflows"
+        return "Repeat a proven workflow"
     case .traces:
-        return "Execution evidence"
+        return "Inspect run evidence"
     case .diagnostics:
-        return "Graph and system diagnostics"
+        return "Deep system investigation"
     case .health:
-        return "Permissions and local readiness"
+        return "Setup and readiness"
     case .settings:
-        return "Setup and maintenance"
+        return "Local data and tooling"
     }
 }
-

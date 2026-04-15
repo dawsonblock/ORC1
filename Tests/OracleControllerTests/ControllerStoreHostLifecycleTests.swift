@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OracleController
 @testable import OracleControllerShared
 
@@ -120,7 +121,8 @@ struct ControllerStoreHostLifecycleTests {
     @Test
     func applyHealthResponseSyncsRuntimeControlPreset() {
         let store = ControllerStore()
-        let updatedHealth = makeHealthStatus(storageWritable: true, controlPreset: .aiDecides, policyMode: "adaptive")
+        let updatedHealth = makeHealthStatus(
+            storageWritable: true, controlPreset: .aiDecides, policyMode: "adaptive")
 
         let response = ControllerHostResponse(
             requestID: "request-1",
@@ -146,7 +148,8 @@ struct ControllerStoreHostLifecycleTests {
                 autoRefreshEnabled: true
             ),
             snapshot: makeSnapshot(appName: "Finder"),
-            health: makeHealthStatus(storageWritable: true, controlPreset: .fullControl, policyMode: "open"),
+            health: makeHealthStatus(
+                storageWritable: true, controlPreset: .fullControl, policyMode: "open"),
             recipes: [],
             traceSessions: [],
             approvals: []
@@ -297,6 +300,80 @@ struct ControllerStoreHostLifecycleTests {
     }
 
     @Test
+    func readinessSummaryPrefersHostAttentionOverOtherSignals() {
+        let store = ControllerStore()
+        store.health = makeHealthStatus(storageWritable: true)
+        store.approvalQueue = [makeApprovalRequest(id: "approval-1")]
+
+        store.apply(hostConnection: .failed(reason: .binaryNotFound))
+
+        let summary = store.readinessSummary
+
+        #expect(summary.level == .attention)
+        #expect(summary.statusLabel == "Host Attention")
+        #expect(summary.primaryAction == .retryHost)
+    }
+
+    @Test
+    func readinessSummaryPrioritizesMissingAccessibilityBeforeApprovals() {
+        let store = ControllerStore()
+        store.apply(hostConnection: .connected)
+        store.health = makeHealthStatus(
+            storageWritable: true,
+            permissions: [
+                makePermissionStatus(id: "accessibility", title: "Accessibility", granted: false),
+                makePermissionStatus(
+                    id: "screen-recording", title: "Screen Recording", granted: true),
+            ]
+        )
+        store.approvalQueue = [makeApprovalRequest(id: "approval-1")]
+
+        let summary = store.readinessSummary
+
+        #expect(summary.level == .setupRequired)
+        #expect(summary.primaryAction == .openAccessibilitySettings)
+        #expect(summary.statusLabel == "Finish Setup")
+    }
+
+    @Test
+    func readinessSummaryKeepsUnconfiguredOptionalIntegrationsNeutral() {
+        let store = ControllerStore()
+        store.apply(hostConnection: .connected)
+        store.health = makeHealthStatus(storageWritable: true)
+        store.chatProviderStatus = ChatProviderStatus(
+            providerID: "claude-local",
+            displayName: "Claude Local",
+            state: .setupRequired,
+            configured: false,
+            available: true,
+            canStream: true,
+            detail: "Optional"
+        )
+
+        let summary = store.readinessSummary
+        let visionTask = summary.checklist.first(where: { $0.id == "vision" })
+        let copilotTask = summary.checklist.first(where: { $0.id == "copilot" })
+
+        #expect(summary.level == .ready)
+        #expect(visionTask?.state == .optional)
+        #expect(copilotTask?.state == .optional)
+    }
+
+    @Test
+    func readinessSummaryRoutesHealthyStateToApprovalReview() {
+        let store = ControllerStore()
+        store.apply(hostConnection: .connected)
+        store.health = makeHealthStatus(storageWritable: true)
+        store.approvalQueue = [makeApprovalRequest(id: "approval-1")]
+
+        let summary = store.readinessSummary
+
+        #expect(summary.level == .review)
+        #expect(summary.primaryAction == .reviewApprovals)
+        #expect(summary.statusLabel == "Review Approvals")
+    }
+
+    @Test
     func approvalRowsTrackSubmittingAndResolvedState() {
         let store = ControllerStore()
         let approval = makeApprovalRequest(id: "approval-1")
@@ -391,12 +468,16 @@ struct ControllerStoreHostLifecycleTests {
 @MainActor
 private func makeHealthStatus(
     storageWritable: Bool,
+    permissions: [PermissionStatus] = [
+        makePermissionStatus(id: "accessibility", title: "Accessibility", granted: true),
+        makePermissionStatus(id: "screen-recording", title: "Screen Recording", granted: true),
+    ],
     controlPreset: RuntimeControlPreset = .original,
     policyMode: String = "confirm-risky"
 ) -> HealthStatus {
     HealthStatus(
         runtimeVersion: "1.0.0",
-        permissions: [],
+        permissions: permissions,
         claudeConfigured: false,
         visionSidecarRunning: false,
         recipeDirectoryPath: "/tmp/oracle/recipes",
@@ -431,6 +512,16 @@ private func makeHealthStatus(
 }
 
 @MainActor
+private func makePermissionStatus(id: String, title: String, granted: Bool) -> PermissionStatus {
+    PermissionStatus(
+        id: id,
+        title: title,
+        granted: granted,
+        detail: granted ? "Granted" : "Still required"
+    )
+}
+
+@MainActor
 private func makeDiagnosticsSnapshot() -> ControllerDiagnosticsSnapshot {
     ControllerDiagnosticsSnapshot(
         graph: ControllerGraphDiagnostics(
@@ -452,7 +543,8 @@ private func makeDiagnosticsSnapshot() -> ControllerDiagnosticsSnapshot {
 
 @MainActor
 private func makeTraceDetail(id: String) -> TraceSessionDetail {
-    let summary = TraceSessionSummary(id: id, stepCount: 1, lastUpdated: Date(timeIntervalSince1970: 1_700_000_000))
+    let summary = TraceSessionSummary(
+        id: id, stepCount: 1, lastUpdated: Date(timeIntervalSince1970: 1_700_000_000))
     let step = TraceStepViewModel(
         sessionID: id,
         stepID: 1,
@@ -483,9 +575,12 @@ private func makeTraceDetail(id: String) -> TraceSessionDetail {
 private func makeMissionControlSnapshot() -> MissionControlSnapshot {
     MissionControlSnapshot(
         kpis: [],
-        latencySeries: DashboardSeries(id: "latency", title: "Latency", subtitle: "Recent", points: []),
-        successSeries: DashboardSeries(id: "success", title: "Success", subtitle: "Recent", points: []),
-        workflowSeries: DashboardSeries(id: "workflow", title: "Workflow", subtitle: "Recent", points: []),
+        latencySeries: DashboardSeries(
+            id: "latency", title: "Latency", subtitle: "Recent", points: []),
+        successSeries: DashboardSeries(
+            id: "success", title: "Success", subtitle: "Recent", points: []),
+        workflowSeries: DashboardSeries(
+            id: "workflow", title: "Workflow", subtitle: "Recent", points: []),
         recentActivity: [],
         alerts: [],
         approvals: [],

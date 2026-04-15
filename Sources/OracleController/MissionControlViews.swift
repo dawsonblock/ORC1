@@ -1,17 +1,24 @@
 import Charts
-import SwiftUI
 import OracleControllerShared
+import SwiftUI
 
 struct ControllerStatusBar: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
         HStack(spacing: 12) {
+            statusChip(
+                "Readiness", store.readinessSummary.statusLabel,
+                tone: store.readinessSummary.level.badgeTone)
             statusChip("Host", store.hostConnection.label, tone: hostTone)
-            statusChip("Runtime", runtimeValue, tone: runtimeTone)
             statusChip("Control", controlValue, tone: controlTone)
-            statusChip("Monitor", store.autoRefreshEnabled ? "Active" : "Paused", tone: store.autoRefreshEnabled ? .neutral : .warning)
+            statusChip(
+                "Monitor", store.autoRefreshEnabled ? "Active" : "Paused",
+                tone: store.autoRefreshEnabled ? .neutral : .warning)
             statusChip("Copilot", copilotValue, tone: copilotTone)
+            if approvalCount > 0 {
+                statusChip("Approvals", "\(approvalCount)", tone: .warning)
+            }
             Spacer()
             if let generatedAt = store.missionControl?.generatedAt {
                 Text("Updated \(generatedAt.formatted(date: .omitted, time: .shortened))")
@@ -25,7 +32,10 @@ struct ControllerStatusBar: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [ControllerTheme.panelRaised.opacity(0.9), ControllerTheme.panelTint.opacity(0.84)],
+                        colors: [
+                            ControllerTheme.panelRaised.opacity(0.9),
+                            ControllerTheme.panelTint.opacity(0.84),
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -38,41 +48,8 @@ struct ControllerStatusBar: View {
         )
     }
 
-    private var runtimeValue: String {
-        if store.hostConnection.phase == .launching {
-            return "Launching"
-        }
-        if store.hostConnection.requiresAttention {
-            return "Unavailable"
-        }
-        guard let health = store.health else { return "Loading" }
-        if !health.controllerConnected {
-            return "Disconnected"
-        }
-        if health.storageLocations.contains(where: { !$0.writable }) {
-            return "Attention"
-        }
-        return health.permissions.allSatisfy { $0.granted } ? "Connected" : "Attention"
-    }
-
-    private var runtimeTone: StatusBadge.Tone {
-        if store.hostConnection.phase == .launching {
-            return .neutral
-        }
-        if store.hostConnection.phase == .failed {
-            return .danger
-        }
-        if store.hostConnection.phase == .disconnected {
-            return .warning
-        }
-        guard let health = store.health else { return .neutral }
-        if !health.controllerConnected {
-            return .warning
-        }
-        if health.storageLocations.contains(where: { !$0.writable }) {
-            return .warning
-        }
-        return health.permissions.allSatisfy { $0.granted } ? .good : .warning
+    private var approvalCount: Int {
+        store.missionControl?.approvals.count ?? store.approvalQueue.count
     }
 
     private var hostTone: StatusBadge.Tone {
@@ -120,7 +97,8 @@ struct ControllerStatusBar: View {
     }
 
     private var controlTone: StatusBadge.Tone {
-        let preset = store.missionControl?.health.controlPreset
+        let preset =
+            store.missionControl?.health.controlPreset
             ?? store.health?.controlPreset
             ?? store.selectedControlPreset
 
@@ -161,9 +139,16 @@ struct MissionControlWorkspaceView: View {
                     KPIGrid(kpis: missionControl.kpis)
 
                     HStack(alignment: .top, spacing: layout.stackSpacing) {
-                        PanelCard("Live Monitor", subtitle: missionControl.snapshot?.observation.windowTitle ?? "Current observation snapshot") {
-                            ScreenshotPreview(screenshot: missionControl.snapshot?.screenshot ?? store.snapshot?.screenshot)
-                                .frame(maxWidth: .infinity, minHeight: 340)
+                        PanelCard(
+                            "Live Monitor",
+                            subtitle: missionControl.snapshot?.observation.windowTitle
+                                ?? "Current observation snapshot"
+                        ) {
+                            ScreenshotPreview(
+                                screenshot: missionControl.snapshot?.screenshot
+                                    ?? store.snapshot?.screenshot
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 340)
                         }
                         .frame(maxWidth: .infinity)
 
@@ -180,15 +165,19 @@ struct MissionControlWorkspaceView: View {
                     HStack(alignment: .top, spacing: layout.stackSpacing) {
                         ActivityTimelineCard(entries: missionControl.recentActivity)
                             .frame(maxWidth: .infinity)
-                        WorkflowExperimentCard(workflows: missionControl.workflows, experiments: missionControl.experiments)
-                            .frame(width: layout.utilityPanelWidth)
+                        WorkflowExperimentCard(
+                            workflows: missionControl.workflows,
+                            experiments: missionControl.experiments
+                        )
+                        .frame(width: layout.utilityPanelWidth)
                     }
                 } else {
                     PanelCard("Mission Control", subtitle: "Loading live controller state") {
                         EmptyStateView(
                             systemImage: "gauge.with.dots.needle.67percent",
                             title: "Mission Control is empty",
-                            message: "Refresh the controller to load runtime health, diagnostics, traces, and copilot readiness."
+                            message:
+                                "Refresh the controller to load runtime health, diagnostics, traces, and copilot readiness."
                         )
                         .frame(height: 360)
 
@@ -208,8 +197,12 @@ struct MissionControlInspectorView: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Mission Control Summary", subtitle: "Current operator posture and copilot guidance") {
+        PanelCard(
+            "Mission Control Summary", subtitle: "Current operator posture and copilot guidance"
+        ) {
             if let missionControl = store.missionControl {
+                KVRow(key: "Readiness", value: store.readinessSummary.statusLabel)
+                KVRow(key: "Checklist", value: store.readinessSummary.completionSummary)
                 KVRow(key: "Provider", value: missionControl.providerStatus.displayName)
                 KVRow(key: "Provider state", value: missionControl.providerStatus.state.rawValue)
                 KVRow(key: "Runtime control", value: missionControl.health.controlPreset.title)
@@ -274,13 +267,16 @@ private struct MissionBriefingCard: View {
     let missionControl: MissionControlSnapshot
 
     var body: some View {
-        PanelCard("Mission Briefing", subtitle: "Immediate operator posture and best next step", style: .hero) {
+        PanelCard(
+            "Mission Briefing", subtitle: "Immediate operator posture and best next step",
+            style: .hero
+        ) {
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(headline)
+                    Text(readiness.title)
                         .font(.system(size: 27, weight: .bold, design: .rounded))
                         .foregroundStyle(ControllerTheme.ink)
-                    Text(summary)
+                    Text(readiness.detail)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(ControllerTheme.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -289,14 +285,21 @@ private struct MissionBriefingCard: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 8) {
-                    StatusBadge(label: readinessLabel, tone: readinessTone)
-                    Text("Updated \(missionControl.generatedAt.formatted(date: .omitted, time: .shortened))")
-                        .font(.system(size: 11, design: .monospaced))
+                    StatusBadge(label: readiness.statusLabel, tone: readiness.level.badgeTone)
+                    Text(readiness.completionSummary)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(ControllerTheme.muted)
+                    Text(
+                        "Updated \(missionControl.generatedAt.formatted(date: .omitted, time: .shortened))"
+                    )
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ControllerTheme.muted)
                 }
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 12
+            ) {
                 MetricTile(
                     label: "Focused App",
                     value: missionControl.snapshot?.observation.appName ?? "None",
@@ -306,7 +309,8 @@ private struct MissionBriefingCard: View {
                 MetricTile(
                     label: "Approvals",
                     value: "\(missionControl.approvals.count)",
-                    detail: missionControl.approvals.isEmpty ? "No blocked risky work" : "Review pending actions",
+                    detail: missionControl.approvals.isEmpty
+                        ? "No blocked risky work" : "Review pending actions",
                     tone: missionControl.approvals.isEmpty ? .good : .warning
                 )
                 MetricTile(
@@ -319,38 +323,60 @@ private struct MissionBriefingCard: View {
                     label: "Alerts",
                     value: "\(missionControl.alerts.count)",
                     detail: missionControl.alerts.first?.title ?? "No critical blockers detected",
-                    tone: missionControl.alerts.contains(where: { $0.severity == .critical }) ? .danger : (missionControl.alerts.isEmpty ? .good : .warning)
+                    tone: missionControl.alerts.contains(where: { $0.severity == .critical })
+                        ? .danger : (missionControl.alerts.isEmpty ? .good : .warning)
                 )
                 MetricTile(
                     label: "Trace Sessions",
                     value: "\(missionControl.traceSessions.count)",
-                    detail: missionControl.traceSessions.isEmpty ? "No recent evidence yet" : "Recent runtime evidence available",
+                    detail: missionControl.traceSessions.isEmpty
+                        ? "No recent evidence yet" : "Recent runtime evidence available",
                     tone: missionControl.traceSessions.isEmpty ? .neutral : .good
                 )
             }
 
             HStack(spacing: 10) {
-                Button("Refresh Mission Control") {
-                    Task { await store.refreshMissionControl() }
+                Button(readiness.primaryActionTitle) {
+                    store.performReadinessAction(readiness.primaryAction)
                 }
                 .buttonStyle(ControllerPrimaryButtonStyle())
 
-                Button("Open Control") {
-                    store.selectedSection = .control
+                if readiness.primaryAction != .openControl
+                    && readiness.primaryAction != .reviewApprovals
+                {
+                    Button("Open Control") {
+                        store.selectedSection = .control
+                    }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
                 }
-                .buttonStyle(ControllerSecondaryButtonStyle())
 
-                Button("Review Health") {
-                    store.selectedSection = .health
+                if readiness.primaryAction != .reviewHealth {
+                    Button("Review Health") {
+                        store.selectedSection = .health
+                    }
+                    .buttonStyle(ControllerSecondaryButtonStyle())
                 }
-                .buttonStyle(ControllerSecondaryButtonStyle())
+            }
+
+            ControllerReadinessTaskList(
+                store: store,
+                tasks: Array(readiness.checklist.prefix(4))
+            )
+
+            if let firstPrompt = missionControl.recommendedPrompts.first {
+                Text(firstPrompt)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(ControllerTheme.muted)
             }
 
             if let topAlert = missionControl.alerts.first {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: topAlert.severity == .critical ? "exclamationmark.octagon.fill" : "megaphone.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(alertTone(for: topAlert.severity).color)
+                    Image(
+                        systemName: topAlert.severity == .critical
+                            ? "exclamationmark.octagon.fill" : "megaphone.fill"
+                    )
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(alertTone(for: topAlert.severity).color)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(topAlert.title)
@@ -361,52 +387,15 @@ private struct MissionBriefingCard: View {
                     }
                 }
                 .padding(12)
-                .background(alertTone(for: topAlert.severity).color.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(
+                    alertTone(for: topAlert.severity).color.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
     }
 
-    private var headline: String {
-        if store.hostConnection.requiresAttention {
-            return "Reconnect the host bridge before you continue."
-        }
-        if missionControl.health.permissions.contains(where: { !$0.granted }) {
-            return "Grant the remaining permissions to unlock full control."
-        }
-        if !missionControl.health.storageReady {
-            return "Fix local storage before trusting fresh runtime evidence."
-        }
-        if !missionControl.approvals.isEmpty {
-            return "Pending approvals are the main thing blocking forward progress."
-        }
-        return "The controller is ready for supervised operator work."
-    }
-
-    private var summary: String {
-        if let firstPrompt = missionControl.recommendedPrompts.first {
-            return firstPrompt
-        }
-        return "Use Mission Control to scan readiness, inspect live evidence, and choose the next safe action."
-    }
-
-    private var readinessLabel: String {
-        if store.hostConnection.requiresAttention {
-            return "Host Attention"
-        }
-        if missionControl.health.permissions.contains(where: { !$0.granted }) || !missionControl.health.storageReady {
-            return "Readiness Attention"
-        }
-        return missionControl.approvals.isEmpty ? "Operator Ready" : "Review Approvals"
-    }
-
-    private var readinessTone: StatusBadge.Tone {
-        if store.hostConnection.requiresAttention {
-            return .danger
-        }
-        if missionControl.health.permissions.contains(where: { !$0.granted }) || !missionControl.health.storageReady {
-            return .warning
-        }
-        return missionControl.approvals.isEmpty ? .good : .warning
+    private var readiness: ControllerReadinessSummary {
+        store.readinessSummary
     }
 
     private func alertTone(for severity: AlertSeverity) -> StatusBadge.Tone {
@@ -438,12 +427,14 @@ private struct MissionAlertsCard: View {
     let missionControl: MissionControlSnapshot
 
     var body: some View {
-        PanelCard("Alerts & Approvals", subtitle: "High-signal issues that may block operator flow") {
+        PanelCard("Alerts & Approvals", subtitle: "High-signal issues that may block operator flow")
+        {
             if missionControl.alerts.isEmpty && missionControl.approvals.isEmpty {
                 EmptyStateView(
                     systemImage: "checkmark.seal",
                     title: "No active risks",
-                    message: "Mission Control is not seeing any blocking alerts or pending approvals."
+                    message:
+                        "Mission Control is not seeing any blocking alerts or pending approvals."
                 )
                 .frame(height: 260)
             } else {
@@ -454,14 +445,19 @@ private struct MissionAlertsCard: View {
                                 Text(alert.title)
                                     .font(.system(size: 13, weight: .semibold))
                                 Spacer()
-                                StatusBadge(label: alert.severity.rawValue.uppercased(), tone: tone(for: alert.severity))
+                                StatusBadge(
+                                    label: alert.severity.rawValue.uppercased(),
+                                    tone: tone(for: alert.severity))
                             }
                             Text(alert.message)
                                 .font(.system(size: 12))
                                 .foregroundStyle(ControllerTheme.muted)
                         }
                         .padding(12)
-                        .background(tone(for: alert.severity).color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(
+                            tone(for: alert.severity).color.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(tone(for: alert.severity).color.opacity(0.16), lineWidth: 1)
@@ -477,7 +473,9 @@ private struct MissionAlertsCard: View {
                                 .foregroundStyle(ControllerTheme.muted)
                         }
                         .padding(12)
-                        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(
+                            ControllerTheme.warning.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -543,7 +541,8 @@ private struct ActivityTimelineCard: View {
                 EmptyStateView(
                     systemImage: "clock.badge.questionmark",
                     title: "No recent activity",
-                    message: "Run a manual action or recipe to generate live activity for Mission Control."
+                    message:
+                        "Run a manual action or recipe to generate live activity for Mission Control."
                 )
                 .frame(height: 260)
             } else {
@@ -567,7 +566,9 @@ private struct ActivityTimelineCard: View {
                                 .foregroundStyle(ControllerTheme.muted)
                         }
                         .padding(12)
-                        .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(
+                            ControllerTheme.panelRaised.opacity(0.9),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -589,7 +590,8 @@ private struct WorkflowExperimentCard: View {
     let experiments: [ControllerExperimentDiagnostics]
 
     var body: some View {
-        PanelCard("Workflows & Experiments", subtitle: "Reusable knowledge and bounded candidates") {
+        PanelCard("Workflows & Experiments", subtitle: "Reusable knowledge and bounded candidates")
+        {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Top workflows")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -609,7 +611,9 @@ private struct WorkflowExperimentCard: View {
                                     .foregroundStyle(ControllerTheme.muted)
                             }
                             Spacer()
-                            StatusBadge(label: "\(Int(workflow.successRate * 100))%", tone: workflow.successRate >= 0.75 ? .good : .warning)
+                            StatusBadge(
+                                label: "\(Int(workflow.successRate * 100))%",
+                                tone: workflow.successRate >= 0.75 ? .good : .warning)
                         }
                     }
                 }
@@ -627,9 +631,11 @@ private struct WorkflowExperimentCard: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(experiment.id)
                                 .font(.system(size: 13, weight: .semibold))
-                            Text("Candidates: \(experiment.candidateCount) • Successes: \(experiment.succeededCandidateCount)")
-                                .font(.system(size: 11))
-                                .foregroundStyle(ControllerTheme.muted)
+                            Text(
+                                "Candidates: \(experiment.candidateCount) • Successes: \(experiment.succeededCandidateCount)"
+                            )
+                            .font(.system(size: 11))
+                            .foregroundStyle(ControllerTheme.muted)
                         }
                     }
                 }

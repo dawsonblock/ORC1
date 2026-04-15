@@ -2,8 +2,8 @@
 
 import AppKit
 import Foundation
-import SwiftUI
 import OracleControllerShared
+import SwiftUI
 
 struct OnboardingOverlayView: View {
     @Bindable var store: ControllerStore
@@ -56,7 +56,9 @@ struct OnboardingOverlayView: View {
             }
             .padding(28)
             .frame(width: 760)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .background(
+                .ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+            )
             .shadow(color: .black.opacity(0.12), radius: 24, y: 18)
         }
     }
@@ -66,8 +68,10 @@ struct OnboardingOverlayView: View {
         switch store.onboardingStep {
         case .welcome:
             VStack(alignment: .leading, spacing: 12) {
-                Text("Oracle Controller is the packaged local console for Oracle OS. It keeps the existing execution truth path intact while giving you a guided setup, approvals, traces, recipes, and diagnostics in one app.")
-                    .font(.system(size: 14))
+                Text(
+                    "Oracle Controller is the packaged local console for Oracle OS. It keeps the existing execution truth path intact while giving you a guided setup, approvals, traces, recipes, and diagnostics in one app."
+                )
+                .font(.system(size: 14))
                 onboardingFacts([
                     "Runs local-only and supervised.",
                     "Embeds the controller host inside the app bundle.",
@@ -80,7 +84,8 @@ struct OnboardingOverlayView: View {
                 title: "Grant Accessibility",
                 detail: store.health?.permissions.first(where: { $0.id == "accessibility" })?.detail
                     ?? "Oracle Controller needs Accessibility access to inspect and act on applications.",
-                granted: store.health?.permissions.first(where: { $0.id == "accessibility" })?.granted == true,
+                granted: store.health?.permissions.first(where: { $0.id == "accessibility" })?
+                    .granted == true,
                 buttonTitle: "Open Accessibility Settings",
                 action: { store.openAccessibilitySettings() }
             )
@@ -88,43 +93,50 @@ struct OnboardingOverlayView: View {
         case .screenRecording:
             permissionStep(
                 title: "Grant Screen Recording",
-                detail: store.health?.permissions.first(where: { $0.id == "screen-recording" })?.detail
+                detail: store.health?.permissions.first(where: { $0.id == "screen-recording" })?
+                    .detail
                     ?? "Screen Recording powers the live monitor and screenshot-backed diagnostics.",
-                granted: store.health?.permissions.first(where: { $0.id == "screen-recording" })?.granted == true,
+                granted: store.health?.permissions.first(where: { $0.id == "screen-recording" })?
+                    .granted == true,
                 buttonTitle: "Open Screen Recording Settings",
                 action: { store.openScreenRecordingSettings() }
             )
 
         case .runtime:
             VStack(alignment: .leading, spacing: 12) {
+                Text(
+                    "Use this same checklist here and in Health to clear the remaining setup and recovery tasks."
+                )
+                .font(.system(size: 14))
+
+                ControllerReadinessSummaryContent(
+                    store: store,
+                    showsOptionalTasks: false
+                )
+
                 onboardingFacts([
                     "Runtime version: \(store.health?.runtimeVersion ?? "Unknown")",
-                    "Bundled host: \(store.productStatus?.bundledHelperAvailable == true ? "available" : "missing")",
-                    "Host bridge: \(store.hostConnection.label)",
-                    "Writable storage: \(store.health.map { $0.storageReady ? "Ready" : "Attention" } ?? "Unknown")",
                     "App bundle mode: \(store.health?.runningFromAppBundle == true ? "enabled" : "development")",
                     "Application Support: \(store.health?.applicationSupportPath ?? store.productStatus?.applicationSupportPath ?? "Unknown")",
                 ])
 
-                if store.hostConnection.requiresAttention {
-                    hostReadinessCard
-                }
-
-                if let health = store.health, !health.storageIssues.isEmpty {
-                    storageReadinessCard
-                }
-
-                if let productStatus = store.productStatus, productStatus.migrationStatus.didMigrateAnything {
-                    Text("Imported existing controller data so the packaged app can pick up where the developer setup left off.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                if let productStatus = store.productStatus,
+                    productStatus.migrationStatus.didMigrateAnything
+                {
+                    Text(
+                        "Imported existing controller data so the packaged app can pick up where the developer setup left off."
+                    )
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
                 }
             }
 
         case .vision:
             VStack(alignment: .leading, spacing: 12) {
-                Text("Vision is optional. Core Accessibility-based control works immediately once permissions are granted. You can install or repair the packaged vision bootstrap here and enable the sidecar later.")
-                    .font(.system(size: 14))
+                Text(
+                    "Vision is optional. Core Accessibility-based control works immediately once permissions are granted. You can install or repair the packaged vision bootstrap here and enable the sidecar later."
+                )
+                .font(.system(size: 14))
                 HStack(spacing: 10) {
                     Button("Install Vision Bootstrap") {
                         Task { await store.installVisionBootstrap() }
@@ -144,8 +156,10 @@ struct OnboardingOverlayView: View {
 
         case .recipes:
             VStack(alignment: .leading, spacing: 12) {
-                Text("The app seeds bundled sample recipes into your personal data directory the first time it launches. Quick-start tasks are then available from the Recipes and Control sections.")
-                    .font(.system(size: 14))
+                Text(
+                    "The app seeds bundled sample recipes into your personal data directory the first time it launches. Quick-start tasks are then available from the Recipes and Control sections."
+                )
+                .font(.system(size: 14))
                 onboardingFacts([
                     "Bundled sample recipes: \(store.productStatus?.bundledSampleRecipesAvailable == true ? "available" : "missing")",
                     "Seeded recipes: \(store.productStatus?.migrationStatus.seededSampleRecipes ?? 0)",
@@ -155,8 +169,14 @@ struct OnboardingOverlayView: View {
 
         case .ready:
             VStack(alignment: .leading, spacing: 12) {
-                Text("The packaged controller is ready. You can start with the manual operator console, run a sample recipe, or stay in the health/settings sections until everything is green.")
-                    .font(.system(size: 14))
+                Text(
+                    "The packaged controller is ready. You can start with the manual operator console, run a sample recipe, or stay in the health/settings sections until everything is green."
+                )
+                .font(.system(size: 14))
+                ControllerReadinessSummaryContent(
+                    store: store,
+                    taskLimit: 5
+                )
                 onboardingFacts([
                     "Quick actions live on the Control page.",
                     "Risky actions still require approval.",
@@ -164,66 +184,6 @@ struct OnboardingOverlayView: View {
                 ])
             }
         }
-    }
-
-    private var hostReadinessCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "bolt.horizontal.circle.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ControllerTheme.warning)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Host Bridge Requires Attention")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(store.hostConnection.detailText)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-
-            Button("Retry Host") {
-                Task { await store.retryHostConnection() }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(12)
-        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var storageReadinessCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "internaldrive.badge.exclamationmark")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ControllerTheme.warning)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Local Storage Requires Attention")
-                    .font(.system(size: 12, weight: .semibold))
-
-                if let health = store.health {
-                    ForEach(health.storageIssues) { location in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(location.title)
-                                .font(.system(size: 12, weight: .medium))
-                            Text(location.path)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                            if let detail = location.detail, !detail.isEmpty {
-                                Text(detail)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer()
-        }
-        .padding(12)
-        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func permissionStep(
@@ -238,7 +198,8 @@ struct OnboardingOverlayView: View {
                 Text(title)
                     .font(.system(size: 18, weight: .semibold))
                 Spacer()
-                StatusBadge(label: granted ? "Granted" : "Required", tone: granted ? .good : .warning)
+                StatusBadge(
+                    label: granted ? "Granted" : "Required", tone: granted ? .good : .warning)
             }
             Text(detail)
                 .font(.system(size: 14))

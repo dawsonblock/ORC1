@@ -2,8 +2,8 @@
 
 import AppKit
 import Foundation
-import SwiftUI
 import OracleControllerShared
+import SwiftUI
 
 struct HealthWorkspaceView: View {
     @Bindable var store: ControllerStore
@@ -11,7 +11,16 @@ struct HealthWorkspaceView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                PanelCard("Runtime Health", subtitle: "Permissions, sidecar state, and local configuration") {
+                PanelCard(
+                    "Readiness Center",
+                    subtitle: "Guided setup, recovery, and optional integrations"
+                ) {
+                    ControllerReadinessSummaryContent(store: store)
+                }
+
+                PanelCard(
+                    "System Detail", subtitle: "Permissions, sidecar state, and local configuration"
+                ) {
                     if let health = store.health {
                         Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
                             GridRow {
@@ -19,7 +28,9 @@ struct HealthWorkspaceView: View {
                                 KVRow(key: "Recipes", value: "\(health.recipeCount)")
                             }
                             GridRow {
-                                KVRow(key: "Sidecar", value: sidecarStatusValue(store: store, health: health))
+                                KVRow(
+                                    key: "Sidecar",
+                                    value: sidecarStatusValue(store: store, health: health))
                                 KVRow(key: "Model", value: health.visionModelPath ?? "Unknown")
                             }
                             GridRow {
@@ -28,18 +39,28 @@ struct HealthWorkspaceView: View {
                             }
                             GridRow {
                                 KVRow(key: "Host Bridge", value: store.hostConnection.label)
-                                KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
+                                KVRow(
+                                    key: "Approval Broker",
+                                    value: health.approvalBrokerActive ? "Active" : "Offline")
                             }
                             GridRow {
-                                KVRow(key: "Controller", value: controllerStatusValue(health: health))
+                                KVRow(
+                                    key: "Controller", value: controllerStatusValue(health: health))
                                 KVRow(key: "Copilot", value: copilotStatusValue(store: store))
                             }
                             GridRow {
-                                KVRow(key: "Bundle Mode", value: health.runningFromAppBundle ? "Packaged App" : "Developer")
-                                KVRow(key: "Bundled Host", value: health.bundledHostAvailable ? "Embedded" : "Missing")
+                                KVRow(
+                                    key: "Bundle Mode",
+                                    value: health.runningFromAppBundle
+                                        ? "Packaged App" : "Developer")
+                                KVRow(
+                                    key: "Bundled Host",
+                                    value: health.bundledHostAvailable ? "Embedded" : "Missing")
                             }
                             GridRow {
-                                KVRow(key: "Writable Storage", value: health.storageReady ? "Ready" : "Attention")
+                                KVRow(
+                                    key: "Writable Storage",
+                                    value: health.storageReady ? "Ready" : "Attention")
                                 KVRow(key: "Trace Dir", value: health.traceDirectoryPath)
                             }
                             GridRow {
@@ -55,11 +76,6 @@ struct HealthWorkspaceView: View {
                                 KVRow(key: "Recipes", value: "\(health.recipeCount)")
                             }
                         }
-
-                        if store.hostConnection.requiresAttention {
-                            hostAttentionCard
-                                .padding(.top, 14)
-                        }
                     } else {
                         EmptyStateView(
                             systemImage: "cross.case.fill",
@@ -69,14 +85,13 @@ struct HealthWorkspaceView: View {
                                 : "Refresh health to inspect permissions, local storage, sidecar availability, and runtime directories."
                         )
                         .frame(height: 220)
-
-                        if store.hostConnection.requiresAttention {
-                            hostAttentionCard
-                        }
                     }
                 }
 
-                PanelCard("Local Storage", subtitle: "Writable controller data paths under Application Support") {
+                PanelCard(
+                    "Local Storage",
+                    subtitle: "Writable controller data paths under Application Support"
+                ) {
                     if let health = store.health {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(health.storageLocations) { location in
@@ -94,16 +109,22 @@ struct HealthWorkspaceView: View {
                                         }
                                     }
                                     Spacer()
-                                    StatusBadge(label: location.writable ? "Writable" : "Attention", tone: location.writable ? .good : .warning)
+                                    StatusBadge(
+                                        label: location.writable ? "Writable" : "Attention",
+                                        tone: location.writable ? .good : .warning)
                                 }
                                 .padding(12)
-                                .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(
+                                    Color.white.opacity(0.55),
+                                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
 
                             if !health.storageIssues.isEmpty {
-                                Text("Fix write access for the flagged paths before relying on traces, approvals, recipes, or graph persistence.")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
+                                Text(
+                                    "Fix write access for the flagged paths before relying on traces, approvals, recipes, or graph persistence."
+                                )
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
                             }
                         }
                     } else {
@@ -116,7 +137,9 @@ struct HealthWorkspaceView: View {
                     }
                 }
 
-                PanelCard("Permissions", subtitle: "System access required for production-grade control") {
+                PanelCard(
+                    "Permissions", subtitle: "System access required for production-grade control"
+                ) {
                     if let permissions = store.health?.permissions, !permissions.isEmpty {
                         ForEach(permissions) { permission in
                             HStack(alignment: .top) {
@@ -128,24 +151,40 @@ struct HealthWorkspaceView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                StatusBadge(label: permission.granted ? "Granted" : "Required", tone: permission.granted ? .good : .warning)
+                                StatusBadge(
+                                    label: permission.granted ? "Granted" : "Required",
+                                    tone: permission.granted ? .good : .warning)
                             }
                             .padding(12)
-                            .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(
+                                Color.white.opacity(0.55),
+                                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                     }
                 }
 
-                PanelCard("Product Setup", subtitle: "Packaged runtime, diagnostics, and optional vision bootstrap") {
+                PanelCard(
+                    "Product Setup",
+                    subtitle: "Packaged runtime, diagnostics, and optional vision bootstrap"
+                ) {
                     VStack(alignment: .leading, spacing: 10) {
                         if let productStatus = store.productStatus {
-                            KVRow(key: "Build", value: "\(productStatus.buildVersion) (\(productStatus.buildNumber))")
-                            KVRow(key: "Vision Assets", value: productStatus.bundledVisionBootstrapAvailable ? "Bundled" : "Missing")
-                            KVRow(key: "Vision Installed", value: productStatus.visionInstalled ? "Yes" : "No")
+                            KVRow(
+                                key: "Build",
+                                value:
+                                    "\(productStatus.buildVersion) (\(productStatus.buildNumber))")
+                            KVRow(
+                                key: "Vision Assets",
+                                value: productStatus.bundledVisionBootstrapAvailable
+                                    ? "Bundled" : "Missing")
+                            KVRow(
+                                key: "Vision Installed",
+                                value: productStatus.visionInstalled ? "Yes" : "No")
                             if !productStatus.migrationStatus.migratedLegacyItems.isEmpty {
                                 KVRow(
                                     key: "Imported",
-                                    value: productStatus.migrationStatus.migratedLegacyItems.joined(separator: ", ")
+                                    value: productStatus.migrationStatus.migratedLegacyItems.joined(
+                                        separator: ", ")
                                 )
                             }
                         }
@@ -171,32 +210,6 @@ struct HealthWorkspaceView: View {
         }
     }
 
-    private var hostAttentionCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ControllerTheme.warning)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Host Bridge Attention Needed")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(store.hostConnection.detailText)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-
-            Button("Retry Host") {
-                Task { await store.retryHostConnection() }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(12)
-        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
     private func controllerStatusValue(health: HealthStatus) -> String {
         if store.hostConnection.phase == .launching {
             return "Starting"
@@ -213,63 +226,47 @@ struct HealthInspectorView: View {
 
     var body: some View {
         ScrollView {
-            PanelCard("System Summary", subtitle: "What still blocks a frictionless operator loop") {
+            PanelCard("System Summary", subtitle: "What still blocks a frictionless operator loop")
+            {
+                ControllerReadinessSummaryContent(
+                    store: store,
+                    taskLimit: 5,
+                    showsPrimaryAction: false,
+                    showsOptionalTasks: false
+                )
+
                 if let health = store.health {
+                    Divider()
                     KVRow(key: "Host Bridge", value: store.hostConnection.label)
                     KVRow(key: "Host Detail", value: store.hostConnection.detailText)
                     KVRow(key: "Copilot", value: copilotStatusValue(store: store))
                     KVRow(key: "Sidecar Version", value: health.visionSidecarVersion ?? "Unknown")
-                    KVRow(key: "Approval Broker", value: health.approvalBrokerActive ? "Active" : "Offline")
+                    KVRow(
+                        key: "Approval Broker",
+                        value: health.approvalBrokerActive ? "Active" : "Offline")
                     KVRow(key: "Controller", value: controllerStatusValue(health: health))
                     KVRow(key: "Runtime Control", value: health.controlPreset.title)
                     KVRow(key: "Policy Mode", value: health.policyMode)
                     KVRow(key: "Local Storage", value: health.storageReady ? "Ready" : "Attention")
-                    KVRow(key: "App Support", value: health.applicationSupportPath, monospaced: true)
+                    KVRow(
+                        key: "App Support", value: health.applicationSupportPath, monospaced: true)
                     KVRow(key: "Logs", value: health.logsDirectoryPath, monospaced: true)
-                    KVRow(key: "Trace Directory", value: health.traceDirectoryPath, monospaced: true)
-                    KVRow(key: "Recipe Directory", value: health.recipeDirectoryPath, monospaced: true)
-                    KVRow(key: "Project Memory", value: health.projectMemoryDirectoryPath, monospaced: true)
-                    KVRow(key: "Experiments", value: health.experimentsDirectoryPath, monospaced: true)
-                    KVRow(key: "Graph DB", value: health.graphDatabasePath, monospaced: true)
-                } else {
-                    EmptyStateView(
-                        systemImage: "stethoscope",
-                        title: "No Health Data",
-                        message: store.hostConnection.requiresAttention
-                            ? store.hostConnection.detailText
-                            : "Refresh the dashboard to populate controller diagnostics."
+                    KVRow(
+                        key: "Trace Directory", value: health.traceDirectoryPath, monospaced: true)
+                    KVRow(
+                        key: "Recipe Directory", value: health.recipeDirectoryPath, monospaced: true
                     )
-                    .frame(height: 260)
+                    KVRow(
+                        key: "Project Memory", value: health.projectMemoryDirectoryPath,
+                        monospaced: true)
+                    KVRow(
+                        key: "Experiments", value: health.experimentsDirectoryPath, monospaced: true
+                    )
+                    KVRow(key: "Graph DB", value: health.graphDatabasePath, monospaced: true)
                 }
             }
             .padding(20)
         }
-    }
-
-    private var hostAttentionCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ControllerTheme.warning)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Host Bridge Attention Needed")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(store.hostConnection.detailText)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-
-            Button("Retry Host") {
-                Task { await store.retryHostConnection() }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(12)
-        .background(ControllerTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func controllerStatusValue(health: HealthStatus) -> String {
