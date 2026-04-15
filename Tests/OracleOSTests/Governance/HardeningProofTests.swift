@@ -165,4 +165,43 @@ final class HardeningProofTests: XCTestCase {
             )
         }
     }
+
+    func testWorkflowExecuteRemainsTypedRuntimeExecutionPath() throws {
+        let workflowDispatchPath = "Sources/OracleOS/MCP/MCPDispatch+Workflow.swift"
+        let workflowDispatch = try String(contentsOfFile: workflowDispatchPath, encoding: .utf8)
+
+        XCTAssertTrue(
+            workflowDispatch.contains("struct WorkflowExecutionPayload: Encodable"),
+            "\(workflowDispatchPath) must keep a typed workflow execution payload model"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains("return await executeWorkflowPlan("),
+            "\(workflowDispatchPath) must route oracle_workflow_execute through the dedicated execution path"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains("let payload = WorkflowExecutionPayload("),
+            "\(workflowDispatchPath) must build the typed workflow execution payload before export"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains("guard let data = legacyDict(for: payload) else {"),
+            "\(workflowDispatchPath) must export workflow execution payloads through the shared typed legacy seam"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains(
+                "RuntimeExecutionDriver(intentAPI: runtime, surface: .mcp).execute("),
+            "\(workflowDispatchPath) must keep workflow execution on the runtime execution spine"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains("actionResult: runtimeResult.actionResult"),
+            "\(workflowDispatchPath) must preserve typed action results when merging workflow execution output"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains("traceResult: runtimeResult.traceResult"),
+            "\(workflowDispatchPath) must preserve typed trace results when merging workflow execution output"
+        )
+        XCTAssertTrue(
+            workflowDispatch.contains("codeExecutionResult: runtimeResult.codeExecutionResult"),
+            "\(workflowDispatchPath) must preserve typed code execution results when merging workflow execution output"
+        )
+    }
 }

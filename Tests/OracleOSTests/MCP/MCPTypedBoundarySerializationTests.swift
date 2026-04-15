@@ -33,7 +33,11 @@ final class MCPTypedBoundarySerializationTests: XCTestCase {
         XCTAssertEqual(dict?["executed_step_id"] as? String, "step-1")
         XCTAssertEqual(dict?["executed_step_index"] as? Int, 1)
         XCTAssertEqual(dict?["step_count"] as? Int, 2)
+        XCTAssertEqual(dict?["parameter_slots"] as? [String], ["account"])
+        XCTAssertEqual(dict?["parameters"] as? [String: String], ["account": "personal"])
         XCTAssertEqual(dict?["skill"] as? String, "click")
+        XCTAssertEqual(dict?["domain"] as? String, "ui")
+        XCTAssertEqual(dict?["query"] as? String, "Archive")
     }
 
     func testMemoryPayloadSerializesStableKeys() {

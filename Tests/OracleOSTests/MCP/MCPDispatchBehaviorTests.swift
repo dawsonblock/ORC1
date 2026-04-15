@@ -331,9 +331,26 @@ final class MCPDispatchBehaviorTests: XCTestCase {
         )
 
         XCTAssertTrue(result.success)
+        XCTAssertNotNil(
+            result.actionResult,
+            "actionResult must be populated for successful workflow execution"
+        )
+        XCTAssertNotNil(
+            result.traceResult,
+            "traceResult must be populated after workflow step execution"
+        )
+        XCTAssertNotNil(
+            result.codeExecutionResult,
+            "codeExecutionResult must be populated for code workflow execution"
+        )
         XCTAssertEqual(result.data?["workflow_id"] as? String, "wf-read-package")
+        XCTAssertEqual(result.data?["goal_pattern"] as? String, "read package manifest")
+        XCTAssertEqual(result.data?["executed_step_id"] as? String, "step-1")
         XCTAssertEqual(result.data?["executed_step_index"] as? Int, 1)
+        XCTAssertEqual(result.data?["parameter_slots"] as? [String], [])
         XCTAssertEqual(result.data?["skill"] as? String, "readFile")
+        XCTAssertEqual(result.data?["domain"] as? String, "code")
+        XCTAssertNotNil(result.data?["action_result"] as? [String: Any])
         XCTAssertEqual(
             result.codeExecutionResult?.commandCategory, CodeCommandCategory.openFile.rawValue)
         XCTAssertEqual(result.codeExecutionResult?.workspaceRelativePath, "Package.swift")

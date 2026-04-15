@@ -58,9 +58,9 @@ The project vendors [AXorcist](https://github.com/steipete/AXorcist) in `Vendor/
 This repo includes a shared GitHub Copilot audit-first hardening workflow for code-first runtime extraction, truth-checking, and boundary tightening work.
 
 - Agent picker: `ORC1 Repo Hardening`
-- Slash prompt: `/Run ORC1 Repo Hardening`
+- Slash prompts: `/Run ORC1 Repair and Harden`, `/Run ORC1 Hostile Verification`, `/Run ORC1 Certification Gate`
 
-Use it for runtime-spine audits, proof-surface reviews, experiment-isolation checks, and blocker-ranked hardening passes. It starts with extraction before invasive patching and is intentionally on-demand rather than always-on workspace instruction for unrelated tasks.
+Use `/Run ORC1 Repair and Harden` for the first repair pass, `/Run ORC1 Hostile Verification` for a hostile re-audit and contradiction cleanup pass, and `/Run ORC1 Certification Gate` for the final bounded certification decision. The workflow remains on-demand rather than an always-on workspace instruction for unrelated tasks.
 
 ## Project Structure
 
