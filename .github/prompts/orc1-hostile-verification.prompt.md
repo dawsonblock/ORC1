@@ -1,134 +1,251 @@
 ---
-description: "Second pass for ORC1: hostile verification of build and release truth, proof quality, supported-surface honesty, CI truth, runtime failure handling, and docs-to-code consistency. Use to verify the repair is real and close remaining honesty or drift gaps without broad rework."
+description: "Hostile re-audit for the repaired ORC1 upload: verify that the remaining-gap repair actually landed, close only narrow contradictions, and lower claims when evidence is insufficient."
 name: "Run ORC1 Hostile Verification"
-argument-hint: "Optional subsystem, workflow, runtime edge, or honesty gap to emphasize in the hostile verification pass."
+argument-hint: "Optional repaired-upload area to emphasize: script drift, controller proof, path drift, crash-style guardrails, CI truth, or docs-to-reality drift."
 agent: "ORC1 Repo Hardening"
 ---
 
-Use the ORC1 Repo Hardening agent for the second pass in this repository.
+Use the ORC1 Repo Hardening agent for the hostile re-audit pass in this repository.
 
-This pass is verification, not broad implementation.
+You are working inside the repaired latest ORC1 repository.
 
-Goal:
-verify that the first repair is real, find anything still dishonest or fragile, and close remaining gaps without changing architecture.
+This pass is not a general implementation pass.
+This pass is a hostile re-audit.
 
-Rules:
+Your job is to verify that the remaining-gap repair was actually completed, find anything still inconsistent or misleading, and apply only narrow follow-up fixes required to make the repo truthful and internally consistent.
 
-- proof over intent
-- no greenfield rewrite
-- no scope expansion
-- no speculative features
-- prefer deletion over duplication
-- if docs, CI, code, and packaging disagree, resolve the contradiction
+Do not do a rewrite.
+Do not broaden scope.
+Do not add speculative features.
+Do not refactor healthy code just to make it prettier.
+Do not assume the prior repair succeeded just because files changed.
 
-Audit these areas:
+Read the repo again from the repaired state.
+Trust code, scripts, workflows, packaging behavior, runtime paths, and tests over comments or prior summaries.
+If docs disagree with code, fix one so they match.
+If multiple files describe different supported workflows, resolve the contradiction.
 
-1. Build and release truth
+## Mission
 
-Check:
+Prove that the repository now tells one consistent story across:
 
-- scripts/verify-build.sh
-- scripts/build-controller-app.sh
-- scripts/build-release.sh
-- any shared helper added
-- Package.swift
-- workflows invoking these scripts
+- build
+- verification
+- release
+- supported surfaces
+- optional/demo surfaces
+- runtime failure handling
+- CI proof
+
+You are checking whether the latest repair actually fixed these exact unresolved areas:
+
+1. `scripts/build-release.sh` no longer depends on guessed `.build/$CONFIG/oracle`
+2. all build-related scripts now share one toolchain/bootstrap path
+3. controller-side behavioral proof is materially stronger
+4. `.build/...` assumptions are no longer part of the canonical supported path
+5. runtime-reachable crash-style guardrails were reduced or justified
+6. docs, scripts, and CI now describe the same bounded product
+
+## Global rules
+
+1. Proof over implementation intent
+   Do not reward code for trying.
+   Only accept what is actually enforced by scripts, tests, workflows, and runtime behavior.
+2. Keep the architecture intact
+   No re-platforming.
+   No product redesign.
+3. Prefer simplification over duplication
+   If the repair introduced duplicate helpers, repeated bootstrap code, overlapping docs, or competing truth sources, collapse them.
+4. Lower claims instead of hand-waving gaps
+   If support is narrower than docs suggest, shrink the claim.
+   Do not stretch evidence.
+5. Fix only what this audit proves is still wrong
+   This is not a feature pass.
+
+## Audit procedure
+
+### Phase 1 - build/release consistency audit
+
+Inspect:
+
+- `scripts/verify-build.sh`
+- `scripts/build-controller-app.sh`
+- `scripts/build-release.sh`
+- any shared bootstrap/helper script introduced by the repair
+- `Package.swift`
+- any docs or workflows invoking those scripts
 
 Verify:
 
-- one toolchain or bootstrap path
-- consistent DEVELOPER_DIR
-- consistent Swift invocation
-- authoritative artifact discovery
-- working packaging path
+- all build/release scripts now use the same toolchain/bootstrap logic
+- `DEVELOPER_DIR` handling is consistent
+- Swift invocation strategy is consistent and deliberate
+- `build-release.sh` resolves binaries through authoritative path discovery
+- no critical packaging step still depends on guessed SwiftPM layout
+- the canonical build, verify, and release paths are now clearly identifiable
 
-Fix any remaining script drift or duplicate bootstrap logic.
+If any script still diverges, fix it.
 
-2. Proof quality
+### Phase 2 - controller-proof audit
 
-Audit tests and reject cosmetic proof.
-Verify real behavioral coverage for:
+Inspect controller-related tests and runtime edges.
 
-- controller startup or host bridge handshake
-- MCP decode and typed dispatch
-- approval-gated execution or edit path
-- package or release smoke
-- runtime edge failures
+Verify that controller-side proof is now behavioral, not cosmetic.
 
-Strengthen weak tests if they do not fail on broken wiring.
+Specifically look for proof around:
 
-3. Supported surface honesty
+- controller startup
+- host/helper resolution precedence
+- missing helper failure behavior
+- invalid helper path behavior
+- host launch / readiness / handshake behavior
+- packaged controller smoke behavior if present
+- user-visible boundary failures that would matter in real use
 
-Audit:
+Reject shallow tests that only construct objects or mirror static data.
+Strengthen weak proof where needed, but keep it tight and high value.
 
-- README
-- build and release docs
-- packaging scripts
-- runtime messages
-- sidecars
-- demo, archive, or web surfaces
+### Phase 3 - path-drift audit
 
-Verify:
+Search for remaining `.build/...` assumptions across:
 
-- supported core is explicit
-- optional supported extensions are explicit
-- experimental, demo, or archive surfaces are clearly not core
-- externally provisioned pieces are described honestly
+- docs
+- scripts
+- source
+- tests
+- workflows
 
-Fix any overclaim.
+Classify each occurrence:
 
-4. CI truth
+- canonical supported path
+- development override
+- fallback for local development
+- stale/misleading leftover
 
-Audit all workflows.
-Classify each as:
+Requirements:
 
-- canonical product proof
-- release proof
-- architecture guardrail
-- supplemental scanner
-- stale or noise
+- canonical supported flows must not depend on raw `.build/...` assumptions
+- dev-only fallbacks must be clearly lower precedence and clearly labeled
+- stale misleading path guidance must be removed or corrected
 
-Remove, disable, or relabel stale or misleading workflows.
-Make sure canonical workflows match documented usage.
+Pay special attention to:
 
-5. Runtime failure audit
+- `README.md`
+- controller docs
+- release docs
+- `HostProcessClient` or equivalent helper resolution code
+- workflow examples and smoke commands
+
+### Phase 4 - runtime failure audit
 
 Search for:
 
-- fatalError
-- assertionFailure
-- preconditionFailure
+- `fatalError`
+- `assertionFailure`
+- `preconditionFailure`
 - force unwraps
-- unreachable defaults
+- `"unreachable"` branches
+- hidden fallback behavior
 
-For each:
+For each occurrence in runtime-relevant code:
 
-- prove impossible by construction, or
-- convert to explicit typed or runtime failure if reachable
+- prove it is structurally impossible by construction, or
+- replace it with explicit typed/runtime failure if reachable from real input, packaging drift, operator action, or version mismatch
 
-6. Docs-to-code consistency
+Pay special attention to:
 
-Re-read docs after the code audit.
-Make docs state exactly:
+- `Sources/OracleOS/Runtime/RuntimeContext.swift`
+- `Sources/OracleOS/TaskLedger/TaskLedger.swift`
+- `Sources/OracleOS/MCP/MCPTools.swift`
 
-- prerequisites
-- supported platforms
-- canonical build, verify, and release commands
+Do not weaken invariants.
+Do not convert failures into silent ignores.
+
+### Phase 5 - CI truth audit
+
+Inspect:
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/controller-release.yml`
+- `.github/workflows/architecture.yml`
+- all other workflows
+
+Classify each workflow as:
+
+- canonical product proof
+- canonical release proof
+- supplemental architecture guardrail
+- supplemental security/scanner
+- stale/noise
+
+Verify:
+
+- workflow names and docs do not overstate proof
+- canonical workflows match the documented supported paths
+- supplemental scanners do not masquerade as runtime certification
+- stale workflows are removed, disabled, or clearly noncanonical
+
+### Phase 6 - docs-to-reality audit
+
+Re-read:
+
+- `README.md`
+- `docs/PRODUCT_CONTRACT.md`
+- `STATUS.md`
+- `docs/RELEASE_READY_SUMMARY.md`
+- controller docs
+- release/build docs
+
+Verify they all agree on:
+
+- canonical build path
+- canonical verify path
+- canonical release path
+- supported product surfaces
+- optional/experimental surfaces
+- platform assumptions
 - what CI proves
-- optional, external, and experimental status
+- what remains external or dev-only
 
-Deliver:
+If the docs still overclaim, lower them.
+If the code is stronger than the docs, update carefully without exaggeration.
 
-- any remaining fixes in place
-- verification report
-- remaining honesty gaps
-- canonical truth summary
-- evidence list
+## Required deliverables
 
-Done means:
+Make any narrow follow-up fixes directly in the repo.
 
-- hostile re-audit passes
-- no critical script still depends on drift-prone assumptions
-- behavioral tests prove runtime edges
-- CI reflects real proof
-- docs, code, packaging, and workflows describe the same product
+Then produce:
+
+1. Re-audit report
+   State:
+   - what was checked
+   - what passed
+   - what failed
+   - what you changed during this hostile pass
+2. Canonical truth summary
+   State exactly:
+   - single build path
+   - single verification path
+   - single release path
+   - supported surfaces
+   - optional/experimental/demo surfaces
+3. Remaining honesty gaps
+   List anything that still cannot be claimed as fully hardened or production-grade and why.
+4. Evidence list
+   Reference the exact scripts, tests, workflows, and docs that now support the repo's claims.
+
+## Decision rule
+
+If there is doubt, do not approve the stronger claim.
+Lower the claim instead.
+
+## Definition of done
+
+The work is done when:
+
+- the repaired repo survives a hostile re-audit
+- no critical script still depends on guessed artifact layout
+- controller-side proof is meaningfully stronger
+- `.build/...` assumptions are not part of the canonical supported story
+- runtime crash-style failures are either justified or reduced
+- docs, scripts, workflows, and tests now describe the same bounded product

@@ -1,245 +1,259 @@
 ---
-description: "Final certification gate for ORC1: determine whether the repaired repo is honestly production-grade for its stated scope, apply only blocker-level fixes, and lower claims when evidence is insufficient."
+description: "Final strict certification gate for the repaired ORC1 upload: decide whether the repo can be honestly certified for production use within a clearly bounded scope, and apply only blocker-level fixes where required."
 name: "Run ORC1 Certification Gate"
-argument-hint: "Optional supported scope, subsystem, workflow, or blocker area to emphasize in the final certification gate."
+argument-hint: "Optional certification scope, blocker area, workflow, or runtime boundary to emphasize in the final strict certification gate."
 agent: "ORC1 Repo Hardening"
 ---
 
-Use the ORC1 Repo Hardening agent for the final certification pass in this repository.
+Use the ORC1 Repo Hardening agent for the final strict certification gate in this repository.
 
-You are working inside the repaired ORC1 repository.
+You are working inside the latest repaired ORC1 repository.
 
 This is the final certification gate.
 
-Your job is to determine whether the repository can honestly pass as a production-grade build for its stated scope.
-Do not assume it passes because earlier repair work was completed.
-Re-audit everything from the repaired state and apply only blocker-level fixes required to make the repo truthful, deterministic, and supportable.
+You are not here to improve the repo.
+You are here to decide whether it can be honestly certified for production use within a clearly bounded scope.
 
-This is not a feature pass.
-This is not a refactor pass unless refactoring is necessary to remove certification blockers.
-This is not a redesign pass.
+You may only make blocker-level fixes required to remove certification blockers.
+No feature work.
+No architectural changes.
+No speculative improvements.
 
-You may fix blockers.
-You may simplify brittle logic.
-You may delete misleading or stale paths.
-You may tighten claims.
-You may improve tests where a missing test is itself a blocker.
+If there is doubt, do not certify.
+Lower the claim instead.
 
-You may not broaden scope.
-You may not add speculative functionality.
-You may not market the repo.
-You may not call it production-ready unless the evidence is concrete.
-
-## Certification standard
-
-The repository may only be described as production-grade for its actual supported scope if all of the following are true:
+## Certification criteria (all must be true)
 
 1. Build determinism
-   All documented build, verify, and release flows use one consistent toolchain/bootstrap path.
-   No critical script depends on guessed artifact locations or environment coincidence.
+   - One consistent toolchain/bootstrap path across:
+   - verify
+   - controller build
+   - release build
+   - No script depends on guessed `.build/...` layout for critical paths
+   - No silent toolchain fallback that changes behavior across machines
+
 2. Behavioral proof
-   The main supported runtime/operator boundaries are covered by meaningful tests or executable verification steps.
-   Passing CI must mean something real.
+   - Supported runtime/operator boundaries are covered by meaningful tests or executable verification
+   - Tests assert behavior, not just construction or structure
+   - CI failure would catch real wiring breakage
+
 3. Product boundary honesty
-   Supported core, optional extensions, experimental surfaces, and demo/archive-only surfaces are clearly separated in code, docs, and packaging.
-   Nothing optional is presented as core.
-   Nothing externally dependent is described as self-contained if it is not.
+   - Supported core is clearly defined
+   - Optional/experimental/demo surfaces are clearly separated
+   - Externally provisioned components are not described as self-contained
+   - Packaging does not imply support beyond what is real
+
 4. Failure clarity
-   Runtime-reachable invalid states fail explicitly and predictably.
-   Crash-style traps are limited to truly impossible states by construction.
+   - Runtime-reachable invalid states fail explicitly and predictably
+   - Crash-style traps are limited to truly impossible states
+   - No hidden fragile edges at normal operator boundaries
+
 5. CI truthfulness
-   The workflows shown as the repo's proof actually correspond to the supported product paths.
-   Generic scanners or template workflows do not masquerade as runtime certification.
+   - Canonical workflows correspond to real product build/verify/release paths
+   - Scanner or template workflows do not masquerade as certification
+   - CI success reflects real product integrity
+
 6. Documentation truth
-   README, build docs, release docs, and packaging behavior all describe the same reality.
-   Claims do not exceed evidence.
+   - README, docs, scripts, and workflows describe the same product
+   - Build, verify, and release paths are unambiguous
+   - Claims do not exceed evidence
 
 ## Operating mode
 
-You are acting like a hostile certifier.
+Assume the repo is still wrong until proven otherwise.
 
-That means:
+Do not be influenced by:
 
-- assume drift is still present until proven otherwise
-- assume earlier fixes may be incomplete
-- assume tests may be shallow until they prove otherwise
-- assume docs may still overclaim
-- assume workflow names may exaggerate what they actually verify
+- number of tests
+- apparent structure quality
+- prior repair claims
+- documentation tone
 
-Do not be impressed by architecture.
-Do not be impressed by number of tests.
-Do not be impressed by clean code alone.
+Only accept what is proven by:
 
-Only certify what is actually proven.
+- scripts
+- code paths
+- tests
+- workflows
+- packaging behavior
 
-## Required audit procedure
+## Audit procedure
 
-### Phase 1 - establish the canonical truth
+### Phase 1 - establish canonical truth
 
-Read and confirm the real supported product shape from:
+From:
 
-- Package.swift
-- README
-- scripts/\*
-- .github/workflows/\*
-- Sources/\*
-- Tests/\*
+- `Package.swift`
+- `README.md`
+- `scripts/*`
+- `.github/workflows/*`
+- `Sources/*`
+- `Tests/*`
 
-Write down internally:
+Determine:
 
-- the single canonical build path
-- the single canonical verification path
-- the single canonical release path
-- the supported product surfaces
-- the optional/external/demo/experimental surfaces
+- single canonical build path
+- single canonical verification path
+- single canonical release path
+- supported product surfaces
+- optional/experimental/demo surfaces
 
-If the repo does not clearly have a single truth for each of these, that is a blocker.
+If there is not exactly one clear answer for each, this is a blocker.
 
 ### Phase 2 - certify build determinism
 
-Audit every build-related script and every workflow that builds or packages.
+Audit:
+
+- `scripts/verify-build.sh`
+- `scripts/build-controller-app.sh`
+- `scripts/build-release.sh`
+- shared bootstrap/helper logic
 
 Requirements:
 
-- one shared toolchain/bootstrap source of truth
-- consistent DEVELOPER_DIR handling
-- consistent swift invocation strategy
-- authoritative artifact discovery
-- no silent fallback that changes behavior across machines
+- identical toolchain/bootstrap model across scripts
+- consistent `DEVELOPER_DIR`
+- consistent Swift invocation
+- authoritative artifact path discovery
+- no `.build/$CONFIG/...` assumptions in release-critical paths
 
-Perform blocker fixes only where needed.
-
-If two scripts build the same product differently, resolve that before anything else.
+If any divergence remains, it is a blocker.
 
 ### Phase 3 - certify behavioral proof
 
-Identify the supported runtime boundaries that matter most.
-Examples may include:
+Identify supported runtime boundaries and verify real proof exists for them.
 
-- controller start and bridge handshake
-- MCP request decode and typed dispatch
+At minimum:
+
+- controller startup and host resolution
+- MCP decode and typed dispatch
 - approval-gated execution path
-- release/package smoke
+- release/package smoke or equivalent
 - operator-facing failure handling
 
-For each claimed supported boundary, determine:
+For each:
 
-- is there a meaningful test or executable proof path?
-- does it assert behavior rather than shape?
-- will it fail if wiring breaks?
+- does a test or executable path prove behavior?
+- would it fail if wiring breaks?
 
-If not, add the minimum necessary proof or reduce the support claim.
+If not, either:
 
-Do not add broad test suites for appearance.
-Add only what certification requires.
+- add minimal blocker-level proof, or
+- reduce the support claim
 
 ### Phase 4 - certify boundary honesty
 
 Audit:
 
-- optional sidecars
+- sidecars
 - Python-dependent paths
-- demo web UI or archived surfaces
-- experimental tools
-- anything bundled but not actually self-contained
+- demo web UI
+- archived/experimental components
+- bundled vs external behavior
 
-Fix any mismatch among:
+Verify:
 
-- docs
-- packaging
-- runtime messaging
-- CI assumptions
-
-If a component is shipped but not supportable, either classify it correctly or remove it from the certified story.
+- docs, packaging, runtime, and CI all agree on classification
+- supported vs optional is not ambiguous
+- no overstatement of self-contained capability
 
 ### Phase 5 - certify failure handling
 
-Search for runtime traps and brittle assumptions:
+Search for:
 
-- fatalError
-- assertionFailure
-- preconditionFailure
+- `fatalError`
+- `assertionFailure`
+- `preconditionFailure`
 - force unwraps
-- "unreachable" defaults
-- hidden fallback behavior
+- unreachable branches
 
-For each one:
+For each:
 
-- prove it is structurally impossible, or
-- convert it into explicit typed/runtime failure if reachable from real input, version drift, or operator action
+- prove impossible by construction, or
+- convert to explicit failure if reachable
 
-This is a certification blocker area.
-A production claim cannot rest on hidden crash edges at ordinary boundaries.
+If reachable crash paths exist at real boundaries, certification fails.
 
 ### Phase 6 - certify CI truth
 
-Classify every workflow:
+Classify workflows:
 
 - canonical build/verify proof
 - canonical release proof
 - architecture guardrail
-- supplemental security/scanner
+- supplemental scanner
 - stale/noise
 
-Then enforce clarity:
+Verify:
 
-- canonical workflows must correspond to actual documented usage
-- supplemental workflows must not imply product certification
-- stale/noise workflows should be removed or clearly sidelined
-
-If badges, docs, or workflow names overstate reality, fix them.
+- canonical workflows match documented usage
+- scanners do not imply certification
+- no misleading workflow naming or badge signaling
 
 ### Phase 7 - certify docs against evidence
 
-Re-read all operator-facing documentation after code and workflow audit.
+Re-read all docs after code/workflow audit.
 
-Make docs match evidence exactly.
+Verify:
 
-If something is only verified on one platform, say so.
-If a sidecar is optional and externally provisioned, say so.
-If release packaging is supported only through one script path, document that one path.
-If the repo is not fully production-grade, say what it is production-grade for and what remains uncertified.
+- build path matches scripts
+- verify path matches CI
+- release path matches packaging
+- supported scope is accurate
+- optional/external components are clearly labeled
+
+Lower claims if necessary.
 
 ## Required outputs
-
-Apply only blocker-level repo changes.
-
-Then produce these outputs:
 
 1. Certification verdict
    One of:
    - Certified for production use within stated scope
    - Not certified
+
 2. Scope statement
-   If certified, state the exact supported scope and platform assumptions.
-   If not certified, state the maximum honest claim.
+   If certified:
+   - exact supported scope
+   - platform assumptions
+   - boundaries of support
+
+   If not certified:
+   - narrowest truthful claim
+
 3. Blocker report
-   List every blocker found during the certification pass.
    For each blocker:
-   - what it was
-   - whether it was fixed
-   - why it mattered
+   - description
+   - fixed or not
+   - why it matters for certification
+
 4. Evidence summary
-   Reference the scripts, workflows, tests, and docs that justify the verdict.
+   Reference exact:
+   - scripts
+   - tests
+   - workflows
+   - docs
+
+   that justify the verdict
+
 5. Residual risk statement
-   List remaining risks that do not block the narrower certified scope, or explain why they still block certification.
+   List:
+   - any remaining risks within the certified scope
+   - or why risks still block certification
 
 ## Decision rule
 
-If there is doubt, do not certify.
-Lower the claim instead.
-
-Do not optimize for passing.
-Optimize for truth.
+If any of the six certification criteria are not fully met, do not certify.
 
 ## Definition of done
 
-The work is done when one of these is true:
+The work is done when one of the following is true:
 
-A. The repo is honestly certifiable for a clearly bounded production scope, with supporting evidence in code, tests, scripts, workflows, and docs.
+A. The repo is honestly certifiable for a clearly bounded production scope, backed by code, scripts, tests, workflows, and docs
 
 or
 
-B. The repo is not certifiable, and the final output clearly states the narrowest truthful claim and the exact remaining blockers.
+B. The repo is not certifiable, and the output clearly states:
 
-Anything in between is failure.
+- the exact blockers
+- the narrowest truthful claim
+- what remains to reach certification

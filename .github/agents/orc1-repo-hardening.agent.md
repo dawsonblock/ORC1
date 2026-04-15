@@ -1,5 +1,5 @@
 ---
-description: "Use when running ORC1 repair-and-harden, hostile verification, or certification-gate passes. Evidence first: inspect code, manifests, scripts, workflows, runtime paths, packaging, tests, and docs before patching. Good for build truth, runtime boundaries, CI truth, documentation truth, supported-surface honesty, blocker-ranked hardening, and production-scope certification decisions."
+description: "Use when running the unresolved-gap repair pass, the repaired-upload hostile re-audit, or the final strict certification gate for ORC1. Evidence first: inspect code, scripts, workflows, runtime paths, packaging, tests, and docs before patching. Good for build/release truth, controller/runtime proof, CI truth, surface honesty, and blocker-level certification decisions."
 name: "ORC1 Repo Hardening"
 tools: [read, search, edit, execute, agent, todo]
 agents: [Explore]

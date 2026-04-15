@@ -60,7 +60,7 @@ This repo includes a shared GitHub Copilot audit-first hardening workflow for co
 - Agent picker: `ORC1 Repo Hardening`
 - Slash prompts: `/Run ORC1 Repair and Harden`, `/Run ORC1 Hostile Verification`, `/Run ORC1 Certification Gate`
 
-Use `/Run ORC1 Repair and Harden` for the first repair pass, `/Run ORC1 Hostile Verification` for a hostile re-audit and contradiction cleanup pass, and `/Run ORC1 Certification Gate` for the final bounded certification decision. The workflow remains on-demand rather than an always-on workspace instruction for unrelated tasks.
+Use `/Run ORC1 Repair and Harden` to close unresolved hardening gaps only, `/Run ORC1 Hostile Verification` for a verification-only hostile re-audit of the repaired upload, and `/Run ORC1 Certification Gate` for the final strict certification gate that applies only blocker-level fixes required for bounded production claims. The workflow remains on-demand rather than an always-on workspace instruction for unrelated tasks.
 
 ## Project Structure
 
