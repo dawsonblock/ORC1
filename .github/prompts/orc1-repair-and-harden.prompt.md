@@ -44,8 +44,10 @@ This pass is about fixing the remaining concrete gaps that still exist in the ac
    `scripts/verify-build.sh` uses stricter Apple toolchain bootstrap behavior than:
    - `scripts/build-controller-app.sh`
    - `scripts/build-release.sh`
-     That inconsistency must be eliminated.
-     Verify, controller build, and release build must use the same toolchain/bootstrap logic.
+
+   That inconsistency must be eliminated.
+   Verify, controller build, and release build must use the same toolchain/bootstrap logic.
+
 3. `scripts/verify-build.sh` itself still uses guessed `.build/...` paths for CLI smoke
    The canonical verifier still checks `"$REPO_ROOT/.build/release/oracle"`.
    That must be replaced with authoritative artifact discovery.
@@ -57,6 +59,7 @@ This pass is about fixing the remaining concrete gaps that still exist in the ac
    - invalid helper path handling
    - launch/readiness behavior
    - packaged-app or packaging-adjacent smoke where realistic
+
 5. `.build/...` assumptions still survive in docs and development fallbacks
    They may remain as dev-only overrides where necessary, but they must not be part of the canonical supported path and must be clearly labeled as development-only.
 6. Crash-style runtime guardrails still need final audit
@@ -65,9 +68,10 @@ This pass is about fixing the remaining concrete gaps that still exist in the ac
    - `assertionFailure`
    - `preconditionFailure`
    - force unwraps
-     These need a strict reachability audit.
-     Keep only what is truly impossible by construction.
-     Replace reachable cases with explicit failures.
+
+   These need a strict reachability audit.
+   Keep only what is truly impossible by construction.
+   Replace reachable cases with explicit failures.
 
 ## Mission
 
@@ -175,7 +179,7 @@ Audit runtime-relevant uses of:
 - `assertionFailure`
 - `preconditionFailure`
 - force unwraps
-- unreachable default branches
+- `"unreachable"` default branches
 
 Pay special attention to:
 
