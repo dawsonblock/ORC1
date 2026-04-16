@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 /// MCPToolCoverageTests — verifies that every tool declared in MCPTools.swift
@@ -24,10 +25,10 @@ final class MCPToolCoverageTests: XCTestCase {
         }
         // Try absolute anchor via __FILE__
         let base = URL(fileURLWithPath: #file)
-            .deletingLastPathComponent()   // MCP/
-            .deletingLastPathComponent()   // OracleOSTests/
-            .deletingLastPathComponent()   // Tests/
-            .deletingLastPathComponent()   // package root
+            .deletingLastPathComponent()  // MCP/
+            .deletingLastPathComponent()  // OracleOSTests/
+            .deletingLastPathComponent()  // Tests/
+            .deletingLastPathComponent()  // package root
         let url = base.appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
     }
@@ -58,16 +59,17 @@ final class MCPToolCoverageTests: XCTestCase {
 
     /// Every oracle_* tool in MCPTools.swift must appear as MCPToolName.xxx in MCPDispatch*.swift.
     func testAllDeclaredToolsAreDispatched() throws {
-        let toolsSource    = try readSource("Sources/OracleOS/MCP/MCPTools.swift")
+        let toolsSource = try readSource("Sources/OracleOS/MCP/MCPTools.swift")
         // Combine all dispatch files so extensions (+Recipes, +Memory, etc.) are included.
-        let dispatchFiles  = [
+        let dispatchFiles = [
             "Sources/OracleOS/MCP/MCPDispatch.swift",
             "Sources/OracleOS/MCP/MCPDispatch+Recipes.swift",
             "Sources/OracleOS/MCP/MCPDispatch+Memory.swift",
             "Sources/OracleOS/MCP/MCPDispatch+Workflow.swift",
             "Sources/OracleOS/MCP/MCPDispatch+Architecture.swift",
         ]
-        let dispatchSource = dispatchFiles.compactMap { try? readSource($0) }.joined(separator: "\n")
+        let dispatchSource = dispatchFiles.compactMap { try? readSource($0) }.joined(
+            separator: "\n")
 
         let declared = declaredToolNames(in: toolsSource)
         XCTAssertFalse(declared.isEmpty, "MCPTools.swift must declare at least one tool")
@@ -104,7 +106,8 @@ final class MCPToolCoverageTests: XCTestCase {
     func testToolCountMatchesProductContract() throws {
         let toolsSource = try readSource("Sources/OracleOS/MCP/MCPTools.swift")
         let unique = Set(declaredToolNames(in: toolsSource))
-        XCTAssertEqual(unique.count, 30, "Product contract requires exactly 30 tools; found \(unique.count)")
+        XCTAssertEqual(
+            unique.count, 30, "Product contract requires exactly 30 tools; found \(unique.count)")
     }
 
     /// The shell guard and the Swift test suite must agree on the exact MCP
@@ -119,11 +122,13 @@ final class MCPToolCoverageTests: XCTestCase {
 
     @MainActor
     func testOptionalVisionAndAdvisoryToolsRemainExplicitlyBoundedInDescriptions() throws {
-        let definitions = MCPTools.definitions()
+        let definitions = try MCPTools.definitions()
 
         func description(for name: String) throws -> String {
-            guard let description = definitions
-                .first(where: { ($0["name"] as? String) == name })?["description"] as? String
+            guard
+                let description =
+                    definitions
+                    .first(where: { ($0["name"] as? String) == name })?["description"] as? String
             else {
                 throw XCTSkip("Missing MCP tool definition for \(name)")
             }
@@ -153,12 +158,14 @@ final class MCPToolCoverageTests: XCTestCase {
     func testPublicToolReferenceTableMatchesDefinitions() throws {
         let markdown = try readSource("ORACLE-MCP.md")
         let documented = Set(documentedToolNames(in: markdown))
-        let declared = Set(MCPTools.definitions().compactMap { $0["name"] as? String })
+        let declared = Set(try MCPTools.definitions().compactMap { $0["name"] as? String })
 
         let missingFromDocs = declared.subtracting(documented).sorted()
         let undocumented = documented.subtracting(declared).sorted()
 
-        XCTAssertEqual(documented.count, 30, "ORACLE-MCP.md must document exactly 30 public tools; found \(documented.count)")
+        XCTAssertEqual(
+            documented.count, 30,
+            "ORACLE-MCP.md must document exactly 30 public tools; found \(documented.count)")
         XCTAssertTrue(
             missingFromDocs.isEmpty && undocumented.isEmpty,
             "ORACLE-MCP.md tool table drift. Missing from docs: \(missingFromDocs). Undocumented tools: \(undocumented)"

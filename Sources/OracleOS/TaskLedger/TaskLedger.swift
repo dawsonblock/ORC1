@@ -1,5 +1,9 @@
 import Foundation
 
+public enum TaskLedgerError: Error, Sendable, Equatable {
+    case unknownEdge(edgeID: String)
+}
+
 /// The live task graph that the planner navigates.
 ///
 /// ``TaskLedger`` is the canonical representation of the current task. It
@@ -137,7 +141,9 @@ public final class TaskLedger: @unchecked Sendable {
 
     /// Outgoing edges filtered to non-failed status.
     public func viableEdges(from nodeID: String) -> [TaskRecordEdge] {
-        outgoingEdges(from: nodeID).filter { $0.status != .executedFailure && $0.status != .abandoned }
+        outgoingEdges(from: nodeID).filter {
+            $0.status != .executedFailure && $0.status != .abandoned
+        }
     }
 
     /// Alternate edges from the same source node, excluding a specific edge.
@@ -168,17 +174,14 @@ public final class TaskLedger: @unchecked Sendable {
         resultNode: TaskRecord,
         latencyMs: Int = 0,
         cost: Double = 0
-    ) -> TaskRecord {
+    ) throws -> TaskRecord {
         lock.lock()
         defer { lock.unlock() }
 
         let destination = addOrMergeNode(resultNode)
 
         guard let edge = edges[edgeID] else {
-            // Fail fast in debug builds if an unknown edgeID is used.
-            assertionFailure("recordExecution called with unknown edgeID '\(edgeID)'")
-            // Do not advance currentNodeID when the edge does not exist.
-            return destination
+            throw TaskLedgerError.unknownEdge(edgeID: edgeID)
         }
 
         edge.recordSuccess(latencyMs: latencyMs, cost: cost)
@@ -202,7 +205,8 @@ public final class TaskLedger: @unchecked Sendable {
     private func findMergeCandidate(for node: TaskRecord) -> TaskRecord? {
         for existing in nodes.values {
             if existing.abstractState == node.abstractState
-                && existing.planningStateID == node.planningStateID {
+                && existing.planningStateID == node.planningStateID
+            {
                 return existing
             }
         }

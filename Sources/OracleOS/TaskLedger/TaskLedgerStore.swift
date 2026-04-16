@@ -24,7 +24,9 @@ public final class TaskLedgerStore: @unchecked Sendable {
 
     /// Initialise (or update) the current graph position from a world state.
     @discardableResult
-    public func updateCurrentNode(worldState: WorldState, createdByAction: String? = nil) -> TaskRecord {
+    public func updateCurrentNode(worldState: WorldState, createdByAction: String? = nil)
+        -> TaskRecord
+    {
         let node = stateAbstractor.resolveNode(
             worldState: worldState,
             taskGraph: graph,
@@ -44,10 +46,11 @@ public final class TaskLedgerStore: @unchecked Sendable {
     ) -> TaskRecordEdge? {
         guard let fromID = graph.currentNodeID else { return nil }
 
-        let toNode = graph.addOrMergeNode(TaskRecord(
-            abstractState: toAbstractState,
-            planningStateID: toPlanningStateID
-        ))
+        let toNode = graph.addOrMergeNode(
+            TaskRecord(
+                abstractState: toAbstractState,
+                planningStateID: toPlanningStateID
+            ))
 
         let edge = TaskRecordEdge(
             fromNodeID: fromID,
@@ -67,7 +70,7 @@ public final class TaskLedgerStore: @unchecked Sendable {
         latencyMs: Int = 0,
         cost: Double = 0,
         createdByAction: String? = nil
-    ) -> TaskRecord {
+    ) throws -> TaskRecord {
         let abstract = stateAbstractor.abstractState(from: resultWorldState)
         let resultNode = TaskRecord(
             abstractState: abstract,
@@ -75,7 +78,7 @@ public final class TaskLedgerStore: @unchecked Sendable {
             worldSnapshotRef: resultWorldState.observationHash,
             createdByAction: createdByAction
         )
-        return graph.recordExecution(
+        return try graph.recordExecution(
             edgeID: edgeID,
             resultNode: resultNode,
             latencyMs: latencyMs,
@@ -123,7 +126,9 @@ public final class TaskLedgerStore: @unchecked Sendable {
             case .abandoned: color = "gray"
             case .candidate: color = "blue"
             }
-            lines.append("  \"\(edge.fromNodeID)\" -> \"\(edge.toNodeID)\" [label=\"\(label)\" color=\(color)];")
+            lines.append(
+                "  \"\(edge.fromNodeID)\" -> \"\(edge.toNodeID)\" [label=\"\(label)\" color=\(color)];"
+            )
         }
 
         lines.append("}")
@@ -156,13 +161,16 @@ public final class TaskLedgerStore: @unchecked Sendable {
         }
         let edgeSuccessRates: [String: Any] = Dictionary(
             uniqueKeysWithValues: allEdges.filter { $0.attempts > 0 }.map { edge in
-                (edge.id, [
-                    "action": edge.action,
-                    "success_rate": edge.successProbability,
-                    "attempts": edge.attempts,
-                    "success_count": edge.successCount,
-                    "failure_count": edge.failureCount,
-                ] as [String: Any])
+                (
+                    edge.id,
+                    [
+                        "action": edge.action,
+                        "success_rate": edge.successProbability,
+                        "attempts": edge.attempts,
+                        "success_count": edge.successCount,
+                        "failure_count": edge.failureCount,
+                    ] as [String: Any]
+                )
             }
         )
         let currentNodeIDValue = graph.currentNodeID ?? ""

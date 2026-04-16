@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OracleOS
 
 @Suite("TaskLedger Substrate")
@@ -72,7 +73,7 @@ struct TaskGraphTests {
 
         node.attachMemoryRef("mem-1")
         node.attachMemoryRef("mem-2")
-        node.attachMemoryRef("mem-1") // duplicate
+        node.attachMemoryRef("mem-1")  // duplicate
         #expect(node.attachedMemoryRefs.count == 2)
     }
 
@@ -202,7 +203,7 @@ struct TaskGraphTests {
         // Second add should return the existing node, not create a new one
         #expect(added1.id == added2.id)
         #expect(graph.nodeCount == 1)
-        #expect(added1.visitCount == 2) // merged duplicate increments the existing node visit count
+        #expect(added1.visitCount == 2)  // merged duplicate increments the existing node visit count
     }
 
     @Test("TaskLedger does not merge nodes with different abstract states")
@@ -295,15 +296,20 @@ struct TaskGraphTests {
     @Test("TaskLedger alternate edges for recovery exclude the failed edge")
     func taskGraphAlternateEdges() {
         let graph = TaskLedger()
-        let nodeA = TaskRecord(abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
-        let nodeB = TaskRecord(abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
-        let nodeC = TaskRecord(abstractState: .buildRunning, planningStateID: PlanningStateID(rawValue: "C"))
+        let nodeA = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+        let nodeB = TaskRecord(
+            abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
+        let nodeC = TaskRecord(
+            abstractState: .buildRunning, planningStateID: PlanningStateID(rawValue: "C"))
         graph.addOrMergeNode(nodeA)
         graph.addOrMergeNode(nodeB)
         graph.addOrMergeNode(nodeC)
 
-        let edge1 = TaskRecordEdge(id: "e1", fromNodeID: nodeA.id, toNodeID: nodeB.id, action: "run_tests")
-        let edge2 = TaskRecordEdge(id: "e2", fromNodeID: nodeA.id, toNodeID: nodeC.id, action: "build")
+        let edge1 = TaskRecordEdge(
+            id: "e1", fromNodeID: nodeA.id, toNodeID: nodeB.id, action: "run_tests")
+        let edge2 = TaskRecordEdge(
+            id: "e2", fromNodeID: nodeA.id, toNodeID: nodeC.id, action: "build")
         graph.addEdge(edge1)
         graph.addEdge(edge2)
 
@@ -313,35 +319,57 @@ struct TaskGraphTests {
     }
 
     @Test("TaskLedger recordExecution advances current node")
-    func taskGraphRecordExecution() {
+    func taskGraphRecordExecution() throws {
         let graph = TaskLedger()
-        let nodeA = TaskRecord(abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
-        let nodeB = TaskRecord(abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
+        let nodeA = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+        let nodeB = TaskRecord(
+            abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
         graph.addOrMergeNode(nodeA)
         graph.setCurrent(nodeA.id)
 
-        let edge = TaskRecordEdge(id: "e1", fromNodeID: nodeA.id, toNodeID: nodeB.id, action: "run_tests")
+        let edge = TaskRecordEdge(
+            id: "e1", fromNodeID: nodeA.id, toNodeID: nodeB.id, action: "run_tests")
         graph.addEdge(edge)
 
-        let result = graph.recordExecution(edgeID: "e1", resultNode: nodeB, latencyMs: 150, cost: 1.0)
+        let result = try graph.recordExecution(
+            edgeID: "e1", resultNode: nodeB, latencyMs: 150, cost: 1.0)
         #expect(result.abstractState == .testsRunning)
         #expect(graph.currentNodeID == result.id)
         #expect(edge.status == .executedSuccess)
         #expect(edge.successCount == 1)
     }
 
+    @Test("TaskLedger recordExecution rejects unknown edges explicitly")
+    func taskGraphRecordExecutionRejectsUnknownEdge() {
+        let graph = TaskLedger()
+        let node = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+
+        do {
+            _ = try graph.recordExecution(edgeID: "missing", resultNode: node)
+            Issue.record("Expected recordExecution to reject an unknown edge")
+        } catch let error as TaskLedgerError {
+            #expect(error == .unknownEdge(edgeID: "missing"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("TaskLedger recordFailure does not advance current node")
     func taskGraphRecordFailure() {
         let graph = TaskLedger()
-        let nodeA = TaskRecord(abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+        let nodeA = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
         graph.addOrMergeNode(nodeA)
         graph.setCurrent(nodeA.id)
 
-        let edge = TaskRecordEdge(id: "e1", fromNodeID: nodeA.id, toNodeID: "B", action: "run_tests")
+        let edge = TaskRecordEdge(
+            id: "e1", fromNodeID: nodeA.id, toNodeID: "B", action: "run_tests")
         graph.addEdge(edge)
 
         graph.recordFailure(edgeID: "e1")
-        #expect(graph.currentNodeID == nodeA.id) // Did NOT advance
+        #expect(graph.currentNodeID == nodeA.id)  // Did NOT advance
         #expect(edge.status == .executedFailure)
     }
 
@@ -353,7 +381,8 @@ struct TaskGraphTests {
         _ = makePlanningState(id: "code|main", appID: "Xcode", taskPhase: "editing")
         let repo = makeRepoSnapshot()
         let ws = WorldState(
-            observation: Observation(app: "Xcode", windowTitle: "Project", url: nil, focusedElementID: nil, elements: []),
+            observation: Observation(
+                app: "Xcode", windowTitle: "Project", url: nil, focusedElementID: nil, elements: []),
             repositorySnapshot: repo
         )
         let state = abstractor.abstractState(from: ws)
@@ -368,7 +397,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "hash",
             planningState: ps,
-            observation: Observation(app: "Xcode", windowTitle: "Tests", url: nil, focusedElementID: nil, elements: []),
+            observation: Observation(
+                app: "Xcode", windowTitle: "Tests", url: nil, focusedElementID: nil, elements: []),
             repositorySnapshot: repo
         )
         let state = abstractor.abstractState(from: ws)
@@ -382,7 +412,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "hash",
             planningState: ps,
-            observation: Observation(app: "App", windowTitle: "Alert", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "Alert", url: nil, focusedElementID: nil, elements: [])
         )
         let state = abstractor.abstractState(from: ws)
         #expect(state == .modalDialogActive)
@@ -395,7 +426,9 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "hash",
             planningState: ps,
-            observation: Observation(app: "App", windowTitle: "Permission", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "Permission", url: nil, focusedElementID: nil, elements: []
+            )
         )
         let state = abstractor.abstractState(from: ws)
         #expect(state == .permissionDialogActive)
@@ -461,9 +494,15 @@ struct TaskGraphTests {
 
     @Test("LedgerScorer goal abstract state derivation from goal description")
     func graphScorerGoalDerivation() {
-        #expect(LedgerScorer.goalAbstractState(from: Goal(description: "fix failing tests")) == .testsPassed)
-        #expect(LedgerScorer.goalAbstractState(from: Goal(description: "build the project")) == .buildSucceeded)
-        #expect(LedgerScorer.goalAbstractState(from: Goal(description: "navigate to settings")) == .navigationCompleted)
+        #expect(
+            LedgerScorer.goalAbstractState(from: Goal(description: "fix failing tests"))
+                == .testsPassed)
+        #expect(
+            LedgerScorer.goalAbstractState(from: Goal(description: "build the project"))
+                == .buildSucceeded)
+        #expect(
+            LedgerScorer.goalAbstractState(from: Goal(description: "navigate to settings"))
+                == .navigationCompleted)
         #expect(LedgerScorer.goalAbstractState(from: Goal(description: "something random")) == nil)
     }
 
@@ -472,9 +511,12 @@ struct TaskGraphTests {
     @Test("LedgerNavigator expands paths from current node")
     func graphNavigatorExpand() {
         let graph = TaskLedger()
-        let nodeA = TaskRecord(abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
-        let nodeB = TaskRecord(abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
-        let nodeC = TaskRecord(abstractState: .testsPassed, planningStateID: PlanningStateID(rawValue: "C"))
+        let nodeA = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+        let nodeB = TaskRecord(
+            abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
+        let nodeC = TaskRecord(
+            abstractState: .testsPassed, planningStateID: PlanningStateID(rawValue: "C"))
         graph.addOrMergeNode(nodeA)
         graph.addOrMergeNode(nodeB)
         graph.addOrMergeNode(nodeC)
@@ -500,9 +542,12 @@ struct TaskGraphTests {
     @Test("LedgerNavigator bestNextEdge returns top-scoring first edge")
     func graphNavigatorBestEdge() {
         let graph = TaskLedger()
-        let nodeA = TaskRecord(abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
-        let nodeB = TaskRecord(abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
-        let nodeC = TaskRecord(abstractState: .buildRunning, planningStateID: PlanningStateID(rawValue: "C"))
+        let nodeA = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+        let nodeB = TaskRecord(
+            abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
+        let nodeC = TaskRecord(
+            abstractState: .buildRunning, planningStateID: PlanningStateID(rawValue: "C"))
         graph.addOrMergeNode(nodeA)
         graph.addOrMergeNode(nodeB)
         graph.addOrMergeNode(nodeC)
@@ -525,8 +570,10 @@ struct TaskGraphTests {
     @Test("LedgerNavigator avoids cycles in path expansion")
     func graphNavigatorNoCycles() {
         let graph = TaskLedger()
-        let nodeA = TaskRecord(abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
-        let nodeB = TaskRecord(abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
+        let nodeA = TaskRecord(
+            abstractState: .repoLoaded, planningStateID: PlanningStateID(rawValue: "A"))
+        let nodeB = TaskRecord(
+            abstractState: .testsRunning, planningStateID: PlanningStateID(rawValue: "B"))
         graph.addOrMergeNode(nodeA)
         graph.addOrMergeNode(nodeB)
 
@@ -557,7 +604,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "hash1",
             planningState: ps,
-            observation: Observation(app: "Chrome", windowTitle: "Browse", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "Chrome", windowTitle: "Browse", url: nil, focusedElementID: nil, elements: [])
         )
         let node = store.updateCurrentNode(worldState: ws)
 
@@ -566,13 +614,14 @@ struct TaskGraphTests {
     }
 
     @Test("TaskLedgerStore adds candidate edges and records executions")
-    func taskGraphStoreEdgeLifecycle() {
+    func taskGraphStoreEdgeLifecycle() throws {
         let store = TaskLedgerStore()
         let ps1 = makePlanningState(id: "s1", appID: "App", taskPhase: "browse")
         let ws1 = WorldState(
             observationHash: "h1",
             planningState: ps1,
-            observation: Observation(app: "App", windowTitle: "W1", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "W1", url: nil, focusedElementID: nil, elements: [])
         )
         store.updateCurrentNode(worldState: ws1)
 
@@ -590,10 +639,11 @@ struct TaskGraphTests {
         let ws2 = WorldState(
             observationHash: "h2",
             planningState: ps2,
-            observation: Observation(app: "App", windowTitle: "W2", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "W2", url: nil, focusedElementID: nil, elements: [])
         )
         if let edgeID = edge?.id {
-            let resultNode = store.recordVerifiedExecution(
+            let resultNode = try store.recordVerifiedExecution(
                 edgeID: edgeID,
                 resultWorldState: ws2,
                 latencyMs: 200,
@@ -610,7 +660,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "h1",
             planningState: ps,
-            observation: Observation(app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
         )
         store.updateCurrentNode(worldState: ws)
 
@@ -645,7 +696,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "h1",
             planningState: ps,
-            observation: Observation(app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
         )
         store.updateCurrentNode(worldState: ws)
         store.addCandidateEdge(
@@ -666,7 +718,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "h1",
             planningState: ps,
-            observation: Observation(app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
         )
         store.updateCurrentNode(worldState: ws)
 
@@ -685,7 +738,8 @@ struct TaskGraphTests {
         let ws = WorldState(
             observationHash: "h1",
             planningState: ps,
-            observation: Observation(app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
+            observation: Observation(
+                app: "App", windowTitle: "W", url: nil, focusedElementID: nil, elements: [])
         )
         store.updateCurrentNode(worldState: ws)
 
@@ -730,7 +784,8 @@ struct TaskGraphTests {
         let ws1 = WorldState(
             observationHash: "h1",
             planningState: ps1,
-            observation: Observation(app: "Xcode", windowTitle: "Editor", url: nil, focusedElementID: nil, elements: []),
+            observation: Observation(
+                app: "Xcode", windowTitle: "Editor", url: nil, focusedElementID: nil, elements: []),
             repositorySnapshot: repo
         )
         let startNode = store.updateCurrentNode(worldState: ws1)
@@ -772,10 +827,11 @@ struct TaskGraphTests {
         let ws2 = WorldState(
             observationHash: "h2",
             planningState: ps2,
-            observation: Observation(app: "Xcode", windowTitle: "Tests", url: nil, focusedElementID: nil, elements: []),
+            observation: Observation(
+                app: "Xcode", windowTitle: "Tests", url: nil, focusedElementID: nil, elements: []),
             repositorySnapshot: repo
         )
-        let resultNode = store.recordVerifiedExecution(
+        let resultNode = try store.recordVerifiedExecution(
             edgeID: chosenEdge.id,
             resultWorldState: ws2,
             latencyMs: 500,

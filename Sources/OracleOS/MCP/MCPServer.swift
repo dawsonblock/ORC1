@@ -4,8 +4,8 @@
 // Auto-detects transport: Content-Length framing (Claude Code) or NDJSON (Claude Desktop).
 // stdout is captured at init for exclusive MCP use; all other output goes to stderr.
 
-import ApplicationServices
 import AXorcist
+import ApplicationServices
 import Foundation
 
 /// MCP server that handles JSON-RPC messages over stdio.
@@ -26,7 +26,7 @@ public final class MCPServer {
     private enum Transport {
         case unknown
         case contentLength  // Content-Length: N\r\n\r\n{json}
-        case ndjson         // {json}\n
+        case ndjson  // {json}\n
     }
 
     public init() {
@@ -72,7 +72,15 @@ public final class MCPServer {
 
             case "tools/list":
                 if let id {
-                    writeResponse(id: id, result: ["tools": MCPTools.definitions()])
+                    do {
+                        writeResponse(id: id, result: ["tools": try MCPTools.definitions()])
+                    } catch {
+                        writeError(
+                            id: id,
+                            code: -32603,
+                            message: error.localizedDescription
+                        )
+                    }
                 }
 
             case "tools/call":
@@ -156,7 +164,7 @@ public final class MCPServer {
 
         // Parse content length
         guard let range = header.range(of: "Content-Length: "),
-              let endRange = header.range(of: "\r\n", range: range.upperBound..<header.endIndex)
+            let endRange = header.range(of: "\r\n", range: range.upperBound..<header.endIndex)
         else {
             Log.error("Malformed Content-Length header: \(header)")
             return nil
@@ -274,7 +282,8 @@ public final class MCPServer {
         }
 
         // Try loading from the source directory (development)
-        let binaryAncestor = ((binaryDir as NSString).deletingLastPathComponent as NSString).deletingLastPathComponent
+        let binaryAncestor = ((binaryDir as NSString).deletingLastPathComponent as NSString)
+            .deletingLastPathComponent
         let devPath = (binaryAncestor as NSString).appendingPathComponent("ORACLE-MCP.md")
         if let content = try? String(contentsOfFile: devPath, encoding: .utf8) {
             return content
@@ -282,9 +291,9 @@ public final class MCPServer {
 
         // Fallback minimal instructions
         return """
-        Oracle OS gives you eyes and hands on macOS. Call oracle_recipes first for multi-step tasks. \\
-        Call oracle_context before acting. Use oracle_find to locate elements. \\
-        Always pass the app parameter to action tools.
-        """
+            Oracle OS gives you eyes and hands on macOS. Call oracle_recipes first for multi-step tasks. \\
+            Call oracle_context before acting. Use oracle_find to locate elements. \\
+            Always pass the app parameter to action tools.
+            """
     }
 }

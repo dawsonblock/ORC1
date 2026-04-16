@@ -9,6 +9,7 @@ This file is the current truth ledger for the repository.
 - The supported main-path execution spine is `RuntimeBootstrap -> RuntimeOrchestrator -> MainPlanner -> VerifiedExecutor -> CommandRouter -> UIRouter / CodeRouter -> CommitCoordinator`.
 - MCP transport is typed after decode: the JSON-RPC edge may still use `[String: Any]`, but normal MCP dispatch uses `MCPToolRequest`, `JSONValue`, typed category payload structs, and shared export helpers.
 - MCP tool definitions are authored as typed Swift schema values and exported to the legacy MCP dictionary shape in one place.
+- `scripts/verify-build.sh`, `scripts/build-release.sh`, and `scripts/build-controller-app.sh` now share one Swift toolchain bootstrap path and use resolved build-product discovery instead of guessed canonical `.build/...` CLI artifact paths.
 - `oracle_experiment_search` remains a bounded side path and records explicit sandbox evidence, canonical roots, executed commands, and cleanup outcome.
 - Experiment result ranking resolves equal-score ties through canonical candidate ordering rather than incidental candidate IDs or caller-supplied input order.
 - Experiment diagnostics recover persisted search results from workspace roots derived from repository snapshots or sandbox paths and omit experiment execution metadata when persisted evidence is unavailable.
@@ -50,6 +51,7 @@ Verified details from the canonical local proof surface:
 Verification notes:
 
 - `scripts/verify-build.sh` now auto-prefers `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` via `xcrun` when full Xcode is installed. That is the working local proof path on this machine.
+- Canonical CLI smoke in `scripts/verify-build.sh` and release packaging in `scripts/build-release.sh` now resolve the `oracle` binary through SwiftPM's reported bin path instead of assuming `.build/release/oracle`.
 - The Command Line Tools-selected `swift` toolchain on this machine does not satisfy the full SwiftPM test path for this checkout by itself.
 - The canonical local proof surface remains `local/verify/latest/`.
 

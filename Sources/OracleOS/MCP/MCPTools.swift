@@ -93,17 +93,27 @@ public struct MCPPropertyItemsSchema: Encodable, Sendable {
     }
 }
 
+public enum MCPToolCatalogError: Error, Sendable, Equatable, LocalizedError {
+    case legacyEncodingFailed(name: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .legacyEncodingFailed(let name):
+            return
+                "Failed to encode MCP tool definition '\(name)' for the legacy tools/list response."
+        }
+    }
+}
+
 /// Tool definitions for the MCP server.
 public enum MCPTools {
 
     /// All tool definitions as MCP-compatible dictionaries.
     @MainActor
-    public static func definitions() -> [[String: Any]] {
-        allDefinitions.map { definition in
+    public static func definitions() throws -> [[String: Any]] {
+        try allDefinitions.map { definition in
             guard let legacyDictionary = definition.legacyDictionary else {
-                preconditionFailure(
-                    "Failed to encode MCP tool definition '\(definition.name)' to legacy dictionary. Refusing to return a partial MCP tools list."
-                )
+                throw MCPToolCatalogError.legacyEncodingFailed(name: definition.name)
             }
             return legacyDictionary
         }

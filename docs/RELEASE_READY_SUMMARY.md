@@ -21,6 +21,7 @@
 ## Residual Notes
 
 - The supported local proof path now auto-prefers `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` via `xcrun` when full Xcode is installed.
+- Release packaging and controller packaging now share the same Swift bootstrap helper as the canonical verifier and resolve built products through SwiftPM's reported bin path.
 - `.github/workflows/ci.yml` remains the canonical shared proof surface; `architecture.yml` and `controller-release.yml` remain supplemental enforcement and packaging workflows.
 - `web/` remains demo/dev scaffolding and is not part of the supported operator contract.
 - `vision-sidecar/` remains optional and experimental.

@@ -91,15 +91,23 @@ The controller's readiness contract: Accessibility and Screen Recording permissi
 ### CLI Commands
 
 ```bash
-./.build/debug/oracle setup
-./.build/debug/oracle doctor
-./.build/debug/oracle dashboard
-./.build/debug/oracle status
-./.build/debug/oracle version
-./.build/debug/oracle help
+swift run oracle -- setup
+swift run oracle -- doctor
+swift run oracle -- dashboard
+swift run oracle -- status
+swift run oracle -- version
+swift run oracle -- help
 ```
 
 `oracle mcp` launches the MCP surface. `oracle dashboard` prints a non-interactive terminal dashboard snapshot.
+
+For packaged or release-staged installs, run the same commands through the installed `oracle` binary on your `PATH`.
+
+Canonical release packaging from source lives in:
+
+```bash
+./scripts/build-release.sh
+```
 
 On the MCP surface, `MCPDispatch` is the single public entry point and `MCPRuntimeHost` is the reusable runtime owner behind it.
 `MCPRuntimeHost` still performs eager workspace binding for compatibility with the memory tools, but live planning now resolves workspace context inside `RuntimeOrchestrator` per intent.

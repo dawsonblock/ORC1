@@ -100,10 +100,10 @@ Run the `Oracle Controller` or `Oracle Controller DMG` scheme from the workspace
 swift run OracleController
 ```
 
-If the controller cannot locate the host binary automatically, set:
+If the controller cannot locate the host binary automatically, use the development-only override below. This override is authoritative when set, so clear it before returning to the packaged app flow.
 
 ```bash
-export ORACLE_CONTROLLER_HOST_PATH="$PWD/.build/debug/OracleControllerHost"
+export ORACLE_CONTROLLER_HOST_PATH="$(swift build -c debug --product OracleControllerHost --show-bin-path)/OracleControllerHost"
 ```
 
 ### Build the packaged app and DMG
@@ -134,6 +134,8 @@ Local notarization helper:
 CI automation lives in:
 
 - `.github/workflows/controller-release.yml`
+
+The packaged app flow is the supported controller distribution path. The `ORACLE_CONTROLLER_HOST_PATH` override above is for source-build debugging only and remains lower-precedence than the bundled helper when the variable is unset.
 
 ## Source Layout
 

@@ -146,6 +146,8 @@ The CLI-only setup and diagnostics paths follow the same rule. `oracle setup` an
 
 Canonical local proof comes from [../scripts/verify-build.sh](../scripts/verify-build.sh) in a valid environment. The script is fail-fast, rejects unsupported non-macOS runtime verification, and writes environment, build, CLI smoke, test, and summary artifacts to `local/verify/latest/`.
 
+The source-build packaging scripts [../scripts/build-release.sh](../scripts/build-release.sh) and [../scripts/build-controller-app.sh](../scripts/build-controller-app.sh) now share the same Swift toolchain bootstrap helper as the verifier and resolve built products through `swift build --show-bin-path` rather than guessed `.build/...` artifact paths.
+
 The verifier runs `scripts/cli_contract_guard.py` alongside the existing boundary guards so the documented CLI command list, the `main.swift` switch, and the printed usage output cannot silently drift apart.
 
 Canonical shared proof comes from `.github/workflows/ci.yml`, which runs the same verifier path and publishes `local/verify/latest/` as the `canonical-verify-evidence` CI artifact.

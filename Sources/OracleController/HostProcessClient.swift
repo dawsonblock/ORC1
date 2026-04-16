@@ -3,7 +3,7 @@ import OracleControllerShared
 import OracleOS
 
 enum HostClientError: LocalizedError, Equatable {
-    case hostBinaryNotFound
+    case hostBinaryNotFound(path: String?)
     case hostBinaryNotRunnable(path: String)
     case hostLaunchFailed(message: String)
     case hostPipeUnavailable
@@ -13,20 +13,27 @@ enum HostClientError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .hostBinaryNotFound:
-            return "OracleControllerHost could not be found. Install the bundled app helper or set ORACLE_CONTROLLER_HOST_PATH for development."
-        case let .hostBinaryNotRunnable(path):
-            return "OracleControllerHost exists at \(path) but is not executable. Check file permissions or the override path."
-        case let .hostLaunchFailed(message):
+        case .hostBinaryNotFound(let path):
+            if let path {
+                return
+                    "OracleControllerHost override path \(path) could not be found. Rebuild the host helper or clear ORACLE_CONTROLLER_HOST_PATH."
+            }
+            return
+                "OracleControllerHost could not be found. Install the bundled app helper or set ORACLE_CONTROLLER_HOST_PATH for development."
+        case .hostBinaryNotRunnable(let path):
+            return
+                "OracleControllerHost exists at \(path) but is not executable. Check file permissions or the override path."
+        case .hostLaunchFailed(let message):
             return "OracleControllerHost failed to launch. \(message)"
         case .hostPipeUnavailable:
             return "OracleControllerHost pipes are unavailable."
-        case let .hostExited(status):
+        case .hostExited(let status):
             if let status {
-                return "OracleControllerHost exited with status \(status). Retry to relaunch the local bridge."
+                return
+                    "OracleControllerHost exited with status \(status). Retry to relaunch the local bridge."
             }
             return "OracleControllerHost stopped responding. Retry to relaunch the local bridge."
-        case let .hostProtocolViolation(message):
+        case .hostProtocolViolation(let message):
             return "OracleControllerHost returned an invalid response. \(message)"
         case .requestCancelled:
             return "The request was cancelled before the host responded."
@@ -53,6 +60,45 @@ enum HostClientError: LocalizedError, Equatable {
     }
 }
 
+struct HostProcessResolutionContext: Sendable {
+    let environment: [String: String]
+    let bundledHelperURL: URL?
+    let siblingHelperURL: URL
+    let developerFallbackURLs: [URL]
+    let launchCurrentDirectoryURL: URL
+
+    static func live(fileManager: FileManager = .default) -> Self {
+        let executableURL = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        let currentDirectoryURL = URL(
+            fileURLWithPath: fileManager.currentDirectoryPath,
+            isDirectory: true
+        )
+
+        return HostProcessResolutionContext(
+            environment: ProcessInfo.processInfo.environment,
+            bundledHelperURL: OracleProductPaths.bundledHelperURL,
+            siblingHelperURL:
+                executableURL
+                .deletingLastPathComponent()
+                .appendingPathComponent("OracleControllerHost"),
+            developerFallbackURLs: developerFallbackURLs(from: currentDirectoryURL),
+            launchCurrentDirectoryURL: OracleProductPaths.runningFromAppBundle
+                ? OracleProductPaths.dataRootDirectory
+                : currentDirectoryURL
+        )
+    }
+
+    static func developerFallbackURLs(from currentDirectoryURL: URL) -> [URL] {
+        [
+            currentDirectoryURL.appendingPathComponent(".build/debug/OracleControllerHost"),
+            currentDirectoryURL.appendingPathComponent(
+                ".build/arm64-apple-macosx/debug/OracleControllerHost"),
+            currentDirectoryURL.appendingPathComponent(
+                ".build/x86_64-apple-macosx/debug/OracleControllerHost"),
+        ]
+    }
+}
+
 actor HostProcessClient {
     typealias EventHandler = @MainActor @Sendable (ControllerHostEvent) -> Void
     typealias LifecycleHandler = @MainActor @Sendable (HostConnectionStatus) -> Void
@@ -61,18 +107,27 @@ actor HostProcessClient {
     private let decoder: JSONDecoder
     private let eventHandler: EventHandler
     private let lifecycleHandler: LifecycleHandler
+    private let hostResolutionContext: @Sendable () -> HostProcessResolutionContext
 
     private var process: DaemonProcess?
     private var stdinHandle: FileHandle?
     private var stdoutHandle: FileHandle?
     private var readTask: Task<Void, Never>?
-    private var pendingResponses: [String: CheckedContinuation<ControllerHostResponse, any Error>] = [:]
+    private var pendingResponses: [String: CheckedContinuation<ControllerHostResponse, any Error>] =
+        [:]
     private var lifecycleStatus: HostConnectionStatus = .idle
     private var lastTerminationStatus: Int32?
 
-    init(eventHandler: @escaping EventHandler, lifecycleHandler: @escaping LifecycleHandler) {
+    init(
+        eventHandler: @escaping EventHandler,
+        lifecycleHandler: @escaping LifecycleHandler,
+        hostResolutionContext: @escaping @Sendable () -> HostProcessResolutionContext = {
+            HostProcessResolutionContext.live()
+        }
+    ) {
         self.eventHandler = eventHandler
         self.lifecycleHandler = lifecycleHandler
+        self.hostResolutionContext = hostResolutionContext
         self.encoder = ControllerJSONCoding.makeEncoder(outputFormatting: [.sortedKeys])
         self.decoder = ControllerJSONCoding.makeDecoder()
     }
@@ -124,21 +179,21 @@ actor HostProcessClient {
 
         updateLifecycle(.launching)
 
+        let resolutionContext = hostResolutionContext()
         let hostURL: URL
         do {
-            hostURL = try resolveHostURL()
+            hostURL = try Self.resolveHostURL(using: resolutionContext)
         } catch {
             updateLifecycleIfNeeded(for: error)
             throw error
         }
 
-        let currentDir = OracleProductPaths.runningFromAppBundle
-            ? OracleProductPaths.dataRootDirectory
-            : URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-
         let process: DaemonProcess
         do {
-            process = try DaemonProcess(executableURL: hostURL, currentDirectoryURL: currentDir)
+            process = try DaemonProcess(
+                executableURL: hostURL,
+                currentDirectoryURL: resolutionContext.launchCurrentDirectoryURL
+            )
         } catch {
             let launchError = HostClientError.hostLaunchFailed(message: error.localizedDescription)
             updateLifecycleIfNeeded(for: launchError)
@@ -158,22 +213,25 @@ actor HostProcessClient {
         startReadLoop(process.stdoutHandle)
     }
 
-    private func resolveHostURL() throws -> URL {
+    static func resolveHostURL(
+        using context: HostProcessResolutionContext,
+        fileManager: FileManager = .default
+    ) throws -> URL {
         let fileManager = FileManager.default
         var firstNonRunnablePath: String?
 
         func rememberIfNonRunnable(_ url: URL) {
             guard firstNonRunnablePath == nil,
-                  fileManager.fileExists(atPath: url.path),
-                  !fileManager.isExecutableFile(atPath: url.path)
+                fileManager.fileExists(atPath: url.path),
+                !fileManager.isExecutableFile(atPath: url.path)
             else {
                 return
             }
             firstNonRunnablePath = url.path
         }
 
-        if let override = ProcessInfo.processInfo.environment["ORACLE_CONTROLLER_HOST_PATH"],
-           !override.isEmpty
+        if let override = context.environment["ORACLE_CONTROLLER_HOST_PATH"],
+            !override.isEmpty
         {
             let url = URL(fileURLWithPath: NSString(string: override).expandingTildeInPath)
             if fileManager.isExecutableFile(atPath: url.path) {
@@ -182,23 +240,17 @@ actor HostProcessClient {
             if fileManager.fileExists(atPath: url.path) {
                 throw HostClientError.hostBinaryNotRunnable(path: url.path)
             }
+            throw HostClientError.hostBinaryNotFound(path: url.path)
         }
 
-        if let bundledHelperURL = OracleProductPaths.bundledHelperURL {
+        if let bundledHelperURL = context.bundledHelperURL {
             if fileManager.isExecutableFile(atPath: bundledHelperURL.path) {
                 return bundledHelperURL
             }
             rememberIfNonRunnable(bundledHelperURL)
         }
 
-        let executableURL = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
-        let currentDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-        let candidates = [
-            executableURL.deletingLastPathComponent().appendingPathComponent("OracleControllerHost"),
-            currentDirectory.appendingPathComponent(".build/debug/OracleControllerHost"),
-            currentDirectory.appendingPathComponent(".build/arm64-apple-macosx/debug/OracleControllerHost"),
-            currentDirectory.appendingPathComponent(".build/x86_64-apple-macosx/debug/OracleControllerHost"),
-        ]
+        let candidates = [context.siblingHelperURL] + context.developerFallbackURLs
 
         for candidate in candidates {
             if fileManager.isExecutableFile(atPath: candidate.path) {
@@ -211,7 +263,7 @@ actor HostProcessClient {
             throw HostClientError.hostBinaryNotRunnable(path: firstNonRunnablePath)
         }
 
-        throw HostClientError.hostBinaryNotFound
+        throw HostClientError.hostBinaryNotFound(path: nil)
     }
 
     private func startReadLoop(_ handle: FileHandle) {
@@ -238,7 +290,7 @@ actor HostProcessClient {
         updateLifecycle(.connected)
 
         if let response = envelope.response,
-           let continuation = pendingResponses.removeValue(forKey: response.requestID)
+            let continuation = pendingResponses.removeValue(forKey: response.requestID)
         {
             continuation.resume(returning: response)
             return
@@ -309,7 +361,7 @@ actor HostProcessClient {
 
     private func updateLifecycleIfNeeded(for error: any Error) {
         guard let hostError = error as? HostClientError,
-              let status = hostError.connectionStatus
+            let status = hostError.connectionStatus
         else {
             return
         }
