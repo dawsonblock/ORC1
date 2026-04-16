@@ -57,6 +57,10 @@ public final class CodePlanner: @unchecked Sendable {
             worldState.repositorySnapshot
             ?? repositoryIndexer.indexIfNeeded(
                 workspaceRoot: URL(fileURLWithPath: workspaceRoot, isDirectory: true))
+        let planningTaskContext = enrichedRepairTaskContext(
+            from: taskContext,
+            snapshot: snapshot
+        )
         let enrichedWorldState = WorldState(
             observationHash: worldState.observationHash,
             planningState: worldState.planningState,
@@ -67,15 +71,15 @@ public final class CodePlanner: @unchecked Sendable {
         )
         let memoryInfluence = MemoryRouter(memoryStore: memoryStore).influence(
             for: MemoryQueryContext(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: enrichedWorldState,
-                errorSignature: taskContext.goal.description
+                errorSignature: planningTaskContext.goal.description
             )
         )
-        let description = taskContext.goal.description.lowercased()
+        let description = planningTaskContext.goal.description.lowercased()
         let projectMemorySignals = memoryInfluence.projectMemorySignals
         let candidatePaths = likelyCandidatePaths(
-            taskContext: taskContext,
+            taskContext: planningTaskContext,
             snapshot: snapshot,
             memoryInfluence: memoryInfluence
         )
@@ -83,7 +87,7 @@ public final class CodePlanner: @unchecked Sendable {
         let projectMemoryRefs = projectMemorySignals.refs
         let projectMemoryContext = ProjectMemoryPlanningContext(refs: projectMemoryRefs)
         let architectureReview = architectureEngine.review(
-            goalDescription: taskContext.goal.description,
+            goalDescription: planningTaskContext.goal.description,
             snapshot: snapshot,
             candidatePaths: candidatePaths
         )
@@ -91,7 +95,7 @@ public final class CodePlanner: @unchecked Sendable {
             "workflow retrieval, stable graph path reuse, and candidate graph reuse were unavailable"
 
         if let workflowDecision = workflowDecision(
-            taskContext: taskContext,
+            taskContext: planningTaskContext,
             worldState: worldState,
             projectMemoryRefs: projectMemoryRefs,
             memoryStore: memoryStore,
@@ -101,7 +105,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
 
         if let graphDecision = graphDecision(
-            taskContext: taskContext,
+            taskContext: planningTaskContext,
             worldState: worldState,
             snapshot: snapshot,
             graphStore: graphStore,
@@ -115,7 +119,7 @@ public final class CodePlanner: @unchecked Sendable {
 
         if isRepairGoal,
             let repairDecision = repairDecision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 snapshot: snapshot,
                 projectMemoryRefs: projectMemoryRefs,
@@ -131,7 +135,7 @@ public final class CodePlanner: @unchecked Sendable {
 
         if description.contains("push") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "git_push",
                 snapshot: snapshot,
@@ -143,7 +147,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
         if description.contains("commit") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "git_commit",
                 snapshot: snapshot,
@@ -154,7 +158,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
         if description.contains("branch") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "git_branch",
                 snapshot: snapshot,
@@ -165,7 +169,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
         if description.contains("format") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "run_formatter",
                 snapshot: snapshot,
@@ -176,7 +180,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
         if description.contains("lint") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "run_linter",
                 snapshot: snapshot,
@@ -187,7 +191,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
         if description.contains("build") || description.contains("compile") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "run_build",
                 snapshot: snapshot,
@@ -198,7 +202,7 @@ public final class CodePlanner: @unchecked Sendable {
         }
         if description.contains("test") || description.contains("failing") {
             return decision(
-                taskContext: taskContext,
+                taskContext: planningTaskContext,
                 worldState: worldState,
                 for: "run_tests",
                 snapshot: snapshot,
@@ -208,7 +212,7 @@ public final class CodePlanner: @unchecked Sendable {
             )
         }
         return decision(
-            taskContext: taskContext,
+            taskContext: planningTaskContext,
             worldState: worldState,
             for: "read_repository",
             snapshot: snapshot,
@@ -216,6 +220,53 @@ public final class CodePlanner: @unchecked Sendable {
             architectureReview: architectureReview,
             fallbackReason: explorationFallbackReason,
             notes: ["default repository inspection"] + projectMemorySignals.riskSummaries
+        )
+    }
+
+    private func enrichedRepairTaskContext(
+        from taskContext: TaskContext,
+        snapshot: RepositorySnapshot
+    ) -> TaskContext {
+        guard taskContext.experimentCandidates.isEmpty else {
+            return taskContext
+        }
+
+        let description = taskContext.goal.description.lowercased()
+        guard repairGoal(description) else {
+            return taskContext
+        }
+
+        let pipeline = PatchPipeline(
+            impactPredictor: PatchImpactPredictor(impactAnalyzer: impactAnalyzer)
+        )
+        let candidates = Array(
+            pipeline.run(
+                failureDescription: taskContext.goal.description,
+                snapshot: snapshot
+            ).candidates.prefix(taskContext.maxExperimentCandidates)
+        )
+        guard !candidates.isEmpty else {
+            return taskContext
+        }
+
+        let enrichedGoal = Goal(
+            description: taskContext.goal.description,
+            targetApp: taskContext.goal.targetApp,
+            targetDomain: taskContext.goal.targetDomain,
+            targetTaskPhase: taskContext.goal.targetTaskPhase,
+            workspaceRoot: taskContext.goal.workspaceRoot,
+            preferredAgentKind: taskContext.goal.preferredAgentKind,
+            experimentCandidates: candidates
+        )
+        return TaskContext(
+            goal: enrichedGoal,
+            agentKind: taskContext.agentKind,
+            workspaceRoot: taskContext.workspaceRoot,
+            phases: taskContext.phases,
+            projectMemoryRoot: taskContext.projectMemoryRoot,
+            experimentsRoot: taskContext.experimentsRoot,
+            maxExperimentCandidates: taskContext.maxExperimentCandidates,
+            experimentCandidates: candidates
         )
     }
 

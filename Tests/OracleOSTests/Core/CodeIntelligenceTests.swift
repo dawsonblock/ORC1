@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import OracleOS
 
 @Suite("Code Intelligence")
@@ -13,12 +14,17 @@ struct CodeIntelligenceTests {
         #expect(snapshot.symbolGraph.nodes.contains(where: { $0.name == "Calculator" }))
         #expect(snapshot.symbolGraph.nodes.contains(where: { $0.name == "helper" }))
         #expect(snapshot.callGraph.edges.isEmpty == false)
-        #expect(snapshot.testGraph.tests.contains(where: { $0.path == "Tests/ExampleTests/CalculatorTests.swift" }))
+        #expect(
+            snapshot.testGraph.tests.contains(where: {
+                $0.path == "Tests/ExampleTests/CalculatorTests.swift"
+            }))
         #expect(snapshot.testGraph.edges.isEmpty == false)
         #expect(snapshot.buildGraph.targets.contains(where: { $0.name == "Example" }))
         #expect(snapshot.indexDiagnostics.fileCount >= 4)
         #expect(snapshot.indexDiagnostics.symbolCount >= 4)
-        #expect(FileManager.default.fileExists(atPath: workspace.appendingPathComponent(".oracle/repo_index.json").path))
+        #expect(
+            FileManager.default.fileExists(
+                atPath: workspace.appendingPathComponent(".oracle/repo_index.json").path))
     }
 
     @Test("Code query engine traces a failing test back to likely source")
@@ -38,7 +44,8 @@ struct CodeIntelligenceTests {
         let workspace = try makeRepositoryWorkspace()
         let snapshot = RepositoryIndexer().index(workspaceRoot: workspace)
         let ranked = RootCauseAnalyzer().analyze(
-            failureDescription: "AssertionError: testCalculatorDouble failed in helper with an unexpected result",
+            failureDescription:
+                "AssertionError: testCalculatorDouble failed in helper with an unexpected result",
             in: snapshot
         )
 
@@ -56,7 +63,10 @@ struct CodeIntelligenceTests {
             in: snapshot
         )
 
-        #expect(impact.affectedTests.contains(where: { $0.path == "Tests/ExampleTests/CalculatorTests.swift" }))
+        #expect(
+            impact.affectedTests.contains(where: {
+                $0.path == "Tests/ExampleTests/CalculatorTests.swift"
+            }))
         #expect(impact.buildTargets.contains(where: { $0.name == "Example" }))
         #expect(impact.blastRadiusScore > 0)
     }
@@ -75,21 +85,24 @@ struct CodeIntelligenceTests {
                 title: "Fix source",
                 summary: "Repair Calculator.swift directly.",
                 workspaceRelativePath: "Sources/Example/Calculator.swift",
-                content: "public struct Calculator {\n    public func double(_ value: Int) -> Int { helper(value) }\n}\n\nfunc helper(_ value: Int) -> Int {\n    value * 2\n}\n"
+                content:
+                    "public struct Calculator {\n    public func double(_ value: Int) -> Int { helper(value) }\n}\n\nfunc helper(_ value: Int) -> Int {\n    value * 2\n}\n"
             ),
             CandidatePatch(
                 id: "test-fix",
                 title: "Patch test",
                 summary: "Change the expectation in the test.",
                 workspaceRelativePath: "Tests/ExampleTests/CalculatorTests.swift",
-                content: "import Example\n\nfunc testCalculatorDouble() {\n    let calculator = Calculator()\n    #expect(calculator.double(2) == 3)\n}\n"
+                content:
+                    "import Example\n\nfunc testCalculatorDouble() {\n    let calculator = Calculator()\n    #expect(calculator.double(2) == 3)\n}\n"
             ),
             CandidatePatch(
                 id: "unrelated",
                 title: "Touch unrelated utility",
                 summary: "Edit an unrelated file.",
                 workspaceRelativePath: "Sources/Example/Formatting.swift",
-                content: "struct Formatting {\n    static func display(_ value: Int) -> String { \"\\(value)\" }\n}\n"
+                content:
+                    "struct Formatting {\n    static func display(_ value: Int) -> String { \"\\(value)\" }\n}\n"
             ),
         ]
 
@@ -103,7 +116,9 @@ struct CodeIntelligenceTests {
             workspaceRoot: workspace
         )
         let worldState = WorldState(
-            observation: Observation(app: "Workspace", windowTitle: "Workspace", url: nil, focusedElementID: nil, elements: []),
+            observation: Observation(
+                app: "Workspace", windowTitle: "Workspace", url: nil, focusedElementID: nil,
+                elements: []),
             repositorySnapshot: snapshot
         )
 
@@ -115,8 +130,56 @@ struct CodeIntelligenceTests {
         )
 
         #expect(decision?.executionMode == .experiment)
-        #expect(decision?.experimentSpec?.candidates.first?.workspaceRelativePath == "Sources/Example/Calculator.swift")
-        #expect(decision?.experimentSpec?.candidates.contains(where: { $0.workspaceRelativePath == "Sources/Example/Formatting.swift" }) == false)
+        #expect(
+            decision?.experimentSpec?.candidates.first?.workspaceRelativePath
+                == "Sources/Example/Calculator.swift")
+        #expect(
+            decision?.experimentSpec?.candidates.contains(where: {
+                $0.workspaceRelativePath == "Sources/Example/Formatting.swift"
+            }) == false)
+    }
+
+    @Test("Code planner synthesizes experiment candidates from PatchPipeline when absent")
+    func codePlannerSynthesizesExperimentCandidatesFromPatchPipeline() throws {
+        let workspace = try makeRepositoryWorkspace()
+        let planner = CodePlanner()
+        let graphStore = GraphStore(databaseURL: makeTempGraphURL())
+        let memoryStore = UnifiedMemoryStore(appMemory: StrategyMemory())
+        let snapshot = RepositoryIndexer().index(workspaceRoot: workspace)
+
+        let taskContext = TaskContext.from(
+            goal: Goal(
+                description: "compare fixes for failing testCalculatorDouble in Calculator.swift",
+                workspaceRoot: workspace.path,
+                preferredAgentKind: .code
+            ),
+            workspaceRoot: workspace
+        )
+        let worldState = WorldState(
+            observation: Observation(
+                app: "Workspace", windowTitle: "Workspace", url: nil, focusedElementID: nil,
+                elements: []),
+            repositorySnapshot: snapshot
+        )
+
+        let decision = planner.nextStep(
+            taskContext: taskContext,
+            worldState: worldState,
+            graphStore: graphStore,
+            memoryStore: memoryStore
+        )
+
+        let experimentSpec = try #require(decision?.experimentSpec)
+        #expect(decision?.executionMode == .experiment)
+        #expect(experimentSpec.candidates.isEmpty == false)
+        #expect(
+            experimentSpec.candidates.first?.workspaceRelativePath
+                == "Sources/Example/Calculator.swift")
+        #expect(experimentSpec.candidates.first?.evaluation?.testsFixed == 1)
+        #expect(
+            experimentSpec.candidates.allSatisfy {
+                $0.workspaceRelativePath == "Sources/Example/Calculator.swift"
+            })
     }
 
     @Test("Repository indexer reuses persisted snapshot until repository changes")
@@ -165,7 +228,8 @@ struct CodeIntelligenceTests {
 
         #expect(diagnostics.repositoryIndexes.count == 1)
         #expect(diagnostics.repositoryIndexes.first?.workspaceRoot == workspace.path)
-        #expect(diagnostics.repositoryIndexes.first?.symbolCount == snapshot.symbolGraph.nodes.count)
+        #expect(
+            diagnostics.repositoryIndexes.first?.symbolCount == snapshot.symbolGraph.nodes.count)
     }
 
     private func makeRepositoryWorkspace() throws -> URL {
@@ -260,7 +324,8 @@ struct CodeIntelligenceTests {
     }
 
     private func makeTempDirectory() -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
