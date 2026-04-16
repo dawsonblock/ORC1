@@ -141,8 +141,90 @@ extension MainPlanner: Planner {
         )
     }
 
-    private func repairTraceTags(for candidates: [CandidatePatch]) -> [String] {
-        guard let primaryPath = candidates.first?.workspaceRelativePath else {
+    private func explicitObjectivePaths(intent: Intent, context: PlannerContext) -> [String] {
+        guard let snapshot = context.repositorySnapshot else {
+            return []
+        }
+
+        let regex = try? NSRegularExpression(
+            pattern: #"[A-Za-z0-9_./-]+\.(swift|ts|tsx|js|jsx|py)"#
+        )
+        let range = NSRange(
+            intent.objective.startIndex..<intent.objective.endIndex, in: intent.objective)
+        let matches = regex?.matches(in: intent.objective, range: range) ?? []
+        let candidates = matches.compactMap { match -> String? in
+            guard let pathRange = Range(match.range, in: intent.objective) else {
+                return nil
+            }
+            return String(intent.objective[pathRange])
+        }
+
+        let knownPaths = Set(snapshot.files.filter { !$0.isDirectory }.map(\.path))
+        var seen = Set<String>()
+        return candidates.filter { candidate in
+            knownPaths.contains(candidate) && seen.insert(candidate).inserted
+        }
+    }
+
+    private func preferredRepairPath(
+        intent: Intent, context: PlannerContext, candidates: [CandidatePatch]
+    )
+        -> String?
+    {
+        let explicitPaths = explicitObjectivePaths(intent: intent, context: context)
+        if let explicitCandidatePath = explicitPaths.first(where: { explicitPath in
+            candidates.contains(where: { $0.workspaceRelativePath == explicitPath })
+        }) {
+            return explicitCandidatePath
+        }
+        if let explicitPath = explicitPaths.first {
+            return explicitPath
+        }
+
+        let groupedByPath = Dictionary(grouping: candidates, by: \.workspaceRelativePath)
+        return
+            groupedByPath
+            .map { path, groupedCandidates in
+                let bestConfidence =
+                    groupedCandidates.compactMap(\.faultLocationConfidence).max() ?? 0
+                let bestTestsFixed =
+                    groupedCandidates.compactMap { $0.evaluation?.testsFixed }.max() ?? 0
+                let lowestRegressions =
+                    groupedCandidates.compactMap { $0.evaluation?.regressions }.min() ?? .max
+                let lowestDependencyImpact =
+                    groupedCandidates.compactMap {
+                        $0.evaluation?.dependencyImpact
+                    }.min() ?? .max
+                return (
+                    path: path,
+                    bestConfidence: bestConfidence,
+                    bestTestsFixed: bestTestsFixed,
+                    lowestRegressions: lowestRegressions,
+                    lowestDependencyImpact: lowestDependencyImpact
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.bestConfidence != rhs.bestConfidence {
+                    return lhs.bestConfidence > rhs.bestConfidence
+                }
+                if lhs.bestTestsFixed != rhs.bestTestsFixed {
+                    return lhs.bestTestsFixed > rhs.bestTestsFixed
+                }
+                if lhs.lowestRegressions != rhs.lowestRegressions {
+                    return lhs.lowestRegressions < rhs.lowestRegressions
+                }
+                if lhs.lowestDependencyImpact != rhs.lowestDependencyImpact {
+                    return lhs.lowestDependencyImpact < rhs.lowestDependencyImpact
+                }
+                return lhs.path < rhs.path
+            }
+            .first?
+            .path
+    }
+
+    private func repairTraceTags(for candidates: [CandidatePatch], primaryPath: String?) -> [String]
+    {
+        guard let primaryPath else {
             return []
         }
         return [
@@ -228,8 +310,15 @@ extension MainPlanner: Planner {
         let baseQuery = intent.metadata["query"] ?? intent.objective
         let searchQuery = moduleHint.map { "\($0) \(baseQuery)" } ?? baseQuery
         let repairCandidates = groundedRepairCandidates(intent: intent, context: context)
-        let primaryRepairPath = repairCandidates.first?.workspaceRelativePath
-        let repairTraceTags = repairTraceTags(for: repairCandidates)
+        let primaryRepairPath = preferredRepairPath(
+            intent: intent,
+            context: context,
+            candidates: repairCandidates
+        )
+        let repairTraceTags = repairTraceTags(
+            for: repairCandidates,
+            primaryPath: primaryRepairPath
+        )
         let hintedPath = moduleHint.flatMap { hint -> String? in
             let trimmed = hint.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, trimmed.contains("/") || trimmed.contains(".") else {
