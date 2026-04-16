@@ -2,29 +2,6 @@ import Foundation
 
 // MARK: - PatchPipeline result types
 
-/// A ranked candidate patch selected by the pipeline.
-///
-/// Ranking is advisory. The surrounding workflow still decides whether this
-/// candidate should be applied, validated more deeply, or rejected.
-public struct RankedPatch: Sendable {
-    /// Target file path relative to the workspace root.
-    public let workspaceRelativePath: String
-    /// Candidate replacement content proposed by the strategy.
-    public let proposedContent: String
-    /// Number of tests fixed in sandbox validation.
-    public let testsFixed: Int
-    /// Number of regressions introduced (0 is ideal).
-    public let regressions: Int
-    /// Estimated downstream dependency impact count.
-    public let dependencyImpact: Int
-    /// Origin description (strategy kind + root cause path).
-    public let origin: String
-
-    /// Composite rank: `tests_fixed − regressions − dependency_impact`.
-    /// Higher is better.
-    public var rank: Int { testsFixed - regressions - dependencyImpact }
-}
-
 /// Outcome of a full `PatchPipeline` run.
 ///
 /// This describes candidate selection only. The pipeline itself does not own
@@ -33,7 +10,7 @@ public struct PatchResult: Sendable {
     public enum Outcome: Sendable {
         /// A candidate met the heuristic quality bar and was selected as the
         /// recommended candidate for a surrounding workflow to consider applying.
-        case applied(RankedPatch)
+        case applied(CandidatePatch)
         /// Candidates were generated and evaluated but none met the quality bar.
         case noViablePatch
         /// Localization returned no candidates — nothing to patch.
@@ -42,11 +19,11 @@ public struct PatchResult: Sendable {
 
     public let outcome: Outcome
     /// All ranked candidates evaluated during the run (best-first).
-    public let candidates: [RankedPatch]
+    public let candidates: [CandidatePatch]
     /// Ordered `RepairPipeline.Stage` values completed in this run.
     public let completedStages: [RepairPipeline.Stage]
 
-    public var applied: RankedPatch? {
+    public var applied: CandidatePatch? {
         if case .applied(let p) = outcome { return p }
         return nil
     }
@@ -191,7 +168,7 @@ public struct PatchPipeline: Sendable {
         }
 
         // ── Stage 3: Sandbox validation ───────────────────────────────────────
-        var rankedPatches: [RankedPatch] = []
+        var rankedPatches: [CandidatePatch] = []
         let impactPredictions = impactPredictor.predict(patchTargets: targets, in: snapshot)
 
         for triple in patchTriples {
@@ -203,40 +180,73 @@ public struct PatchPipeline: Sendable {
             let depImpact = Int(((impact?.blastRadiusScore ?? 0) * 10).rounded())
 
             rankedPatches.append(
-                RankedPatch(
-                    workspaceRelativePath: triple.target.path,
-                    proposedContent: triple.content,
-                    testsFixed: eval.testsFixed,
-                    regressions: eval.regressions,
-                    dependencyImpact: depImpact,
-                    origin: "\(triple.strategy.kind.rawValue) on \(triple.target.path)"
-                ))
+                makeCandidatePatch(
+                    for: triple.target,
+                    strategy: triple.strategy,
+                    content: triple.content,
+                    failureDescription: failureDescription,
+                    evaluation: CandidatePatchEvaluation(
+                        testsFixed: eval.testsFixed,
+                        regressions: eval.regressions,
+                        dependencyImpact: depImpact,
+                        origin: "\(triple.strategy.kind.rawValue) on \(triple.target.path)"
+                    ),
+                    snapshot: snapshot
+                )
+            )
         }
         completedStages.append(.sandboxValidation)
         completedStages.append(.regressionCheck)
 
         // ── Stage 4: Rank ─────────────────────────────────────────────────────
         let sorted =
-            rankedPatches
+            deduplicatedCandidates(rankedPatches)
             .enumerated()
             .sorted { lhs, rhs in
-                if lhs.element.rank != rhs.element.rank {
-                    return lhs.element.rank > rhs.element.rank
+                if candidateRank(lhs.element) != candidateRank(rhs.element) {
+                    return candidateRank(lhs.element) > candidateRank(rhs.element)
                 }
-                if lhs.element.testsFixed != rhs.element.testsFixed {
-                    return lhs.element.testsFixed > rhs.element.testsFixed
+                if candidateTestsFixed(lhs.element) != candidateTestsFixed(rhs.element) {
+                    return candidateTestsFixed(lhs.element) > candidateTestsFixed(rhs.element)
                 }
-                if lhs.element.regressions != rhs.element.regressions {
-                    return lhs.element.regressions < rhs.element.regressions
+                if candidateRegressions(lhs.element) != candidateRegressions(rhs.element) {
+                    return candidateRegressions(lhs.element) < candidateRegressions(rhs.element)
                 }
-                if lhs.element.dependencyImpact != rhs.element.dependencyImpact {
-                    return lhs.element.dependencyImpact < rhs.element.dependencyImpact
+                if candidateDependencyImpact(lhs.element) != candidateDependencyImpact(rhs.element)
+                {
+                    return candidateDependencyImpact(lhs.element)
+                        < candidateDependencyImpact(rhs.element)
                 }
                 if lhs.element.workspaceRelativePath != rhs.element.workspaceRelativePath {
                     return lhs.element.workspaceRelativePath < rhs.element.workspaceRelativePath
                 }
-                if lhs.element.origin != rhs.element.origin {
-                    return lhs.element.origin < rhs.element.origin
+                if lhs.element.title != rhs.element.title {
+                    return lhs.element.title < rhs.element.title
+                }
+                if lhs.element.summary != rhs.element.summary {
+                    return lhs.element.summary < rhs.element.summary
+                }
+                if lhs.element.content != rhs.element.content {
+                    return lhs.element.content < rhs.element.content
+                }
+                if lhs.element.hypothesis != rhs.element.hypothesis {
+                    return (lhs.element.hypothesis ?? "") < (rhs.element.hypothesis ?? "")
+                }
+                if lhs.element.strategyKind != rhs.element.strategyKind {
+                    return (lhs.element.strategyKind ?? "") < (rhs.element.strategyKind ?? "")
+                }
+                if lhs.element.faultLocationConfidence != rhs.element.faultLocationConfidence {
+                    return (lhs.element.faultLocationConfidence ?? 0)
+                        > (rhs.element.faultLocationConfidence ?? 0)
+                }
+                if lhs.element.complexity != rhs.element.complexity {
+                    return (lhs.element.complexity ?? 0) < (rhs.element.complexity ?? 0)
+                }
+                if candidateOrigin(lhs.element) != candidateOrigin(rhs.element) {
+                    return candidateOrigin(lhs.element) < candidateOrigin(rhs.element)
+                }
+                if lhs.element.id != rhs.element.id {
+                    return lhs.element.id < rhs.element.id
                 }
                 return lhs.offset < rhs.offset
             }
@@ -245,7 +255,7 @@ public struct PatchPipeline: Sendable {
 
         // Quality bar: select the highest-ranked zero-regression candidate.
         // This is still heuristic selection, not proof that the patch is correct.
-        let best = sorted.first(where: { $0.regressions == 0 })
+        let best = sorted.first(where: { candidateRegressions($0) == 0 })
         guard let bestPatch = best else {
             return PatchResult(
                 outcome: .noViablePatch,
@@ -270,6 +280,118 @@ public struct PatchPipeline: Sendable {
             candidates: sorted,
             completedStages: completedStages
         )
+    }
+
+    public func experimentPlan(
+        failureDescription: String,
+        snapshot: RepositorySnapshot,
+        runner: PatchExperimentRunner
+    ) -> PatchExperimentPlan? {
+        let result = run(failureDescription: failureDescription, snapshot: snapshot)
+        guard !result.candidates.isEmpty else {
+            return nil
+        }
+        return runner.plan(
+            errorSignature: failureDescription,
+            faultLocationConfidence: result.candidates.first?.faultLocationConfidence ?? 0,
+            candidates: result.candidates,
+            snapshot: snapshot
+        )
+    }
+
+    public func experimentSpec(
+        failureDescription: String,
+        snapshot: RepositorySnapshot,
+        runner: PatchExperimentRunner
+    ) -> ExperimentSpec? {
+        guard
+            let plan = experimentPlan(
+                failureDescription: failureDescription,
+                snapshot: snapshot,
+                runner: runner
+            )
+        else {
+            return nil
+        }
+        return runner.experimentSpec(for: plan, snapshot: snapshot)
+    }
+
+    private func makeCandidatePatch(
+        for target: PatchTarget,
+        strategy: PatchStrategy,
+        content: String,
+        failureDescription: String,
+        evaluation: CandidatePatchEvaluation,
+        snapshot: RepositorySnapshot
+    ) -> CandidatePatch {
+        let anchor = anchoredSymbol(
+            for: target,
+            in: snapshot,
+            failureDescription: failureDescription
+        )
+        let anchorLabel =
+            anchor?.name
+            ?? target.rootCauseCandidate.matchedSymbols.first
+            ?? URL(fileURLWithPath: target.path).lastPathComponent
+        let title =
+            "\(strategy.kind.rawValue) candidate for \(URL(fileURLWithPath: target.path).lastPathComponent)"
+        let summary =
+            "PatchPipeline grounded \(strategy.description.lowercased()) in \(target.path) near \(anchorLabel)."
+        let hypothesis =
+            "\(condensedFailureDescription(failureDescription)) localizes near \(anchorLabel) in \(target.path)."
+        let complexity = min(Double(content.split(separator: "\n").count) / 100.0, 1.0)
+
+        return CandidatePatch(
+            id: stableCandidateID(for: target, strategy: strategy, anchorLabel: anchorLabel),
+            title: title,
+            summary: summary,
+            workspaceRelativePath: target.path,
+            content: content,
+            hypothesis: hypothesis,
+            strategyKind: strategy.kind.rawValue,
+            faultLocationConfidence: target.score,
+            complexity: complexity,
+            evaluation: evaluation
+        )
+    }
+
+    private func stableCandidateID(
+        for target: PatchTarget,
+        strategy: PatchStrategy,
+        anchorLabel: String
+    ) -> String {
+        [target.path, strategy.kind.rawValue, anchorLabel]
+            .map { $0.replacingOccurrences(of: " ", with: "_") }
+            .joined(separator: "|")
+    }
+
+    private func candidateRank(_ candidate: CandidatePatch) -> Int {
+        candidate.rank ?? .min
+    }
+
+    private func candidateTestsFixed(_ candidate: CandidatePatch) -> Int {
+        candidate.evaluation?.testsFixed ?? 0
+    }
+
+    private func candidateRegressions(_ candidate: CandidatePatch) -> Int {
+        candidate.evaluation?.regressions ?? .max
+    }
+
+    private func candidateDependencyImpact(_ candidate: CandidatePatch) -> Int {
+        candidate.evaluation?.dependencyImpact ?? .max
+    }
+
+    private func candidateOrigin(_ candidate: CandidatePatch) -> String {
+        candidate.evaluation?.origin ?? ""
+    }
+
+    private func deduplicatedCandidates(_ candidates: [CandidatePatch]) -> [CandidatePatch] {
+        var seenIDs = Set<String>()
+        var deduplicated: [CandidatePatch] = []
+        for candidate in candidates where seenIDs.insert(candidate.id).inserted {
+            deduplicated.append(candidate)
+        }
+        return deduplicated
     }
 
     // MARK: - Grounded candidate synthesis
@@ -299,7 +421,11 @@ public struct PatchPipeline: Sendable {
             lines = [""]
         }
 
-        let anchor = anchoredSymbol(for: target, in: snapshot)
+        let anchor = anchoredSymbol(
+            for: target,
+            in: snapshot,
+            failureDescription: failureDescription
+        )
         var insertionIndex = anchor.map { max(0, min(lines.count, $0.lineStart - 1)) } ?? 0
         if insertionIndex == 0, lines.first?.hasPrefix("#!") == true {
             insertionIndex = min(1, lines.count)
@@ -349,7 +475,8 @@ public struct PatchPipeline: Sendable {
 
     private func anchoredSymbol(
         for target: PatchTarget,
-        in snapshot: RepositorySnapshot
+        in snapshot: RepositorySnapshot,
+        failureDescription: String
     ) -> SymbolNode? {
         let fileNodes = snapshot.symbolGraph.nodes(inFile: target.path).sorted { lhs, rhs in
             if lhs.lineStart == rhs.lineStart {
@@ -361,21 +488,69 @@ public struct PatchPipeline: Sendable {
             return nil
         }
 
-        for matchedSymbol in target.rootCauseCandidate.matchedSymbols {
-            if let exactMatch = fileNodes.first(where: {
-                $0.name.caseInsensitiveCompare(matchedSymbol) == .orderedSame
-            }) {
-                return exactMatch
-            }
-            if let partialMatch = fileNodes.first(where: {
-                $0.name.localizedCaseInsensitiveContains(matchedSymbol)
-                    || matchedSymbol.localizedCaseInsensitiveContains($0.name)
-            }) {
-                return partialMatch
-            }
+        let failureTokens = Set(
+            failureDescription
+                .lowercased()
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "_" })
+                .map(String.init)
+                .filter { $0.count > 2 }
+        )
+
+        let candidateNames = Set(target.rootCauseCandidate.matchedSymbols.map { $0.lowercased() })
+            .union(failureTokens)
+        if let bestMatch = bestSymbolMatch(in: fileNodes, candidateNames: candidateNames) {
+            return bestMatch
         }
 
         return fileNodes.first
+    }
+
+    private func bestSymbolMatch(
+        in fileNodes: [SymbolNode],
+        candidateNames: Set<String>
+    ) -> SymbolNode? {
+        fileNodes
+            .enumerated()
+            .compactMap {
+                index, node -> (node: SymbolNode, score: Int, priority: Int, index: Int)? in
+                let loweredName = node.name.lowercased()
+                let score = candidateNames.reduce(into: 0) { best, candidate in
+                    if loweredName == candidate {
+                        best = max(best, 3)
+                    } else if loweredName.contains(candidate) || candidate.contains(loweredName) {
+                        best = max(best, 2)
+                    }
+                }
+                guard score > 0 else {
+                    return nil
+                }
+                return (node, score, symbolAnchorPriority(node.kind), index)
+            }
+            .sorted { lhs, rhs in
+                if lhs.score != rhs.score {
+                    return lhs.score > rhs.score
+                }
+                if lhs.priority != rhs.priority {
+                    return lhs.priority > rhs.priority
+                }
+                if lhs.node.lineStart != rhs.node.lineStart {
+                    return lhs.node.lineStart < rhs.node.lineStart
+                }
+                return lhs.index < rhs.index
+            }
+            .first?
+            .node
+    }
+
+    private func symbolAnchorPriority(_ kind: SymbolKind) -> Int {
+        switch kind {
+        case .function, .method:
+            return 3
+        case .variable, .constant:
+            return 2
+        case .class, .struct, .enum, .interface, .module:
+            return 1
+        }
     }
 
     private func indentationForInsertion(

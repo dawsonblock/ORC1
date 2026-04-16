@@ -123,16 +123,18 @@ struct PatchPipelineTests {
         let applied = try #require(result.applied)
 
         #expect(applied.workspaceRelativePath == filePath)
-        #expect(applied.proposedContent.contains("struct Calculator"))
-        #expect(applied.proposedContent.contains("oracle-patch-candidate: null_guard near add"))
+        #expect(applied.content.contains("struct Calculator"))
+        #expect(applied.content.contains("oracle-patch-candidate: null_guard near add"))
         #expect(
-            applied.proposedContent.contains(
+            applied.content.contains(
                 "proposed-edit: guard let value = optionalValue else { return }"))
+        #expect(applied.evaluation?.origin == "null_guard on \(filePath)")
+        #expect(applied.rank == 1)
 
         let markerRange = try #require(
-            applied.proposedContent.range(of: "oracle-patch-candidate: null_guard near add"))
+            applied.content.range(of: "oracle-patch-candidate: null_guard near add"))
         let symbolRange = try #require(
-            applied.proposedContent.range(of: "func add(optionalValue: Int?) -> Int"))
+            applied.content.range(of: "func add(optionalValue: Int?) -> Int"))
         #expect(markerRange.lowerBound < symbolRange.lowerBound)
     }
 
@@ -198,48 +200,137 @@ struct PatchPipelineTests {
             snapshot: snapshot
         )
 
-        #expect(result.candidates.map(\.workspaceRelativePath) == [alphaPath, betaPath])
+        let candidatePaths = result.candidates.map(\.workspaceRelativePath)
+        let firstBetaIndex = try #require(candidatePaths.firstIndex(of: betaPath))
+        #expect(candidatePaths[..<firstBetaIndex].allSatisfy { $0 == alphaPath })
+        #expect(candidatePaths[firstBetaIndex...].allSatisfy { $0 == betaPath })
     }
 
-    // MARK: - RankedPatch ranking formula
+    @Test("PatchPipeline feeds candidates into experiment planning")
+    func pipelineFeedsCandidatesIntoExperimentPlan() throws {
+        let workspaceRoot = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspaceRoot) }
 
-    @Test("RankedPatch rank = testsFixed - regressions - dependencyImpact")
+        let filePath = "Sources/Calculator.swift"
+        let originalContent = """
+            struct Calculator {
+                func add(optionalValue: Int?) -> Int {
+                    return optionalValue ?? 0
+                }
+            }
+            """
+        try writeFile(
+            at: workspaceRoot.appendingPathComponent(filePath, isDirectory: false),
+            content: originalContent + "\n"
+        )
+
+        let snapshot = makeSnapshot(
+            workspaceRoot: workspaceRoot,
+            files: [filePath],
+            symbolNodes: [
+                SymbolNode(
+                    id: "\(filePath)|add|function|2",
+                    name: "add",
+                    kind: .function,
+                    file: filePath,
+                    lineStart: 2,
+                    lineEnd: 4
+                )
+            ]
+        )
+
+        let pipeline = makePipeline()
+        let runner = PatchExperimentRunner()
+
+        let plan = try #require(
+            pipeline.experimentPlan(
+                failureDescription: "\(filePath) add optional unexpectedly found nil",
+                snapshot: snapshot,
+                runner: runner
+            )
+        )
+        let spec = try #require(
+            pipeline.experimentSpec(
+                failureDescription: "\(filePath) add optional unexpectedly found nil",
+                snapshot: snapshot,
+                runner: runner
+            )
+        )
+
+        #expect(plan.candidates.first?.workspaceRelativePath == filePath)
+        #expect(plan.candidates.first?.evaluation?.testsFixed == 1)
+        #expect(spec.candidates == plan.candidates)
+        #expect(spec.buildCommand?.summary == "swift build")
+        #expect(spec.testCommand?.summary == "swift test")
+    }
+
+    // MARK: - CandidatePatch evaluation metadata
+
+    @Test("CandidatePatch rank = testsFixed - regressions - dependencyImpact")
     func rankFormula() {
-        let patch = RankedPatch(
+        let patch = CandidatePatch(
+            id: "candidate-1",
+            title: "Test candidate",
+            summary: "summary",
             workspaceRelativePath: "Sources/Foo.swift",
-            proposedContent: "// fix",
-            testsFixed: 3,
-            regressions: 1,
-            dependencyImpact: 1,
-            origin: "null_guard"
+            content: "// fix",
+            evaluation: CandidatePatchEvaluation(
+                testsFixed: 3,
+                regressions: 1,
+                dependencyImpact: 1,
+                origin: "null_guard"
+            )
         )
         #expect(patch.rank == 1)  // 3 - 1 - 1
     }
 
-    @Test("RankedPatch with zero regressions and positive testsFixed has positive rank")
+    @Test("CandidatePatch with zero regressions and positive testsFixed has positive rank")
     func positiveRankForGoodPatch() {
-        let patch = RankedPatch(
+        let patch = CandidatePatch(
+            id: "candidate-2",
+            title: "Guard candidate",
+            summary: "summary",
             workspaceRelativePath: "Sources/Bar.swift",
-            proposedContent: "// guard let fix",
-            testsFixed: 2,
-            regressions: 0,
-            dependencyImpact: 0,
-            origin: "null_guard"
+            content: "// guard let fix",
+            evaluation: CandidatePatchEvaluation(
+                testsFixed: 2,
+                regressions: 0,
+                dependencyImpact: 0,
+                origin: "null_guard"
+            )
         )
-        #expect(patch.rank > 0)
+        #expect((patch.rank ?? 0) > 0)
     }
 
-    @Test("RankedPatch with regressions has lower rank than clean patch")
+    @Test("CandidatePatch with regressions has lower rank than clean patch")
     func regressivePatchRankedLower() {
-        let clean = RankedPatch(
-            workspaceRelativePath: "a.swift", proposedContent: "",
-            testsFixed: 2, regressions: 0, dependencyImpact: 0, origin: "clean"
+        let clean = CandidatePatch(
+            id: "clean",
+            title: "Clean",
+            summary: "summary",
+            workspaceRelativePath: "a.swift",
+            content: "",
+            evaluation: CandidatePatchEvaluation(
+                testsFixed: 2,
+                regressions: 0,
+                dependencyImpact: 0,
+                origin: "clean"
+            )
         )
-        let regressive = RankedPatch(
-            workspaceRelativePath: "b.swift", proposedContent: "",
-            testsFixed: 2, regressions: 2, dependencyImpact: 0, origin: "regressive"
+        let regressive = CandidatePatch(
+            id: "regressive",
+            title: "Regressive",
+            summary: "summary",
+            workspaceRelativePath: "b.swift",
+            content: "",
+            evaluation: CandidatePatchEvaluation(
+                testsFixed: 2,
+                regressions: 2,
+                dependencyImpact: 0,
+                origin: "regressive"
+            )
         )
-        #expect(clean.rank > regressive.rank)
+        #expect((clean.rank ?? .min) > (regressive.rank ?? .min))
     }
 
     // MARK: - Default sandbox evaluator
@@ -277,9 +368,18 @@ struct PatchPipelineTests {
 
     @Test("PatchResult.applied returns patch for applied outcome")
     func appliedReturnsForApplied() {
-        let patch = RankedPatch(
-            workspaceRelativePath: "f.swift", proposedContent: "",
-            testsFixed: 1, regressions: 0, dependencyImpact: 0, origin: "test"
+        let patch = CandidatePatch(
+            id: "patch-result",
+            title: "Test patch",
+            summary: "summary",
+            workspaceRelativePath: "f.swift",
+            content: "",
+            evaluation: CandidatePatchEvaluation(
+                testsFixed: 1,
+                regressions: 0,
+                dependencyImpact: 0,
+                origin: "test"
+            )
         )
         let result = PatchResult(outcome: .applied(patch), candidates: [patch], completedStages: [])
         #expect(result.applied?.workspaceRelativePath == "f.swift")

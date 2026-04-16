@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import OracleOS
 
 /// Governance tests for the MCP transport boundary.
@@ -13,8 +14,10 @@ final class MCPBoundaryEnforcementTests: XCTestCase {
         let boundaryPath = "Sources/OracleOS/MCP/MCPBoundary.swift"
         let content = try String(contentsOfFile: boundaryPath, encoding: .utf8)
         XCTAssertTrue(content.contains("enum JSONValue"), "MCPBoundary must define JSONValue")
-        XCTAssertTrue(content.contains("struct MCPToolRequest"), "MCPBoundary must define MCPToolRequest")
-        XCTAssertTrue(content.contains("struct MCPToolResponse"), "MCPBoundary must define MCPToolResponse")
+        XCTAssertTrue(
+            content.contains("struct MCPToolRequest"), "MCPBoundary must define MCPToolRequest")
+        XCTAssertTrue(
+            content.contains("struct MCPToolResponse"), "MCPBoundary must define MCPToolResponse")
         XCTAssertTrue(content.contains("enum MCPContent"), "MCPBoundary must define MCPContent")
     }
 
@@ -39,7 +42,8 @@ final class MCPBoundaryEnforcementTests: XCTestCase {
     func testMCPToolRequestUsesJSONValue() throws {
         let boundaryPath = "Sources/OracleOS/MCP/MCPBoundary.swift"
         let content = try String(contentsOfFile: boundaryPath, encoding: .utf8)
-        XCTAssertTrue(content.contains("arguments: JSONValue"), "MCPToolRequest.arguments must be JSONValue")
+        XCTAssertTrue(
+            content.contains("arguments: JSONValue"), "MCPToolRequest.arguments must be JSONValue")
         XCTAssertTrue(content.contains("func string("), "MCPToolRequest must have string() helper")
         XCTAssertTrue(content.contains("func bool("), "MCPToolRequest must have bool() helper")
         XCTAssertTrue(content.contains("func int("), "MCPToolRequest must have int() helper")
@@ -49,33 +53,43 @@ final class MCPBoundaryEnforcementTests: XCTestCase {
     func testMCPDispatchUsesTypedHandle() throws {
         let dispatchPath = "Sources/OracleOS/MCP/MCPDispatch.swift"
         let content = try String(contentsOfFile: dispatchPath, encoding: .utf8)
-        
-        // Ensure dispatch(request:) is typed
-        XCTContext.runActivity(named: "Verify typed dispatch signature") { _ in
-            XCTAssertTrue(content.contains("func dispatch(request: MCPToolRequest)"), "dispatch(request:) must be typed")
-        }
-        
-        // Ensure legacy adapter exists but calls typed handle
-        XCTContext.runActivity(named: "Verify legacy adapter call path") { _ in
-            XCTAssertTrue(content.contains("func handle(_ params: [String: Any])"), "Legacy handle must exist")
-            XCTAssertTrue(content.contains("return await handle(request).toLegacyDict()"), "Legacy handle must call typed handle")
-        }
+
+        XCTAssertTrue(
+            content.contains("func dispatch(request: MCPToolRequest)"),
+            "dispatch(request:) must be typed"
+        )
+        XCTAssertTrue(
+            content.contains("func handle(_ params: [String: Any])"),
+            "Legacy handle must exist"
+        )
+        XCTAssertTrue(
+            content.contains("return await handle(request).toLegacyDict()"),
+            "Legacy handle must call typed handle"
+        )
     }
 
     /// Verify no raw dictionary casts in the dispatch body.
     func testNoRawDictionaryCastsInDispatch() throws {
         let dispatchPath = "Sources/OracleOS/MCP/MCPDispatch.swift"
         let content = try String(contentsOfFile: dispatchPath, encoding: .utf8)
-        
+
         // Isolate the dispatch function body (approximate search)
-        guard let dispatchStart = content.range(of: "private static func dispatch(request: MCPToolRequest)")?.upperBound,
-              let dispatchEnd = content.range(of: "default:", range: dispatchStart..<content.endIndex)?.lowerBound else {
+        guard
+            let dispatchStart = content.range(
+                of: "private static func dispatch(request: MCPToolRequest)")?.upperBound,
+            let dispatchEnd = content.range(
+                of: "default:", range: dispatchStart..<content.endIndex)?.lowerBound
+        else {
             XCTFail("Could not locate dispatch(request:) body")
             return
         }
-        
+
         let dispatchBody = String(content[dispatchStart..<dispatchEnd])
-        XCTAssertFalse(dispatchBody.contains("as? [String: Any]"), "Dispatch body should not contain raw dictionary casts")
-        XCTAssertFalse(dispatchBody.contains("as! [String: Any]"), "Dispatch body should not contain raw dictionary casts")
+        XCTAssertFalse(
+            dispatchBody.contains("as? [String: Any]"),
+            "Dispatch body should not contain raw dictionary casts")
+        XCTAssertFalse(
+            dispatchBody.contains("as! [String: Any]"),
+            "Dispatch body should not contain raw dictionary casts")
     }
 }

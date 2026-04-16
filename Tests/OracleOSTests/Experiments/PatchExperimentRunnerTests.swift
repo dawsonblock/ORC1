@@ -34,6 +34,70 @@ struct PatchExperimentRunnerTests {
         #expect(plan.errorSignature == "nil unwrap")
     }
 
+    @Test("Experiment runner orders pipeline candidates by evaluation metadata")
+    func runnerOrdersPipelineCandidatesDeterministically() {
+        let runner = PatchExperimentRunner()
+        let plan = runner.plan(
+            errorSignature: "index out of range",
+            faultLocationConfidence: 0.2,
+            candidates: [
+                CandidatePatch(
+                    id: "candidate-zeta",
+                    title: "Zeta patch",
+                    summary: "higher path name but cleaner fix",
+                    workspaceRelativePath: "Sources/Zeta.swift",
+                    content: "// clean fix",
+                    faultLocationConfidence: 0.6,
+                    evaluation: CandidatePatchEvaluation(
+                        testsFixed: 2,
+                        regressions: 0,
+                        dependencyImpact: 0,
+                        origin: "boundary_fix on Sources/Zeta.swift"
+                    )
+                ),
+                CandidatePatch(
+                    id: "candidate-alpha",
+                    title: "Alpha patch",
+                    summary: "regressive fix",
+                    workspaceRelativePath: "Sources/Alpha.swift",
+                    content: "// regressive fix",
+                    faultLocationConfidence: 0.4,
+                    evaluation: CandidatePatchEvaluation(
+                        testsFixed: 1,
+                        regressions: 1,
+                        dependencyImpact: 0,
+                        origin: "boundary_fix on Sources/Alpha.swift"
+                    )
+                ),
+            ],
+            snapshot: nil as RepositorySnapshot? as RepositorySnapshot? as RepositorySnapshot?
+        )
+
+        #expect(plan.candidates.first?.workspaceRelativePath == "Sources/Zeta.swift")
+        #expect(plan.faultLocationConfidence == 0.6)
+    }
+
+    @Test("Experiment runner builds ExperimentSpec from plan and snapshot")
+    func runnerBuildsExperimentSpecFromPlan() {
+        let runner = PatchExperimentRunner()
+        let candidate = makeCandidatePatch()
+        let snapshot = makeSnapshot(buildTool: .swiftPackage)
+        let plan = runner.plan(
+            errorSignature: "nil unwrap",
+            faultLocationConfidence: 0.7,
+            candidates: [candidate],
+            snapshot: snapshot
+        )
+
+        let spec = runner.experimentSpec(for: plan, snapshot: snapshot)
+
+        #expect(spec.goalDescription == "nil unwrap")
+        #expect(spec.workspaceRoot == snapshot.workspaceRoot)
+        #expect(spec.candidates == plan.candidates)
+        #expect(spec.buildCommand?.summary == "swift build")
+        #expect(spec.testCommand?.summary == "swift test")
+    }
+
     @Test("Patch ranking signals compute composite score")
     func patchRankingSignalsComputeCompositeScore() {
         let signals = PatchRankingSignals(
@@ -172,6 +236,20 @@ struct PatchExperimentRunnerTests {
             summary: "Guard against out-of-bounds array access",
             workspaceRelativePath: "Sources/Calculator.swift",
             content: "+guard index < array.count else { return }"
+        )
+    }
+
+    private func makeSnapshot(buildTool: BuildTool) -> RepositorySnapshot {
+        RepositorySnapshot(
+            id: "snapshot-1",
+            workspaceRoot: "/tmp/workspace",
+            buildTool: buildTool,
+            files: [RepositoryFile(path: "Sources/Calculator.swift", isDirectory: false)],
+            symbolGraph: SymbolGraph(),
+            dependencyGraph: DependencyGraph(),
+            testGraph: TestGraph(),
+            activeBranch: "main",
+            isGitDirty: false
         )
     }
 
