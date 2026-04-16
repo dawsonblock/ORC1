@@ -396,6 +396,136 @@ struct ControllerStoreHostLifecycleTests {
     }
 
     @Test
+    func actionSummariesPreserveOperatorOutcomeLanguage() {
+        let store = ControllerStore()
+
+        store.currentActionResult = ActionRunResult(
+            request: ActionRequest(kind: .wait, appName: "Finder", waitCondition: "appFrontmost"),
+            success: true,
+            verified: false,
+            message: "Condition evaluated.",
+            elapsedMs: 40
+        )
+
+        #expect(store.currentActionSummary?.outcomeTitle == "Observed Wait Result")
+        #expect(store.currentActionSummary?.tone == .neutral)
+        #expect(
+            store.currentActionSummary?.executionDetail
+                == "Observed wait condition in the host bridge")
+
+        store.currentActionResult = ActionRunResult(
+            request: ActionRequest(kind: .click, appName: "Finder", query: "Open"),
+            success: true,
+            verified: true,
+            message: "Action completed through the verified runtime path.",
+            elapsedMs: 25,
+            executedThroughExecutor: true
+        )
+
+        #expect(store.currentActionSummary?.outcomeTitle == "Verified Runtime Path")
+        #expect(store.currentActionSummary?.tone == .good)
+
+        store.currentActionResult = ActionRunResult(
+            request: ActionRequest(kind: .click, appName: "Finder", query: "Delete"),
+            success: false,
+            verified: false,
+            elapsedMs: 10,
+            blockedByPolicy: true,
+            policyMode: "confirm-risky"
+        )
+
+        #expect(store.currentActionSummary?.outcomeTitle == "Blocked By Policy")
+        #expect(store.currentActionSummary?.tone == .danger)
+        #expect(
+            store.currentActionSummary?.contextDetail == "The current policy mode is confirm-risky."
+        )
+
+        let pendingApproval = ActionRunResult(
+            request: ActionRequest(kind: .click, appName: "Finder", query: "Delete"),
+            success: false,
+            verified: false,
+            elapsedMs: 12,
+            approvalRequestID: "approval-1",
+            approvalStatus: "pending"
+        )
+        store.currentActionResult = pendingApproval.rejectedApprovalResult()
+
+        #expect(store.currentActionSummary?.outcomeTitle == "Approval Rejected")
+        #expect(store.currentActionSummary?.tone == .danger)
+        #expect(
+            store.currentActionSummary?.contextDetail
+                == "Approval request approval-1 was rejected before the runtime could continue."
+        )
+
+        store.currentActionResult = ActionRunResult(
+            request: ActionRequest(kind: .type, appName: "Finder", query: "Name", text: "Oracle"),
+            success: true,
+            verified: false,
+            message: "Action completed with a partial outcome.",
+            failureClass: "partial_success",
+            elapsedMs: 18,
+            executedThroughExecutor: true
+        )
+
+        #expect(store.currentActionSummary?.outcomeTitle == "Partial Verified Outcome")
+        #expect(store.currentActionSummary?.tone == .warning)
+
+        store.currentActionResult = ActionRunResult(
+            request: ActionRequest(kind: .press, appName: "Finder", key: "return"),
+            success: false,
+            verified: false,
+            message: "Action failed.",
+            failureClass: "timeout",
+            elapsedMs: 65,
+            executedThroughExecutor: true
+        )
+
+        #expect(store.currentActionSummary?.outcomeTitle == "Verified Runtime Failure")
+        #expect(store.currentActionSummary?.tone == .danger)
+        #expect(store.currentActionSummary?.contextDetail == "Failure class: timeout.")
+    }
+
+    @Test
+    func approvalReviewSummaryExcludesResolvedOnlyEntriesFromWaitingState() {
+        let store = ControllerStore()
+        let approval = makeApprovalRequest(id: "approval-1")
+
+        store.markApprovalActionResolved(.reject, approval: approval)
+
+        #expect(store.activeApprovalRows.isEmpty)
+        #expect(store.approvalRows.first?.phase == .resolved(.reject))
+        #expect(store.approvalReviewSummary.statusLabel == "Clear")
+        #expect(
+            store.approvalReviewSummary.detail
+                == "Recent approval decisions are now reflected in the action feed.")
+    }
+
+    @Test
+    func diagnosticsInvestigationItemsRankBlockersBeforeAdvisories() {
+        let store = ControllerStore()
+        store.diagnostics = makeDiagnosticsSnapshot(
+            architectureFindings: [
+                makeArchitectureFinding(
+                    id: "finding-1",
+                    title: "Boundary drift",
+                    severity: "critical",
+                    riskScore: 0.95,
+                    occurrences: 3
+                )
+            ],
+            repositoryIndexes: [
+                makeRepositoryIndex(id: "repo-1", isGitDirty: true)
+            ]
+        )
+
+        let items = store.diagnosticsInvestigationItems
+
+        #expect(items.map(\.sourceLabel) == ["Host", "Architecture", "Repository"])
+        #expect(items.first?.title == "Host evidence is missing")
+        #expect(items.last?.statusLabel == "Advisory")
+    }
+
+    @Test
     func clearChatConversationDoesNothingWhileResponseIsStreaming() {
         let store = ControllerStore()
         store.chatConversation = ChatConversation(
@@ -522,22 +652,37 @@ private func makePermissionStatus(id: String, title: String, granted: Bool) -> P
 }
 
 @MainActor
-private func makeDiagnosticsSnapshot() -> ControllerDiagnosticsSnapshot {
+private func makeDiagnosticsSnapshot(
+    graph: ControllerGraphDiagnostics = ControllerGraphDiagnostics(
+        stableEdges: [],
+        candidateEdges: [],
+        recoveryEdges: [],
+        promotionEligibleCount: 0,
+        promotionsFrozen: false,
+        globalSuccessRate: 0
+    ),
+    workflows: [ControllerWorkflowDiagnostics] = [],
+    experiments: [ControllerExperimentDiagnostics] = [],
+    recovery: ControllerRecoveryDiagnostics = ControllerRecoveryDiagnostics(
+        recoveryStepCount: 0,
+        strategies: []
+    ),
+    projectMemory: [ControllerProjectMemoryDiagnostics] = [],
+    architectureFindings: [ControllerArchitectureFindingDiagnostics] = [],
+    repositoryIndexes: [ControllerRepositoryIndexDiagnostics] = [],
+    host: ControllerHostDiagnostics? = nil,
+    browser: ControllerBrowserDiagnostics? = nil
+) -> ControllerDiagnosticsSnapshot {
     ControllerDiagnosticsSnapshot(
-        graph: ControllerGraphDiagnostics(
-            stableEdges: [],
-            candidateEdges: [],
-            recoveryEdges: [],
-            promotionEligibleCount: 0,
-            promotionsFrozen: false,
-            globalSuccessRate: 0
-        ),
-        workflows: [],
-        experiments: [],
-        recovery: ControllerRecoveryDiagnostics(recoveryStepCount: 0, strategies: []),
-        projectMemory: [],
-        architectureFindings: [],
-        repositoryIndexes: []
+        graph: graph,
+        workflows: workflows,
+        experiments: experiments,
+        recovery: recovery,
+        projectMemory: projectMemory,
+        architectureFindings: architectureFindings,
+        repositoryIndexes: repositoryIndexes,
+        host: host,
+        browser: browser
     )
 }
 
@@ -643,6 +788,50 @@ private func makeApprovalRequest(id: String) -> ApprovalRequestDocument {
         protectedOperation: "destructive",
         status: "pending",
         appProtectionProfile: "default"
+    )
+}
+
+@MainActor
+private func makeArchitectureFinding(
+    id: String,
+    title: String,
+    severity: String,
+    riskScore: Double,
+    occurrences: Int
+) -> ControllerArchitectureFindingDiagnostics {
+    ControllerArchitectureFindingDiagnostics(
+        id: id,
+        title: title,
+        summary: "Summary for \(title)",
+        severity: severity,
+        affectedModules: ["OracleController"],
+        evidence: ["evidence"],
+        riskScore: riskScore,
+        occurrences: occurrences,
+        governanceRuleID: nil
+    )
+}
+
+@MainActor
+private func makeRepositoryIndex(id: String, isGitDirty: Bool)
+    -> ControllerRepositoryIndexDiagnostics
+{
+    ControllerRepositoryIndexDiagnostics(
+        id: id,
+        workspaceRoot: "/tmp/oracle/repo",
+        buildTool: "swiftpm",
+        activeBranch: "main",
+        isGitDirty: isGitDirty,
+        indexedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        fileCount: 42,
+        symbolCount: 128,
+        dependencyCount: 16,
+        callEdgeCount: 32,
+        testEdgeCount: 8,
+        buildTargetCount: 3,
+        topSymbols: ["ControllerStore"],
+        buildTargets: ["OracleController"],
+        topTests: ["ControllerStoreHostLifecycleTests"]
     )
 }
 

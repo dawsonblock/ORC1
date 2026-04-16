@@ -2,8 +2,8 @@
 
 import AppKit
 import Foundation
-import SwiftUI
 import OracleControllerShared
+import SwiftUI
 
 struct DiagnosticsWorkspaceView: View {
     @Bindable var store: ControllerStore
@@ -12,45 +12,86 @@ struct DiagnosticsWorkspaceView: View {
         ScrollView {
             if let diagnostics = store.diagnostics {
                 VStack(alignment: .leading, spacing: 18) {
-                    PanelCard("Runtime Diagnostics", subtitle: "Live graph, workflow, experiment, recovery, memory, and architecture summaries") {
+                    diagnosticsInvestigationCard()
+
+                    PanelCard(
+                        "Diagnostics Snapshot",
+                        subtitle:
+                            "Supporting counts and evidence coverage for the current investigation"
+                    ) {
                         Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
                             GridRow {
-                                KVRow(key: "Generated", value: diagnostics.generatedAt.formatted(date: .abbreviated, time: .standard))
-                                KVRow(key: "Graph Success", value: String(format: "%.2f", diagnostics.graph.globalSuccessRate))
+                                KVRow(
+                                    key: "Generated",
+                                    value: diagnostics.generatedAt.formatted(
+                                        date: .abbreviated, time: .standard))
+                                KVRow(
+                                    key: "Graph Success",
+                                    value: String(
+                                        format: "%.2f", diagnostics.graph.globalSuccessRate))
                             }
                             GridRow {
-                                KVRow(key: "Stable Edges", value: "\(diagnostics.graph.stableEdges.count)")
-                                KVRow(key: "Candidate Edges", value: "\(diagnostics.graph.candidateEdges.count)")
+                                KVRow(
+                                    key: "Stable Edges",
+                                    value: "\(diagnostics.graph.stableEdges.count)")
+                                KVRow(
+                                    key: "Candidate Edges",
+                                    value: "\(diagnostics.graph.candidateEdges.count)")
                             }
                             GridRow {
                                 KVRow(key: "Workflows", value: "\(diagnostics.workflows.count)")
                                 KVRow(key: "Experiments", value: "\(diagnostics.experiments.count)")
                             }
                             GridRow {
-                                KVRow(key: "Recovery Steps", value: "\(diagnostics.recovery.recoveryStepCount)")
-                                KVRow(key: "Project Memory Refs", value: "\(diagnostics.projectMemory.count)")
+                                KVRow(
+                                    key: "Recovery Steps",
+                                    value: "\(diagnostics.recovery.recoveryStepCount)")
+                                KVRow(
+                                    key: "Project Memory Refs",
+                                    value: "\(diagnostics.projectMemory.count)")
                             }
                             GridRow {
-                                KVRow(key: "Architecture Findings", value: "\(diagnostics.architectureFindings.count)")
-                                KVRow(key: "Repo Indexes", value: "\(diagnostics.repositoryIndexes.count)")
+                                KVRow(
+                                    key: "Architecture Findings",
+                                    value: "\(diagnostics.architectureFindings.count)")
+                                KVRow(
+                                    key: "Repo Indexes",
+                                    value: "\(diagnostics.repositoryIndexes.count)")
                             }
                             GridRow {
-                                KVRow(key: "Promotion Eligible", value: "\(diagnostics.graph.promotionEligibleCount)")
-                                KVRow(key: "Indexed Targets", value: "\(diagnostics.repositoryIndexes.reduce(0) { $0 + $1.buildTargetCount })")
+                                KVRow(
+                                    key: "Promotion Eligible",
+                                    value: "\(diagnostics.graph.promotionEligibleCount)")
+                                KVRow(
+                                    key: "Indexed Targets",
+                                    value:
+                                        "\(diagnostics.repositoryIndexes.reduce(0) { $0 + $1.buildTargetCount })"
+                                )
                             }
                             GridRow {
-                                KVRow(key: "Host Snapshot", value: diagnostics.host?.activeApplication ?? "Unavailable")
-                                KVRow(key: "Browser Snapshot", value: diagnostics.browser?.domain ?? diagnostics.browser?.appName ?? "Unavailable")
+                                KVRow(
+                                    key: "Host Snapshot",
+                                    value: diagnostics.host?.activeApplication ?? "Unavailable")
+                                KVRow(
+                                    key: "Browser Snapshot",
+                                    value: diagnostics.browser?.domain ?? diagnostics.browser?
+                                        .appName ?? "Unavailable")
                             }
                         }
                         HStack(spacing: 8) {
                             StatusBadge(
-                                label: diagnostics.graph.promotionsFrozen ? "Promotions Frozen" : "Promotions Active",
+                                label: diagnostics.graph.promotionsFrozen
+                                    ? "Promotions Frozen" : "Promotions Active",
                                 tone: diagnostics.graph.promotionsFrozen ? .warning : .good
                             )
-                            StatusBadge(label: "Stable \(diagnostics.graph.stableEdges.count)", tone: .good)
-                            StatusBadge(label: "Candidate \(diagnostics.graph.candidateEdges.count)", tone: .neutral)
-                            StatusBadge(label: "Recovery \(diagnostics.graph.recoveryEdges.count)", tone: .warning)
+                            StatusBadge(
+                                label: "Stable \(diagnostics.graph.stableEdges.count)", tone: .good)
+                            StatusBadge(
+                                label: "Candidate \(diagnostics.graph.candidateEdges.count)",
+                                tone: .neutral)
+                            StatusBadge(
+                                label: "Recovery \(diagnostics.graph.recoveryEdges.count)",
+                                tone: .warning)
                         }
                     }
 
@@ -83,9 +124,84 @@ struct DiagnosticsWorkspaceView: View {
                 EmptyStateView(
                     systemImage: "chart.xyaxis.line",
                     title: "No Diagnostics Yet",
-                    message: "Refresh the controller or run a few actions to populate graph, workflow, repository, experiment, and architecture diagnostics."
+                    message:
+                        "Refresh the controller or run a few actions to populate graph, workflow, repository, experiment, and architecture diagnostics."
                 )
                 .padding(40)
+            }
+        }
+    }
+
+    private func diagnosticsInvestigationCard() -> some View {
+        let issues = store.diagnosticsInvestigationItems
+
+        return PanelCard(
+            "Investigation Priority",
+            subtitle: "What likely needs attention before you dive into raw detail"
+        ) {
+            if issues.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Nothing urgent stands out in this snapshot.")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(ControllerTheme.ink)
+
+                        Spacer()
+
+                        StatusBadge(label: "Clear", tone: .good)
+                    }
+
+                    Text(
+                        "The current diagnostics snapshot does not show an obvious blocker. Use the supporting cards below for deeper inspection."
+                    )
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ControllerTheme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(issues) { issue in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(issue.title)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(ControllerTheme.ink)
+
+                                    Text(issue.detail)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(ControllerTheme.muted)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                Spacer()
+
+                                VStack(alignment: .trailing, spacing: 6) {
+                                    StatusBadge(label: issue.sourceLabel, tone: .neutral)
+                                    StatusBadge(
+                                        label: issue.statusLabel, tone: issue.tone.badgeTone)
+                                }
+                            }
+
+                            if let actionTitle = issue.actionTitle {
+                                Button(actionTitle) {
+                                    store.performDiagnosticsInvestigation(issue)
+                                }
+                                .buttonStyle(ControllerSecondaryButtonStyle())
+                            }
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(issue.tone.rowFill)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(
+                                            issue.tone.badgeTone.color.opacity(0.16), lineWidth: 1)
+                                )
+                        )
+                    }
+                }
             }
         }
     }
@@ -126,7 +242,10 @@ struct DiagnosticsWorkspaceView: View {
     }
 
     private func diagnosticsHostCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
-        PanelCard("Host Automation", subtitle: "Structured app, window, dialog, menu, and permission snapshot") {
+        PanelCard(
+            "Host Automation",
+            subtitle: "Structured app, window, dialog, menu, and permission snapshot"
+        ) {
             if let host = diagnostics.host {
                 VStack(alignment: .leading, spacing: 10) {
                     KVRow(key: "Active App", value: host.activeApplication ?? "Unknown")
@@ -136,8 +255,14 @@ struct DiagnosticsWorkspaceView: View {
                     KVRow(key: "Dialog", value: host.dialogTitle ?? "None")
                     KVRow(key: "Capture", value: host.capturedWindowTitle ?? "None")
                     HStack(spacing: 8) {
-                        StatusBadge(label: host.accessibilityGranted ? "Accessibility Granted" : "Accessibility Missing", tone: host.accessibilityGranted ? .good : .warning)
-                        StatusBadge(label: host.screenRecordingGranted ? "Screen Recording Granted" : "Screen Recording Missing", tone: host.screenRecordingGranted ? .good : .warning)
+                        StatusBadge(
+                            label: host.accessibilityGranted
+                                ? "Accessibility Granted" : "Accessibility Missing",
+                            tone: host.accessibilityGranted ? .good : .warning)
+                        StatusBadge(
+                            label: host.screenRecordingGranted
+                                ? "Screen Recording Granted" : "Screen Recording Missing",
+                            tone: host.screenRecordingGranted ? .good : .warning)
                     }
                     if !host.windows.isEmpty {
                         Divider()
@@ -151,7 +276,9 @@ struct DiagnosticsWorkspaceView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                StatusBadge(label: "\(window.elementCount) elements", tone: window.focused ? .good : .neutral)
+                                StatusBadge(
+                                    label: "\(window.elementCount) elements",
+                                    tone: window.focused ? .good : .neutral)
                             }
                         }
                     }
@@ -160,7 +287,8 @@ struct DiagnosticsWorkspaceView: View {
                 EmptyStateView(
                     systemImage: "macwindow",
                     title: "No Host Snapshot",
-                    message: "The host automation snapshot will appear here once the controller can capture app, window, dialog, and permission state."
+                    message:
+                        "The host automation snapshot will appear here once the controller can capture app, window, dialog, and permission state."
                 )
                 .frame(height: 220)
             }
@@ -169,7 +297,10 @@ struct DiagnosticsWorkspaceView: View {
     }
 
     private func diagnosticsBrowserCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
-        PanelCard("Browser Automation", subtitle: "Flattened DOM, indexed elements, and reduced page context") {
+        PanelCard(
+            "Browser Automation",
+            subtitle: "Flattened DOM, indexed elements, and reduced page context"
+        ) {
             if let browser = diagnostics.browser {
                 VStack(alignment: .leading, spacing: 10) {
                     KVRow(key: "Browser", value: browser.appName)
@@ -197,7 +328,8 @@ struct DiagnosticsWorkspaceView: View {
                 EmptyStateView(
                     systemImage: "globe",
                     title: "No Browser Snapshot",
-                    message: "Open a supported browser and navigate to a page to populate the DOM-reduced browser snapshot."
+                    message:
+                        "Open a supported browser and navigate to a page to populate the DOM-reduced browser snapshot."
                 )
                 .frame(height: 220)
             }
@@ -212,8 +344,11 @@ struct DiagnosticsWorkspaceView: View {
         emptyMessage: String
     ) -> some View {
         if edges.isEmpty {
-            EmptyStateView(systemImage: "point.3.filled.connected.trianglepath.dotted", title: emptyTitle, message: emptyMessage)
-                .frame(height: 140)
+            EmptyStateView(
+                systemImage: "point.3.filled.connected.trianglepath.dotted", title: emptyTitle,
+                message: emptyMessage
+            )
+            .frame(height: 140)
         } else {
             VStack(spacing: 8) {
                 ForEach(edges.prefix(6)) { edge in
@@ -232,7 +367,11 @@ struct DiagnosticsWorkspaceView: View {
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 6) {
-                                StatusBadge(label: edge.knowledgeTier, tone: edge.recoveryTagged ? .warning : (edge.knowledgeTier == "stable" ? .good : .neutral))
+                                StatusBadge(
+                                    label: edge.knowledgeTier,
+                                    tone: edge.recoveryTagged
+                                        ? .warning
+                                        : (edge.knowledgeTier == "stable" ? .good : .neutral))
                                 Text(String(format: "%.2f", edge.successRate))
                                     .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(.secondary)
@@ -245,7 +384,8 @@ struct DiagnosticsWorkspaceView: View {
         }
     }
 
-    private func diagnosticsWorkflowCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
+    private func diagnosticsWorkflowCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View
+    {
         PanelCard("Workflows", subtitle: "Promoted and candidate reusable programs") {
             if diagnostics.workflows.isEmpty {
                 EmptyStateView(
@@ -265,13 +405,18 @@ struct DiagnosticsWorkspaceView: View {
                                     Text(workflow.goalPattern)
                                         .font(.system(size: 12, weight: .semibold))
                                         .lineLimit(2)
-                                    Text("\(workflow.stepCount) steps · \(workflow.repeatedTraceSegmentCount)x repeated")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(.secondary)
+                                    Text(
+                                        "\(workflow.stepCount) steps · \(workflow.repeatedTraceSegmentCount)x repeated"
+                                    )
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 6) {
-                                    StatusBadge(label: workflow.promotionStatus, tone: workflow.promotionStatus == "promoted" ? .good : .neutral)
+                                    StatusBadge(
+                                        label: workflow.promotionStatus,
+                                        tone: workflow.promotionStatus == "promoted"
+                                            ? .good : .neutral)
                                     if workflow.stale {
                                         StatusBadge(label: "stale", tone: .warning)
                                     }
@@ -286,13 +431,19 @@ struct DiagnosticsWorkspaceView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func diagnosticsRepositoryIndexesCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
-        PanelCard("Repository Intelligence", subtitle: "Persisted symbol, dependency, call, test, and build indexes") {
+    private func diagnosticsRepositoryIndexesCard(_ diagnostics: ControllerDiagnosticsSnapshot)
+        -> some View
+    {
+        PanelCard(
+            "Repository Intelligence",
+            subtitle: "Persisted symbol, dependency, call, test, and build indexes"
+        ) {
             if diagnostics.repositoryIndexes.isEmpty {
                 EmptyStateView(
                     systemImage: "point.3.connected.trianglepath.dotted",
                     title: "No Repository Indexes",
-                    message: "Open a workspace or run code-planning actions to persist repository structure here."
+                    message:
+                        "Open a workspace or run code-planning actions to persist repository structure here."
                 )
                 .frame(height: 220)
             } else {
@@ -301,8 +452,10 @@ struct DiagnosticsWorkspaceView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(URL(fileURLWithPath: index.workspaceRoot).lastPathComponent)
-                                        .font(.system(size: 12, weight: .semibold))
+                                    Text(
+                                        URL(fileURLWithPath: index.workspaceRoot).lastPathComponent
+                                    )
+                                    .font(.system(size: 12, weight: .semibold))
                                     Text(index.workspaceRoot)
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundStyle(.secondary)
@@ -312,14 +465,18 @@ struct DiagnosticsWorkspaceView: View {
                                 VStack(alignment: .trailing, spacing: 6) {
                                     StatusBadge(label: index.buildTool, tone: .neutral)
                                     if let branch = index.activeBranch, !branch.isEmpty {
-                                        StatusBadge(label: branch, tone: index.isGitDirty ? .warning : .good)
+                                        StatusBadge(
+                                            label: branch, tone: index.isGitDirty ? .warning : .good
+                                        )
                                     }
                                 }
                             }
 
-                            Text("\(index.fileCount) files · \(index.symbolCount) symbols · \(index.dependencyCount) deps · \(index.callEdgeCount) calls · \(index.testEdgeCount) test edges")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "\(index.fileCount) files · \(index.symbolCount) symbols · \(index.dependencyCount) deps · \(index.callEdgeCount) calls · \(index.testEdgeCount) test edges"
+                            )
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
 
                             if !index.buildTargets.isEmpty {
                                 Text("Targets: \(index.buildTargets.joined(separator: ", "))")
@@ -341,7 +498,9 @@ struct DiagnosticsWorkspaceView: View {
                             }
                         }
                         .padding(10)
-                        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(
+                            Color.white.opacity(0.55),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -349,7 +508,9 @@ struct DiagnosticsWorkspaceView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func diagnosticsExperimentCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
+    private func diagnosticsExperimentCard(_ diagnostics: ControllerDiagnosticsSnapshot)
+        -> some View
+    {
         PanelCard("Experiments", subtitle: "Bounded patch search and selected winners") {
             if diagnostics.experiments.isEmpty {
                 EmptyStateView(
@@ -367,11 +528,16 @@ struct DiagnosticsWorkspaceView: View {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(experiment.id)
-                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                        .font(
+                                            .system(
+                                                size: 12, weight: .semibold, design: .monospaced)
+                                        )
                                         .lineLimit(1)
-                                    Text("\(experiment.succeededCandidateCount) / \(experiment.candidateCount) candidates succeeded")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(.secondary)
+                                    Text(
+                                        "\(experiment.succeededCandidateCount) / \(experiment.candidateCount) candidates succeeded"
+                                    )
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 if let selectedCandidateID = experiment.selectedCandidateID {
@@ -387,13 +553,15 @@ struct DiagnosticsWorkspaceView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func diagnosticsRecoveryCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
+    private func diagnosticsRecoveryCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View
+    {
         PanelCard("Recovery", subtitle: "Failure-class routing and verified repair attempts") {
             if diagnostics.recovery.strategies.isEmpty {
                 EmptyStateView(
                     systemImage: "arrow.trianglehead.clockwise.rotate.90",
                     title: "No Recovery Data",
-                    message: "Recovery strategy stats appear after the runtime resolves failures through the verified path."
+                    message:
+                        "Recovery strategy stats appear after the runtime resolves failures through the verified path."
                 )
                 .frame(height: 220)
             } else {
@@ -405,16 +573,23 @@ struct DiagnosticsWorkspaceView: View {
                                 Text(strategy.id)
                                     .font(.system(size: 12, weight: .semibold))
                                 Spacer()
-                                StatusBadge(label: "\(strategy.successes)/\(strategy.attempts)", tone: strategy.successes > 0 ? .good : .warning)
+                                StatusBadge(
+                                    label: "\(strategy.successes)/\(strategy.attempts)",
+                                    tone: strategy.successes > 0 ? .good : .warning)
                             }
                             if !strategy.failureHistogram.isEmpty {
-                                Text(strategy.failureHistogram.map { "\($0.key): \($0.value)" }.sorted().joined(separator: " · "))
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
+                                Text(
+                                    strategy.failureHistogram.map { "\($0.key): \($0.value)" }
+                                        .sorted().joined(separator: " · ")
+                                )
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
                             }
                         }
                         .padding(10)
-                        .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(
+                            Color.white.opacity(0.55),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -422,13 +597,19 @@ struct DiagnosticsWorkspaceView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func diagnosticsProjectMemoryCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
-        PanelCard("Project Memory", subtitle: "Structured reusable engineering knowledge referenced by runtime steps") {
+    private func diagnosticsProjectMemoryCard(_ diagnostics: ControllerDiagnosticsSnapshot)
+        -> some View
+    {
+        PanelCard(
+            "Project Memory",
+            subtitle: "Structured reusable engineering knowledge referenced by runtime steps"
+        ) {
             if diagnostics.projectMemory.isEmpty {
                 EmptyStateView(
                     systemImage: "archivebox",
                     title: "No Memory References",
-                    message: "Planner and architecture decisions will surface here when runtime traces reference project memory."
+                    message:
+                        "Planner and architecture decisions will surface here when runtime traces reference project memory."
                 )
                 .frame(height: 220)
             } else {
@@ -449,7 +630,9 @@ struct DiagnosticsWorkspaceView: View {
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 6) {
                                     StatusBadge(label: record.kind, tone: .neutral)
-                                    StatusBadge(label: record.status, tone: record.status == "accepted" ? .good : .warning)
+                                    StatusBadge(
+                                        label: record.status,
+                                        tone: record.status == "accepted" ? .good : .warning)
                                 }
                             }
                         }
@@ -461,13 +644,19 @@ struct DiagnosticsWorkspaceView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func diagnosticsArchitectureCard(_ diagnostics: ControllerDiagnosticsSnapshot) -> some View {
-        PanelCard("Architecture Findings", subtitle: "Boundary drift, impact, and risk surfaced by runtime and experiments") {
+    private func diagnosticsArchitectureCard(_ diagnostics: ControllerDiagnosticsSnapshot)
+        -> some View
+    {
+        PanelCard(
+            "Architecture Findings",
+            subtitle: "Boundary drift, impact, and risk surfaced by runtime and experiments"
+        ) {
             if diagnostics.architectureFindings.isEmpty {
                 EmptyStateView(
                     systemImage: "building.columns",
                     title: "No Architecture Findings",
-                    message: "High-impact changes and experiment candidates will contribute findings here."
+                    message:
+                        "High-impact changes and experiment candidates will contribute findings here."
                 )
                 .frame(height: 220)
             } else {
@@ -487,7 +676,9 @@ struct DiagnosticsWorkspaceView: View {
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 6) {
-                                    StatusBadge(label: finding.severity, tone: finding.severity == "critical" ? .danger : .warning)
+                                    StatusBadge(
+                                        label: finding.severity,
+                                        tone: finding.severity == "critical" ? .danger : .warning)
                                     Text(String(format: "%.2f", finding.riskScore))
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundStyle(.secondary)
@@ -509,7 +700,10 @@ struct DiagnosticsInspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                PanelCard("Selected Graph Edge", subtitle: "Current graph selection, promotion state, and reliability metrics") {
+                PanelCard(
+                    "Selected Graph Edge",
+                    subtitle: "Current graph selection, promotion state, and reliability metrics"
+                ) {
                     if let edge = store.selectedGraphEdge {
                         KVRow(key: "Action", value: edge.actionContractID, monospaced: true)
                         KVRow(key: "From", value: edge.fromPlanningStateID, monospaced: true)
@@ -518,11 +712,19 @@ struct DiagnosticsInspectorView: View {
                         KVRow(key: "Planner", value: edge.plannerFamily ?? "Unknown")
                         KVRow(key: "Agent", value: edge.agentKind)
                         KVRow(key: "Success", value: String(format: "%.2f", edge.successRate))
-                        KVRow(key: "Rolling Success", value: String(format: "%.2f", edge.rollingSuccessRate))
-                        KVRow(key: "Ambiguity", value: String(format: "%.2f", edge.targetAmbiguityRate))
-                        KVRow(key: "Latency", value: "\(Int(edge.averageLatencyMs)) ms", monospaced: true)
+                        KVRow(
+                            key: "Rolling Success",
+                            value: String(format: "%.2f", edge.rollingSuccessRate))
+                        KVRow(
+                            key: "Ambiguity",
+                            value: String(format: "%.2f", edge.targetAmbiguityRate))
+                        KVRow(
+                            key: "Latency", value: "\(Int(edge.averageLatencyMs)) ms",
+                            monospaced: true)
                         KVRow(key: "Attempts", value: "\(edge.attempts)")
-                        KVRow(key: "Promotion", value: edge.promotionEligible ? "Eligible" : "Not eligible")
+                        KVRow(
+                            key: "Promotion",
+                            value: edge.promotionEligible ? "Eligible" : "Not eligible")
                         if let path = edge.workspaceRelativePath {
                             KVRow(key: "Path", value: path, monospaced: true)
                         }
@@ -531,28 +733,37 @@ struct DiagnosticsInspectorView: View {
                         }
                         if !edge.failureHistogram.isEmpty {
                             Divider()
-                            Text(edge.failureHistogram.map { "\($0.key): \($0.value)" }.sorted().joined(separator: "\n"))
-                                .font(.system(size: 11, design: .monospaced))
-                                .textSelection(.enabled)
+                            Text(
+                                edge.failureHistogram.map { "\($0.key): \($0.value)" }.sorted()
+                                    .joined(separator: "\n")
+                            )
+                            .font(.system(size: 11, design: .monospaced))
+                            .textSelection(.enabled)
                         }
                     } else {
                         EmptyStateView(
                             systemImage: "point.3.filled.connected.trianglepath.dotted",
                             title: "No Graph Edge Selected",
-                            message: "Choose a stable, candidate, or recovery edge from Diagnostics to inspect its metrics."
+                            message:
+                                "Choose a stable, candidate, or recovery edge from Diagnostics to inspect its metrics."
                         )
                         .frame(height: 220)
                     }
                 }
 
-                PanelCard("Selected Workflow", subtitle: "Promotion, replay, and parameter details") {
+                PanelCard("Selected Workflow", subtitle: "Promotion, replay, and parameter details")
+                {
                     if let workflow = store.selectedWorkflowDiagnostics {
                         KVRow(key: "Goal", value: workflow.goalPattern)
                         KVRow(key: "Agent", value: workflow.agentKind)
                         KVRow(key: "Status", value: workflow.promotionStatus)
                         KVRow(key: "Success", value: String(format: "%.2f", workflow.successRate))
-                        KVRow(key: "Replay", value: String(format: "%.2f", workflow.replayValidationSuccess))
-                        KVRow(key: "Repeated Segments", value: "\(workflow.repeatedTraceSegmentCount)")
+                        KVRow(
+                            key: "Replay",
+                            value: String(format: "%.2f", workflow.replayValidationSuccess))
+                        KVRow(
+                            key: "Repeated Segments", value: "\(workflow.repeatedTraceSegmentCount)"
+                        )
                         KVRow(key: "Steps", value: "\(workflow.stepCount)")
                         KVRow(key: "Stale", value: workflow.stale ? "Yes" : "No")
                         if !workflow.parameterSlots.isEmpty {
@@ -565,20 +776,27 @@ struct DiagnosticsInspectorView: View {
                         EmptyStateView(
                             systemImage: "square.stack.3d.up",
                             title: "No Workflow Selected",
-                            message: "Choose a workflow candidate or promoted workflow to inspect replay and parameter metadata."
+                            message:
+                                "Choose a workflow candidate or promoted workflow to inspect replay and parameter metadata."
                         )
                         .frame(height: 220)
                     }
                 }
 
-                PanelCard("Selected Experiment", subtitle: "Candidate patches, chosen winner, and sandbox context") {
+                PanelCard(
+                    "Selected Experiment",
+                    subtitle: "Candidate patches, chosen winner, and sandbox context"
+                ) {
                     if let experiment = store.selectedExperimentDiagnostics {
                         KVRow(key: "Experiment", value: experiment.id, monospaced: true)
                         KVRow(key: "Candidates", value: "\(experiment.candidateCount)")
                         KVRow(key: "Succeeded", value: "\(experiment.succeededCandidateCount)")
                         KVRow(key: "Context", value: experiment.executionContext)
-                        KVRow(key: "Committed", value: experiment.committedToWorkspace ? "Yes" : "No")
-                        KVRow(key: "Sandbox Winner", value: experiment.selectedCandidateID ?? "None", monospaced: true)
+                        KVRow(
+                            key: "Committed", value: experiment.committedToWorkspace ? "Yes" : "No")
+                        KVRow(
+                            key: "Sandbox Winner", value: experiment.selectedCandidateID ?? "None",
+                            monospaced: true)
                         if let path = experiment.winningSandboxPath {
                             KVRow(key: "Sandbox", value: path, monospaced: true)
                         }
@@ -589,13 +807,20 @@ struct DiagnosticsInspectorView: View {
                                     Text(candidate.title)
                                         .font(.system(size: 12, weight: .semibold))
                                     Spacer()
-                                    StatusBadge(label: candidate.selected ? "sandbox winner" : (candidate.succeeded ? "passed" : "failed"), tone: candidate.selected ? .good : (candidate.succeeded ? .neutral : .danger))
+                                    StatusBadge(
+                                        label: candidate.selected
+                                            ? "sandbox winner"
+                                            : (candidate.succeeded ? "passed" : "failed"),
+                                        tone: candidate.selected
+                                            ? .good : (candidate.succeeded ? .neutral : .danger))
                                 }
                                 Text(candidate.summary)
                                     .font(.system(size: 11))
                                     .foregroundStyle(.secondary)
                                 KVRow(key: "Context", value: candidate.executionContext)
-                                KVRow(key: "Committed", value: candidate.committedToWorkspace ? "Yes" : "No")
+                                KVRow(
+                                    key: "Committed",
+                                    value: candidate.committedToWorkspace ? "Yes" : "No")
                                 if let buildSummary = candidate.buildSummary {
                                     KVRow(key: "Build", value: buildSummary)
                                 }
@@ -604,19 +829,25 @@ struct DiagnosticsInspectorView: View {
                                 }
                             }
                             .padding(10)
-                            .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(
+                                Color.white.opacity(0.55),
+                                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                     } else {
                         EmptyStateView(
                             systemImage: "testtube.2",
                             title: "No Experiment Selected",
-                            message: "Choose an experiment to inspect its candidates, sandbox paths, and selected winner."
+                            message:
+                                "Choose an experiment to inspect its candidates, sandbox paths, and selected winner."
                         )
                         .frame(height: 220)
                     }
                 }
 
-                PanelCard("Project Memory and Architecture", subtitle: "Long-horizon engineering context and structural findings") {
+                PanelCard(
+                    "Project Memory and Architecture",
+                    subtitle: "Long-horizon engineering context and structural findings"
+                ) {
                     if let record = store.selectedProjectMemoryDiagnostics {
                         KVRow(key: "Memory", value: record.title)
                         KVRow(key: "Kind", value: record.kind)
@@ -642,11 +873,14 @@ struct DiagnosticsInspectorView: View {
                                 .textSelection(.enabled)
                         }
                     }
-                    if store.selectedProjectMemoryDiagnostics == nil && store.selectedArchitectureFindingDiagnostics == nil {
+                    if store.selectedProjectMemoryDiagnostics == nil
+                        && store.selectedArchitectureFindingDiagnostics == nil
+                    {
                         EmptyStateView(
                             systemImage: "building.columns",
                             title: "No Diagnostic Selection",
-                            message: "Choose project-memory records or architecture findings from Diagnostics to inspect them here."
+                            message:
+                                "Choose project-memory records or architecture findings from Diagnostics to inspect them here."
                         )
                         .frame(height: 220)
                     }

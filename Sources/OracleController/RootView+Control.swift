@@ -2,8 +2,8 @@
 
 import AppKit
 import Foundation
-import SwiftUI
 import OracleControllerShared
+import SwiftUI
 
 struct ControlWorkspaceView: View {
     @Bindable var store: ControllerStore
@@ -15,7 +15,9 @@ struct ControlWorkspaceView: View {
                 controlStatusRow
 
                 HStack(alignment: .top, spacing: layout.stackSpacing) {
-                    PanelCard("Live Monitor", subtitle: "Low-frequency screenshot stream", style: .hero) {
+                    PanelCard(
+                        "Live Monitor", subtitle: "Low-frequency screenshot stream", style: .hero
+                    ) {
                         ScreenshotPreview(screenshot: store.snapshot?.screenshot)
                             .frame(maxWidth: .infinity, minHeight: 420)
                     }
@@ -26,7 +28,10 @@ struct ControlWorkspaceView: View {
                 }
 
                 HStack(alignment: .top, spacing: layout.stackSpacing) {
-                    PanelCard("Visible Elements", subtitle: "\(store.filteredElements.count) in current observation") {
+                    PanelCard(
+                        "Visible Elements",
+                        subtitle: "\(store.filteredElements.count) in current observation"
+                    ) {
                         TextField("Filter elements", text: $store.elementSearchText)
                             .textFieldStyle(.roundedBorder)
 
@@ -34,7 +39,8 @@ struct ControlWorkspaceView: View {
                             EmptyStateView(
                                 systemImage: "rectangle.dashed",
                                 title: "No Elements",
-                                message: "Refresh the snapshot or choose another app to inspect visible UI elements."
+                                message:
+                                    "Refresh the snapshot or choose another app to inspect visible UI elements."
                             )
                             .frame(height: 220)
                         } else {
@@ -50,8 +56,13 @@ struct ControlWorkspaceView: View {
                                                 fill: elementRowFill(for: element)
                                             )
                                             .overlay(
-                                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                                    .stroke(element.id == store.selectedElementID ? ControllerTheme.accent.opacity(0.4) : ControllerTheme.border, lineWidth: 1)
+                                                RoundedRectangle(
+                                                    cornerRadius: 16, style: .continuous
+                                                )
+                                                .stroke(
+                                                    element.id == store.selectedElementID
+                                                        ? ControllerTheme.accent.opacity(0.4)
+                                                        : ControllerTheme.border, lineWidth: 1)
                                             )
                                         }
                                         .buttonStyle(.plain)
@@ -64,35 +75,72 @@ struct ControlWorkspaceView: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    PanelCard("Action Timeline", subtitle: "Recent controller action results") {
-                        if store.recentActions.isEmpty {
+                    PanelCard("Action Feed", subtitle: "Recent runtime and observational results") {
+                        if store.recentActionSummaries.isEmpty {
                             EmptyStateView(
                                 systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90",
                                 title: "No Recent Actions",
-                                message: "Run a manual action or recipe to start building an execution timeline."
+                                message:
+                                    "Run a manual action or recipe to start building an execution timeline."
                             )
                             .frame(height: 220)
                         } else {
                             VStack(spacing: 10) {
-                                ForEach(store.recentActions) { action in
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(action.request.displayTitle)
-                                                .font(.system(size: 13, weight: .semibold))
-                                            Text(action.summaryText)
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
-                                        VStack(alignment: .trailing, spacing: 6) {
-                                            StatusBadge(label: action.statusLabel, tone: tone(for: action))
-                                            Text("\(Int(action.elapsedMs)) ms")
-                                                .font(.system(size: 11, design: .monospaced))
-                                                .foregroundStyle(ControllerTheme.muted)
+                                ForEach(store.recentActionSummaries) { summary in
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 5) {
+                                                Text(summary.title)
+                                                    .font(.system(size: 13, weight: .semibold))
+
+                                                Text(summary.outcomeTitle)
+                                                    .font(
+                                                        .system(
+                                                            size: 11, weight: .bold,
+                                                            design: .rounded)
+                                                    )
+                                                    .foregroundStyle(summary.tone.badgeTone.color)
+
+                                                Text(summary.summary)
+                                                    .font(.system(size: 11, weight: .medium))
+                                                    .foregroundStyle(ControllerTheme.ink)
+
+                                                Text(summary.executionDetail)
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(ControllerTheme.muted)
+
+                                                if let contextDetail = summary.contextDetail {
+                                                    Text(contextDetail)
+                                                        .font(.system(size: 11))
+                                                        .foregroundStyle(ControllerTheme.muted)
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            VStack(alignment: .trailing, spacing: 6) {
+                                                StatusBadge(
+                                                    label: summary.statusLabel,
+                                                    tone: summary.tone.badgeTone)
+                                                Text("\(Int(summary.elapsedMs)) ms")
+                                                    .font(.system(size: 11, design: .monospaced))
+                                                    .foregroundStyle(ControllerTheme.muted)
+                                            }
                                         }
                                     }
                                     .padding(12)
-                                    .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(summary.tone.rowFill)
+                                            .overlay(
+                                                RoundedRectangle(
+                                                    cornerRadius: 14, style: .continuous
+                                                )
+                                                .stroke(
+                                                    summary.tone.badgeTone.color.opacity(0.16),
+                                                    lineWidth: 1)
+                                            )
+                                    )
                                 }
                             }
                         }
@@ -124,9 +172,11 @@ struct ControlWorkspaceView: View {
                                 .lineLimit(1)
                         }
                         if let productStatus = store.productStatus {
-                            Text("Build \(productStatus.buildVersion) (\(productStatus.buildNumber))")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "Build \(productStatus.buildVersion) (\(productStatus.buildNumber))"
+                            )
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
                         }
                     }
                     Spacer()
@@ -134,13 +184,16 @@ struct ControlWorkspaceView: View {
                         HStack(spacing: 8) {
                             StatusBadge(label: store.hostConnection.label, tone: hostTone)
                             StatusBadge(label: sidecarLabel, tone: sidecarTone)
-                            StatusBadge(label: store.autoRefreshEnabled ? "Monitoring" : "Paused", tone: monitorTone)
+                            StatusBadge(
+                                label: store.autoRefreshEnabled ? "Monitoring" : "Paused",
+                                tone: monitorTone)
                         }
                         if let permissions = store.health?.permissions {
                             HStack(spacing: 8) {
                                 ForEach(permissions) { permission in
                                     StatusBadge(
-                                        label: permission.granted ? permission.title : "\(permission.title) Required",
+                                        label: permission.granted
+                                            ? permission.title : "\(permission.title) Required",
                                         tone: permission.granted ? .good : .warning
                                     )
                                 }
@@ -149,7 +202,10 @@ struct ControlWorkspaceView: View {
                     }
                 }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 12) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)],
+                    spacing: 12
+                ) {
                     MetricTile(
                         label: "Host",
                         value: store.hostConnection.label,
@@ -164,7 +220,8 @@ struct ControlWorkspaceView: View {
                     )
                     MetricTile(
                         label: "Approvals",
-                        value: store.health?.approvalBrokerActive == true ? "Broker Ready" : "Broker Offline",
+                        value: store.health?.approvalBrokerActive == true
+                            ? "Broker Ready" : "Broker Offline",
                         detail: approvalBrokerDetail,
                         tone: approvalBrokerTone
                     )
@@ -237,9 +294,11 @@ struct ControlWorkspaceView: View {
                     .buttonStyle(ControllerSecondaryButtonStyle())
                 }
 
-                Text("Manual Action sends runtime work through the host bridge. Setup, diagnostics, and help buttons here are controller-local support tools.")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ControllerTheme.muted)
+                Text(
+                    "Manual Action sends runtime work through the host bridge. Setup, diagnostics, and help buttons here are controller-local support tools."
+                )
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(ControllerTheme.muted)
 
                 if store.hostConnection.requiresAttention {
                     HStack(alignment: .top, spacing: 12) {
@@ -264,7 +323,9 @@ struct ControlWorkspaceView: View {
                         .buttonStyle(ControllerPrimaryButtonStyle())
                     }
                     .padding(12)
-                    .background(hostTone.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(
+                        hostTone.color.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
                 if let inlineMessage = store.inlineMessage, !inlineMessage.isEmpty {
@@ -325,7 +386,9 @@ struct ControlWorkspaceView: View {
 
     private var approvalBrokerDetail: String {
         if store.health?.approvalBrokerActive == true {
-            return store.approvalQueue.isEmpty ? "No pending approvals at the moment." : "\(store.approvalQueue.count) request(s) are waiting for a decision."
+            return store.approvalQueue.isEmpty
+                ? "No pending approvals at the moment."
+                : "\(store.approvalQueue.count) request(s) are waiting for a decision."
         }
         return "Approval-protected actions cannot advance until the broker is available."
     }
@@ -336,7 +399,8 @@ struct ControlWorkspaceView: View {
 
     private var monitorDetail: String {
         if store.autoRefreshEnabled {
-            return store.snapshot?.observation.appName.map { "Tracking \($0)." } ?? "Watching the current focused application."
+            return store.snapshot?.observation.appName.map { "Tracking \($0)." }
+                ?? "Watching the current focused application."
         }
         return "Manual refresh only. Snapshot evidence will stay static until refreshed."
     }
@@ -403,77 +467,116 @@ struct ApprovalQueueCard: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Approvals", subtitle: "Pending runtime approval requests with transient decision feedback") {
-            if store.approvalRows.isEmpty {
-                EmptyStateView(
-                    systemImage: "checkmark.shield",
-                    title: "No Pending Approvals",
-                    message: "Only actions paused awaiting approval appear here. Policy-blocked or rejected actions stay in the action result view."
-                )
-                .frame(height: 180)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(store.approvalRows) { row in
-                        let approval = row.approval
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(approval.displayTitle)
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text(approval.reason)
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if row.phase != .pending {
-                                    StatusBadge(label: phaseLabel(for: row.phase), tone: phaseTone(for: row.phase))
-                                }
-                                StatusBadge(label: approval.riskLevel.uppercased(), tone: .warning)
-                            }
-                            HStack {
-                                StatusBadge(label: approval.protectedOperation, tone: .danger)
-                                StatusBadge(label: approval.appProtectionProfile, tone: .neutral)
-                                if let appName = approval.appName {
-                                    StatusBadge(label: appName, tone: .neutral)
-                                }
-                            }
-                            HStack {
-                                switch row.phase {
-                                case .pending:
-                                    Button("Approve") {
-                                        Task { await store.approveApprovalRequest(approval) }
-                                    }
-                                    .buttonStyle(ControllerPrimaryButtonStyle())
+        let summary = store.approvalReviewSummary
 
-                                    Button("Reject", role: .destructive) {
-                                        Task { await store.rejectApprovalRequest(approval) }
-                                    }
-                                    .buttonStyle(ControllerSecondaryButtonStyle())
+        PanelCard("Approval Review", subtitle: "Paused runtime work waiting for a decision") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(summary.title)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(ControllerTheme.ink)
 
-                                case .submitting:
-                                    HStack(spacing: 8) {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                        Text("Decision in flight")
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundStyle(ControllerTheme.muted)
+                        Text(summary.detail)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(ControllerTheme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    StatusBadge(label: summary.statusLabel, tone: summary.tone.badgeTone)
+                }
+
+                if store.activeApprovalRows.isEmpty {
+                    EmptyStateView(
+                        systemImage: "checkmark.shield",
+                        title: summary.emptyStateTitle,
+                        message: summary.emptyStateMessage
+                    )
+                    .frame(height: 180)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(store.activeApprovalRows) { row in
+                            let approval = row.approval
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(approval.displayTitle)
+                                            .font(.system(size: 13, weight: .semibold))
+                                        Text(approval.reason)
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(.secondary)
                                     }
 
-                                case .resolved(let action):
-                                    Label(action.resolvedLabel, systemImage: action == .approve ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    Spacer()
+
+                                    if row.phase != .pending {
+                                        StatusBadge(
+                                            label: phaseLabel(for: row.phase),
+                                            tone: phaseTone(for: row.phase))
+                                    }
+
+                                    StatusBadge(
+                                        label: approval.riskLevel.uppercased(), tone: .warning)
+                                }
+
+                                HStack {
+                                    StatusBadge(label: approval.protectedOperation, tone: .danger)
+                                    StatusBadge(
+                                        label: approval.appProtectionProfile, tone: .neutral)
+                                    if let appName = approval.appName {
+                                        StatusBadge(label: appName, tone: .neutral)
+                                    }
+                                }
+
+                                HStack {
+                                    switch row.phase {
+                                    case .pending:
+                                        Button("Approve") {
+                                            Task { await store.approveApprovalRequest(approval) }
+                                        }
+                                        .buttonStyle(ControllerPrimaryButtonStyle())
+
+                                        Button("Reject", role: .destructive) {
+                                            Task { await store.rejectApprovalRequest(approval) }
+                                        }
+                                        .buttonStyle(ControllerSecondaryButtonStyle())
+
+                                    case .submitting:
+                                        HStack(spacing: 8) {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                            Text("Decision in flight")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundStyle(ControllerTheme.muted)
+                                        }
+
+                                    case .resolved(let action):
+                                        Label(
+                                            action.resolvedLabel,
+                                            systemImage: action == .approve
+                                                ? "checkmark.circle.fill" : "xmark.circle.fill"
+                                        )
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(action == .approve ? ControllerTheme.success : ControllerTheme.warning)
+                                        .foregroundStyle(
+                                            action == .approve
+                                                ? ControllerTheme.success : ControllerTheme.warning)
+                                    }
+
+                                    Spacer()
+
+                                    Text(approval.surface.uppercased())
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundStyle(ControllerTheme.muted)
                                 }
-
-                                Spacer()
-
-                                Text(approval.surface.uppercased())
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(ControllerTheme.muted)
                             }
+                            .padding(12)
+                            .background(
+                                backgroundFill(for: row.phase),
+                                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
-                        .padding(12)
-                        .background(backgroundFill(for: row.phase), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
             }
@@ -520,7 +623,12 @@ struct ActionComposerCard: View {
     @Bindable var store: ControllerStore
 
     var body: some View {
-        PanelCard("Manual Action", subtitle: "Runtime actions flow through the host bridge; Wait evaluates a condition locally", style: .hero) {
+        PanelCard(
+            "Manual Action",
+            subtitle:
+                "Runtime actions flow through the host bridge; Wait evaluates a condition locally",
+            style: .hero
+        ) {
             Picker("Action", selection: $store.actionComposer.kind) {
                 ForEach(ActionKind.allCases) { kind in
                     Text(kind.rawValue.capitalized).tag(kind)
@@ -570,12 +678,16 @@ struct ActionComposerCard: View {
                     .font(.system(size: 13, design: .monospaced))
                     .frame(minHeight: 120)
                     .padding(8)
-                    .background(ControllerTheme.panelRaised.opacity(0.9), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(
+                        ControllerTheme.panelRaised.opacity(0.9),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(ControllerTheme.border, lineWidth: 1)
                     )
-                Toggle("Clear current value before typing", isOn: $store.actionComposer.clearExisting)
+                Toggle(
+                    "Clear current value before typing", isOn: $store.actionComposer.clearExisting)
 
             case .press:
                 TextField("Key", text: $store.actionComposer.key)
@@ -609,8 +721,11 @@ struct ActionComposerCard: View {
             Button {
                 Task { await store.submitAction() }
             } label: {
-                Label(store.actionComposer.kind == .wait ? "Evaluate Condition" : "Run Action", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
+                Label(
+                    store.actionComposer.kind == .wait ? "Evaluate Condition" : "Run Action",
+                    systemImage: "play.fill"
+                )
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(ControllerPrimaryButtonStyle())
         }
@@ -619,17 +734,23 @@ struct ActionComposerCard: View {
     private var actionHint: String {
         switch store.actionComposer.kind {
         case .focus:
-            return "Bring a target app and optional window to the foreground before taking any more specific action."
+            return
+                "Bring a target app and optional window to the foreground before taking any more specific action."
         case .click:
-            return "Prefer a label or computed query first, then fall back to DOM IDs or coordinates when needed."
+            return
+                "Prefer a label or computed query first, then fall back to DOM IDs or coordinates when needed."
         case .type:
-            return "Typing targets a discovered field and can clear the current value before entering text."
+            return
+                "Typing targets a discovered field and can clear the current value before entering text."
         case .press:
-            return "Keyboard shortcuts are sent through the host bridge with an optional modifier list."
+            return
+                "Keyboard shortcuts are sent through the host bridge with an optional modifier list."
         case .scroll:
-            return "Use semantic direction and amount when possible; coordinates are optional precision overrides."
+            return
+                "Use semantic direction and amount when possible; coordinates are optional precision overrides."
         case .wait:
-            return "Wait is observational only. It evaluates a condition locally instead of executing a runtime mutation."
+            return
+                "Wait is observational only. It evaluates a condition locally instead of executing a runtime mutation."
         }
     }
 }
@@ -641,7 +762,9 @@ struct ControlInspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: layout.stackSpacing) {
-                PanelCard("Selected Element", subtitle: "Inspection details for the highlighted control") {
+                PanelCard(
+                    "Selected Element", subtitle: "Inspection details for the highlighted control"
+                ) {
                     if let element = store.selectedElement {
                         KVRow(key: "ID", value: element.id, monospaced: true)
                         KVRow(key: "Label", value: element.label ?? "None")
@@ -649,73 +772,103 @@ struct ControlInspectorView: View {
                         KVRow(key: "Value", value: element.value ?? "None")
                         KVRow(key: "Source", value: element.source)
                         KVRow(key: "Confidence", value: String(format: "%.2f", element.confidence))
-                        KVRow(key: "Frame", value: element.frame.map { "\(Int($0.x)), \(Int($0.y)) - \(Int($0.width))x\(Int($0.height))" } ?? "Unavailable", monospaced: true)
+                        KVRow(
+                            key: "Frame",
+                            value: element.frame.map {
+                                "\(Int($0.x)), \(Int($0.y)) - \(Int($0.width))x\(Int($0.height))"
+                            } ?? "Unavailable", monospaced: true)
                     } else {
                         EmptyStateView(
                             systemImage: "cursorarrow.motionlines",
                             title: "No Element Selected",
-                            message: "Choose a visible element to inspect its identity, source, and confidence."
+                            message:
+                                "Choose a visible element to inspect its identity, source, and confidence."
                         )
                         .frame(height: 240)
                     }
                 }
 
                 PanelCard("Verification", subtitle: "Latest action status") {
-                    if let result = store.currentActionResult {
-                        HStack {
-                                StatusBadge(label: result.statusLabel, tone: tone(for: result))
-                            if let failureClass = result.failureClass {
-                                StatusBadge(label: failureClass, tone: .warning)
+                    if let summary = store.currentActionSummary,
+                        let result = store.currentActionResult
+                    {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                StatusBadge(
+                                    label: summary.statusLabel, tone: summary.tone.badgeTone)
+                                if let failureClass = result.failureClass {
+                                    StatusBadge(label: failureClass, tone: .warning)
+                                }
                             }
-                            if let approvalStatus = result.approvalStatus {
-                                StatusBadge(label: approvalStatus, tone: approvalStatus == "pending" ? .warning : .neutral)
+
+                            Text(summary.outcomeTitle)
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundStyle(summary.tone.badgeTone.color)
+
+                            Text(summary.summary)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(ControllerTheme.ink)
+
+                            Text(summary.executionDetail)
+                                .font(.system(size: 11))
+                                .foregroundStyle(ControllerTheme.muted)
+
+                            if let contextDetail = summary.contextDetail {
+                                Text(contextDetail)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(ControllerTheme.muted)
                             }
-                        }
-                        KVRow(key: "Request", value: result.request.displayTitle)
-                            KVRow(key: "Message", value: result.summaryText)
-                            KVRow(key: "Execution Path", value: result.executionPathSummary)
-                        KVRow(key: "Elapsed", value: "\(Int(result.elapsedMs)) ms", monospaced: true)
+
+                            Divider()
+
+                            KVRow(key: "Request", value: result.request.displayTitle)
+                            KVRow(
+                                key: "Elapsed", value: "\(Int(result.elapsedMs)) ms",
+                                monospaced: true)
                             if let verificationStatus = result.verificationStatus {
                                 KVRow(key: "Verification", value: verificationStatus)
                             }
-                        if let commandCategory = result.commandCategory {
-                            KVRow(key: "Command", value: commandCategory)
-                        }
-                        if let commandSummary = result.commandSummary {
-                            KVRow(key: "Summary", value: commandSummary)
-                        }
-                        if let workspaceRelativePath = result.workspaceRelativePath {
-                            KVRow(key: "Path", value: workspaceRelativePath, monospaced: true)
-                        }
-                        if let buildResultSummary = result.buildResultSummary {
-                            KVRow(key: "Build", value: buildResultSummary)
-                        }
-                        if let testResultSummary = result.testResultSummary {
-                            KVRow(key: "Tests", value: testResultSummary)
-                        }
-                        if let patchID = result.patchID {
-                            KVRow(key: "Patch", value: patchID, monospaced: true)
-                        }
-                        if let protectedOperation = result.protectedOperation {
-                            KVRow(key: "Protected Op", value: protectedOperation)
-                        }
-                        if let appProtectionProfile = result.appProtectionProfile {
-                            KVRow(key: "App Profile", value: appProtectionProfile)
-                        }
-                        if let policyMode = result.policyMode {
-                            KVRow(key: "Policy Mode", value: policyMode)
-                        }
-                        if let approvalRequestID = result.approvalRequestID {
-                            KVRow(key: "Approval", value: approvalRequestID, monospaced: true)
-                        }
-                        if result.blockedByPolicy {
-                            KVRow(key: "Policy", value: "Blocked before execution")
+
+                            if let commandCategory = result.commandCategory {
+                                KVRow(key: "Command", value: commandCategory)
+                            }
+                            if let commandSummary = result.commandSummary {
+                                KVRow(key: "Summary", value: commandSummary)
+                            }
+                            if let workspaceRelativePath = result.workspaceRelativePath {
+                                KVRow(key: "Path", value: workspaceRelativePath, monospaced: true)
+                            }
+                            if let buildResultSummary = result.buildResultSummary {
+                                KVRow(key: "Build", value: buildResultSummary)
+                            }
+                            if let testResultSummary = result.testResultSummary {
+                                KVRow(key: "Tests", value: testResultSummary)
+                            }
+                            if let patchID = result.patchID {
+                                KVRow(key: "Patch", value: patchID, monospaced: true)
+                            }
+                            if let protectedOperation = result.protectedOperation {
+                                KVRow(key: "Protected Op", value: protectedOperation)
+                            }
+                            if let appProtectionProfile = result.appProtectionProfile {
+                                KVRow(key: "App Profile", value: appProtectionProfile)
+                            }
+                            if let policyMode = result.policyMode {
+                                KVRow(key: "Policy Mode", value: policyMode)
+                            }
+                            if let approvalRequestID = result.approvalRequestID {
+                                KVRow(key: "Approval", value: approvalRequestID, monospaced: true)
+                            }
+                            if result.blockedByPolicy {
+                                KVRow(key: "Policy", value: "Blocked before execution")
+                            }
                         }
                     } else {
                         EmptyStateView(
                             systemImage: "checkmark.shield",
                             title: "No Verification Yet",
-                            message: "Manual actions and recipe runs will surface verification results here."
+                            message:
+                                "Manual actions and recipe runs will surface verification results here."
                         )
                         .frame(height: 220)
                     }
@@ -723,24 +876,5 @@ struct ControlInspectorView: View {
             }
             .padding(layout.workspacePaddingValue)
         }
-    }
-}
-
-private func tone(for result: ActionRunResult) -> StatusBadge.Tone {
-    switch result.disposition {
-    case .awaitingApproval:
-        return .warning
-    case .rejected:
-        return .danger
-    case .blockedByPolicy:
-        return .danger
-    case .verifiedExecution:
-        return .good
-    case .observed:
-        return .neutral
-    case .partialSuccess:
-        return .warning
-    case .failed:
-        return .danger
     }
 }
