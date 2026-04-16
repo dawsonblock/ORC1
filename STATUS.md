@@ -34,6 +34,7 @@ Passed in this session:
 
 - `bash scripts/verify-build.sh`
 - `bash scripts/verify-build.sh --build-only`
+- `./scripts/create-controller-dmg.sh --configuration release --skip-sign`
 - `python3 scripts/generate_repo_facts.py --check`
 - `python3 scripts/cli_contract_guard.py`
 - `python3 scripts/mcp_boundary_guard.py`
@@ -45,6 +46,7 @@ Verified details from the canonical local proof surface:
 - Environment: macOS 26.2, Apple Swift 6.3, Python 3.9.7
 - Dependency resolution: passed
 - Release build: passed
+- Unsigned controller packaging preview: passed with proof logs emitted under `dist/controller-release-proof/`
 - Non-interactive CLI smokes: passed for `oracle version`, `oracle help`, `oracle status`, and `oracle dashboard`
 - Full Swift test phase: passed via `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test`
 - The end-to-end verifier completed the guard stage inside the canonical invocation and wrote a `=== VERDICT: PASS ===` summary to `local/verify/latest/verify-result.txt`

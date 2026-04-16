@@ -9,6 +9,7 @@
 - `bash scripts/verify-build.sh` returns `=== VERDICT: PASS ===` on the supported macOS proof path.
 - The current evidence shows dependency resolution, release build, non-interactive CLI smokes, `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test`, and all bundled guard steps passing in one canonical invocation.
 - `bash scripts/verify-build.sh --build-only` also returns `=== VERDICT: PASS ===` on the same proof path.
+- `./scripts/create-controller-dmg.sh --configuration release --skip-sign` now validates the unsigned controller packaging preview path locally and emits packaging proof logs under `dist/controller-release-proof/`.
 - Separate focused guard runs remain useful for iteration, but they are no longer standing in for a failing end-to-end verifier.
 - Current proof artifacts are written to `local/verify/latest/`.
 
