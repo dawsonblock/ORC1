@@ -30,6 +30,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=swift-bootstrap.sh
+source "$SCRIPT_DIR/swift-bootstrap.sh"
 
 # Read version from Types.swift
 VERSION=$(grep -o 'version = "[^"]*"' "$PROJECT_ROOT/Sources/OracleOS/Common/Types.swift" | head -1 | cut -d'"' -f2)
@@ -42,6 +44,8 @@ CONFIG="release"
 if [[ "${1:-}" == "--debug" ]]; then
     CONFIG="debug"
 fi
+
+oracle_require_swift_toolchain
 
 # Verify version consistency across all files
 PYTHON_VERSION=$(grep '__version__' "$PROJECT_ROOT/vision-sidecar/server.py" | head -1 | cut -d'"' -f2)
@@ -59,6 +63,7 @@ STAGE_DIR="$PROJECT_ROOT/.build/${CONFIG}-stage"
 
 echo "Building Oracle OS v${VERSION} ($CONFIG)"
 echo "========================================"
+echo "Using Swift toolchain: $ORACLE_SWIFT_INVOCATION"
 
 # Step 1: Build Swift binary
 echo ""
@@ -66,19 +71,20 @@ echo "Step 1: Building Swift binary..."
 cd "$PROJECT_ROOT"
 
 # Optimization flags for release
-SWIFT_FLAGS=""
+declare -a SWIFT_FLAGS=()
 if [[ "$CONFIG" == "release" ]]; then
     echo "  Enabling Link-Time Optimization (LTO) and stripping..."
     # Apply LTO and stripping via compiler/linker flags
     # -Xswiftc -O: Optimize for speed
     # -Xswiftc -lto=llvm-full: Enable Full LTO
     # -Xlinker -dead_strip: Remove unreachable code
-    SWIFT_FLAGS="-Xswiftc -O -Xswiftc -lto=llvm-full -Xlinker -dead_strip"
+    SWIFT_FLAGS=("-Xswiftc" "-O" "-Xswiftc" "-lto=llvm-full" "-Xlinker" "-dead_strip")
 fi
 
-swift build -c "$CONFIG" $SWIFT_FLAGS 2>&1
+"${ORACLE_SWIFT_CMD[@]}" build -c "$CONFIG" "${SWIFT_FLAGS[@]}" 2>&1
 
-BINARY="$PROJECT_ROOT/.build/$CONFIG/oracle"
+BUILD_PRODUCTS_DIR="$(oracle_swift_build_bin_path "$CONFIG")"
+BINARY="$BUILD_PRODUCTS_DIR/oracle"
 if [[ ! -f "$BINARY" ]]; then
     echo "ERROR: Binary not found at $BINARY" >&2
     exit 1

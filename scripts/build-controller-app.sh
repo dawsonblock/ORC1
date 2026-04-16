@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=swift-bootstrap.sh
+source "$SCRIPT_DIR/swift-bootstrap.sh"
 
 CONFIGURATION="release"
 OUTPUT_DIR="$PROJECT_ROOT/dist"
@@ -40,6 +42,8 @@ if [[ -z "$VERSION" ]]; then
     exit 1
 fi
 
+oracle_require_swift_toolchain
+
 if [[ -z "$BUILD_NUMBER" ]]; then
     BUILD_NUMBER="$VERSION"
 fi
@@ -50,13 +54,14 @@ CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 HELPERS_DIR="$CONTENTS_DIR/Helpers"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
-BUILD_PRODUCTS_DIR=$(swift build -c "$CONFIGURATION" --show-bin-path)
+BUILD_PRODUCTS_DIR="$(oracle_swift_build_bin_path "$CONFIGURATION")"
 
 mkdir -p "$OUTPUT_DIR"
 
 echo "Building Oracle Controller app bundle ($CONFIGURATION)"
-swift build -c "$CONFIGURATION" --product OracleController
-swift build -c "$CONFIGURATION" --product OracleControllerHost
+echo "Using Swift toolchain: $ORACLE_SWIFT_INVOCATION"
+"${ORACLE_SWIFT_CMD[@]}" build -c "$CONFIGURATION" --product OracleController
+"${ORACLE_SWIFT_CMD[@]}" build -c "$CONFIGURATION" --product OracleControllerHost
 
 CONTROLLER_BINARY="$BUILD_PRODUCTS_DIR/OracleController"
 HOST_BINARY="$BUILD_PRODUCTS_DIR/OracleControllerHost"

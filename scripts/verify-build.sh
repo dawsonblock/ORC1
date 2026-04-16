@@ -20,6 +20,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=swift-bootstrap.sh
+source "$SCRIPT_DIR/swift-bootstrap.sh"
 EVIDENCE_DIR="$REPO_ROOT/local/verify/latest"
 DEPENDENCY_LOG="$EVIDENCE_DIR/dependency-resolution-output.txt"
 BUILD_LOG="$EVIDENCE_DIR/build-output.txt"
@@ -27,7 +29,6 @@ CLI_SMOKE_LOG="$EVIDENCE_DIR/cli-smoke-output.txt"
 TEST_LOG="$EVIDENCE_DIR/test-output.txt"
 ENVIRONMENT_LOG="$EVIDENCE_DIR/environment.txt"
 RESULT_LOG="$EVIDENCE_DIR/verify-result.txt"
-PREFERRED_XCODE_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 
 declare -a VERIFIED_CLI_COMMANDS=()
 declare -a VERIFIED_GUARDS=()
@@ -55,6 +56,7 @@ FAILURE_MESSAGE=""
 SANITIZED_REASONING_ENV="none detected"
 SWIFT_INVOCATION="swift"
 SELECTED_DEVELOPER_DIR="${DEVELOPER_DIR:-}"
+CLI_BINARY=""
 declare -i DID_BUILD=0
 declare -i DID_RESOLVE=0
 declare -i DID_TEST=0
@@ -105,18 +107,13 @@ initialize_sanitized_environment() {
 }
 
 configure_swift_toolchain() {
-    if command -v xcrun >/dev/null 2>&1; then
-        if [[ -z "$SELECTED_DEVELOPER_DIR" && -d "$PREFERRED_XCODE_DEVELOPER_DIR" ]]; then
-            SELECTED_DEVELOPER_DIR="$PREFERRED_XCODE_DEVELOPER_DIR"
-            export DEVELOPER_DIR="$SELECTED_DEVELOPER_DIR"
-        fi
-        SWIFT_CMD=("xcrun" "swift")
-        if [[ -n "$SELECTED_DEVELOPER_DIR" ]]; then
-            SWIFT_INVOCATION="DEVELOPER_DIR=$SELECTED_DEVELOPER_DIR xcrun swift"
-        else
-            SWIFT_INVOCATION="xcrun swift"
-        fi
+    if ! oracle_configure_swift_toolchain; then
+        fail_step "SWIFT_TOOLCHAIN" "Unable to configure the shared Swift toolchain bootstrap."
     fi
+
+    SWIFT_CMD=("${ORACLE_SWIFT_CMD[@]}")
+    SWIFT_INVOCATION="$ORACLE_SWIFT_INVOCATION"
+    SELECTED_DEVELOPER_DIR="$ORACLE_SELECTED_DEVELOPER_DIR"
 }
 
 complete_verification() {
@@ -338,12 +335,11 @@ run_cli_smoke() {
     local expected_marker="$2"
     shift 2
 
-    local binary="$REPO_ROOT/.build/release/oracle"
     local tmp_output
     tmp_output="$(mktemp)"
 
     write_section "oracle $*"
-    if env "${SANITIZED_ENV_ARGS[@]}" TERM=dumb "$binary" "$@" >"$tmp_output" 2>&1; then
+    if env "${SANITIZED_ENV_ARGS[@]}" TERM=dumb "$CLI_BINARY" "$@" >"$tmp_output" 2>&1; then
         mirror_output_file "$tmp_output" "$CLI_SMOKE_LOG"
         if ! grep -Fq "$expected_marker" "$tmp_output"; then
             rm -f "$tmp_output"
@@ -362,9 +358,12 @@ run_cli_smoke() {
 }
 
 run_cli_smokes() {
-    local binary="$REPO_ROOT/.build/release/oracle"
-    if [[ ! -x "$binary" ]]; then
-        fail_step "CLI_SMOKE" "Built oracle binary not found at $binary"
+    if [[ -z "$CLI_BINARY" ]]; then
+        fail_step "CLI_SMOKE" "Resolved oracle CLI binary path is empty after the release build."
+    fi
+
+    if [[ ! -x "$CLI_BINARY" ]]; then
+        fail_step "CLI_SMOKE" "Built oracle binary not found at $CLI_BINARY"
     fi
 
     run_cli_smoke "CLI_VERSION" "Oracle OS v" version
@@ -399,6 +398,7 @@ if [[ "$MODE" == "all" || "$MODE" == "build" ]]; then
     run_logged_command "BUILD" "$SWIFT_INVOCATION build -c release" "$BUILD_LOG" "${SWIFT_CMD[@]}" build -c release
     DID_BUILD=1
     BUILD_STATUS="verified"
+    CLI_BINARY="$(oracle_resolved_product_binary_path release oracle)"
     run_cli_smokes
 else
     BUILD_STATUS="skipped by mode ($MODE)"
