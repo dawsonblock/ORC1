@@ -17,7 +17,7 @@ Use this checklist before tagging any release. Complete every item in order.
 - [ ] `python3 scripts/execution_boundary_guard.py` exits 0
 - [ ] `python3 scripts/vision_contract_guard.py` exits 0 (vision sidecar schema and runtime payload match `VisionSidecarContract.swift`)
 
-`controller-release.yml` is a packaging workflow. It validates controller app and DMG outputs, but it is not the canonical build/test proof path.
+`controller-release.yml` is a packaging workflow. It validates unsigned controller app and DMG outputs on PRs and pushes, and it owns the signed/notarized controller proof path through either a tag-triggered release run or `workflow_dispatch` with `signed_proof=true`. It is not the canonical build/test proof path.
 
 ### Code Quality
 
@@ -58,8 +58,10 @@ git push origin vX.Y.Z
 ### Distribution
 
 - [ ] CLI/MCP tarball: `scripts/build-release.sh` succeeds (produces `oracle-os-{VERSION}*.tar.gz`)
-- [ ] Controller app: `scripts/create-controller-dmg.sh` succeeds (produces `.dmg`)
-- [ ] Controller notarization: `scripts/notarize-controller-release.sh` verified (exit 0)
+- [ ] Controller packaging preview: `scripts/create-controller-dmg.sh --configuration release --skip-sign` succeeds locally or the `validate` job in `.github/workflows/controller-release.yml` succeeds
+- [ ] Signed/notarized controller proof: `.github/workflows/controller-release.yml` succeeds through `workflow_dispatch` with `signed_proof=true` or a tagged `release` run with `APPLE_CERTIFICATE_P12_BASE64`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_DEVELOPER_IDENTITY`, `APPLE_NOTARY_KEY_P8_BASE64`, `APPLE_NOTARY_KEY_ID`, and `APPLE_NOTARY_ISSUER_ID` configured
+- [ ] Signed proof evidence reviewed: `dist/controller-release-proof/` locally or the uploaded `oracle-controller-release-proof` artifact contains successful `plutil`, `codesign`, `stapler`, and `spctl` output
+- [ ] Controller notarization fallback: `scripts/notarize-controller-release.sh` verified (exit 0) when valid local notary credentials are available
 
 ---
 

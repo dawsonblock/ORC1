@@ -122,7 +122,12 @@ Unsigned development artifacts can be built with:
 
 ### Release signing and notarization
 
-The release pipeline expects Developer ID and notary credentials.
+The supported signed/notarized controller proof path is `.github/workflows/controller-release.yml`.
+
+- `validate` runs on PRs and pushes and proves the unsigned packaging preview path.
+- `release` runs on version tags or on `workflow_dispatch` with `signed_proof=true` and is the intended signed/notarized proof path.
+- The signed path requires `APPLE_CERTIFICATE_P12_BASE64`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_DEVELOPER_IDENTITY`, `APPLE_NOTARY_KEY_P8_BASE64`, `APPLE_NOTARY_KEY_ID`, and `APPLE_NOTARY_ISSUER_ID`.
+- Packaging proof logs are written under `dist/controller-release-proof/` and the signed workflow uploads them as `oracle-controller-release-proof`.
 
 Local notarization helper:
 
@@ -130,6 +135,8 @@ Local notarization helper:
 ./scripts/notarize-controller-release.sh "dist/Oracle Controller.app"
 ./scripts/notarize-controller-release.sh dist/Oracle-Controller-*.dmg
 ```
+
+The local helper remains useful for credentialed preflight or fallback validation, but it is not the primary shared proof surface.
 
 CI automation lives in:
 

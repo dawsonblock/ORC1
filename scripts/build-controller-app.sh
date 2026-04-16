@@ -55,6 +55,7 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 HELPERS_DIR="$CONTENTS_DIR/Helpers"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 BUILD_PRODUCTS_DIR="$(oracle_swift_build_bin_path "$CONFIGURATION")"
+PROOF_DIR="$OUTPUT_DIR/controller-release-proof"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -156,5 +157,9 @@ sign_app() {
 
 sign_app "$APP_BUNDLE"
 
+ORACLE_CONTROLLER_PROOF_DIR="$PROOF_DIR" "$SCRIPT_DIR/verify-controller-release-artifact.sh" app "$APP_BUNDLE"
+
 echo "Built app bundle:"
 echo "  $APP_BUNDLE"
+echo "Release proof logs:"
+echo "  $PROOF_DIR"

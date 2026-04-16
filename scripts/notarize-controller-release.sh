@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <path-to-app-or-dmg>" >&2
     exit 1
@@ -10,6 +12,14 @@ TARGET_PATH="$1"
 if [[ ! -e "$TARGET_PATH" ]]; then
     echo "Missing target: $TARGET_PATH" >&2
     exit 1
+fi
+
+PROOF_DIR="${ORACLE_CONTROLLER_PROOF_DIR:-$(dirname "$TARGET_PATH")/controller-release-proof}"
+
+if [[ "$TARGET_PATH" == *.app ]]; then
+    ORACLE_CONTROLLER_PROOF_DIR="$PROOF_DIR" "$SCRIPT_DIR/verify-controller-release-artifact.sh" app "$TARGET_PATH"
+elif [[ "$TARGET_PATH" == *.dmg ]]; then
+    ORACLE_CONTROLLER_PROOF_DIR="$PROOF_DIR" ORACLE_REQUIRE_SIGNED_DMG="1" "$SCRIPT_DIR/verify-controller-release-artifact.sh" dmg "$TARGET_PATH"
 fi
 
 if [[ -n "${APPLE_NOTARY_PROFILE:-}" ]]; then
@@ -27,8 +37,9 @@ else
 fi
 
 xcrun stapler staple "$TARGET_PATH"
-xcrun stapler validate "$TARGET_PATH"
-spctl --assess --type open --context context:primary-signature "$TARGET_PATH"
+ORACLE_CONTROLLER_PROOF_DIR="$PROOF_DIR" "$SCRIPT_DIR/verify-controller-release-artifact.sh" notarized "$TARGET_PATH"
 
 echo "Notarized and stapled:"
 echo "  $TARGET_PATH"
+echo "Release proof logs:"
+echo "  $PROOF_DIR"

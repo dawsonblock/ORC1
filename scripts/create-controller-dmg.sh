@@ -44,6 +44,8 @@ if [[ -z "$BUILD_NUMBER" ]]; then
     BUILD_NUMBER="$VERSION"
 fi
 
+PROOF_DIR="$OUTPUT_DIR/controller-release-proof"
+
 BUILD_APP_ARGS=(
     --configuration "$CONFIGURATION"
     --output-dir "$OUTPUT_DIR"
@@ -54,7 +56,7 @@ if [[ "$SKIP_SIGN" == "1" ]]; then
     BUILD_APP_ARGS+=(--skip-sign)
 fi
 
-"$PROJECT_ROOT/scripts/build-controller-app.sh" "${BUILD_APP_ARGS[@]}"
+ORACLE_CONTROLLER_PROOF_DIR="$PROOF_DIR" "$PROJECT_ROOT/scripts/build-controller-app.sh" "${BUILD_APP_ARGS[@]}"
 
 APP_BUNDLE="$OUTPUT_DIR/Oracle Controller.app"
 if [[ ! -d "$APP_BUNDLE" ]]; then
@@ -121,10 +123,16 @@ fi
 hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$FINAL_DMG" >/dev/null
 rm -f "$RW_DMG"
 
+DMG_SIGNATURE_REQUIRED="0"
 if [[ "$SKIP_SIGN" != "1" && -n "${APPLE_DEVELOPER_IDENTITY:-}" ]]; then
     codesign --force --timestamp --sign "$APPLE_DEVELOPER_IDENTITY" "$FINAL_DMG"
+    DMG_SIGNATURE_REQUIRED="1"
 fi
+
+ORACLE_CONTROLLER_PROOF_DIR="$PROOF_DIR" ORACLE_REQUIRE_SIGNED_DMG="$DMG_SIGNATURE_REQUIRED" "$PROJECT_ROOT/scripts/verify-controller-release-artifact.sh" dmg "$FINAL_DMG"
 
 echo "Built DMG:"
 echo "  $FINAL_DMG"
+echo "Release proof logs:"
+echo "  $PROOF_DIR"
 shasum -a 256 "$FINAL_DMG"

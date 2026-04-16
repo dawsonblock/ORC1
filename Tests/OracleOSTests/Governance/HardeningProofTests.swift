@@ -2,6 +2,88 @@ import XCTest
 
 final class HardeningProofTests: XCTestCase {
 
+    func testControllerReleaseWorkflowMakesSignedProofExplicit() throws {
+        let workflowPath = ".github/workflows/controller-release.yml"
+        let workflow = try String(contentsOfFile: workflowPath, encoding: .utf8)
+
+        XCTAssertTrue(
+            workflow.contains("workflow_dispatch:"),
+            "\(workflowPath) must expose a manual controller release proof trigger"
+        )
+        XCTAssertTrue(
+            workflow.contains("signed_proof:"),
+            "\(workflowPath) must allow an explicit signed proof run"
+        )
+        XCTAssertTrue(
+            workflow.contains("Validate release credentials"),
+            "\(workflowPath) must fail fast when Apple release secrets are absent"
+        )
+        XCTAssertTrue(
+            workflow.contains("scripts/verify-controller-release-artifact.sh"),
+            "\(workflowPath) must watch the shared controller release proof helper"
+        )
+        XCTAssertTrue(
+            workflow.contains("oracle-controller-release-proof"),
+            "\(workflowPath) must upload signed packaging proof output"
+        )
+    }
+
+    func testAuditedRuntimeGuardrailSitesRemainDocumented() throws {
+        let auditedSnippets = [
+            (
+                "Sources/OracleOS/Planning/MainPlanner.swift",
+                [
+                    "guard let currentGoal else { return nil }",
+                    "goal: currentGoal!",
+                ]
+            ),
+            (
+                "Sources/OracleOS/Planning/Reasoning/OpenAIProvider.swift",
+                [
+                    "return isLocal || (apiKey != nil && !apiKey!.isEmpty)"
+                ]
+            ),
+            (
+                "Sources/OracleOS/MCP/WaitManager.swift",
+                [
+                    "(value != nil ? \" '\\(value!)'\" : \"\")"
+                ]
+            ),
+            (
+                "Sources/OracleOS/Intent/Actions/Actions+Type.swift",
+                [
+                    "if let str = ref as? String, !str.isEmpty",
+                    "CFGetTypeID(ref) == CFStringGetTypeID()",
+                    "readback = (ref as! String)",
+                ]
+            ),
+            (
+                "Sources/OracleOS/WorldModel/Perception/AX/AXScanner+Shared.swift",
+                [
+                    "CFGetTypeID(cfValue) == CFStringGetTypeID()",
+                    "let str = cfValue as! String",
+                    "return (cfValue as! URL).absoluteString",
+                ]
+            ),
+            (
+                "Sources/OracleOS/Execution/PreconditionsValidator.swift",
+                [
+                    "UUID(uuidString: \"00000000-0000-0000-0000-000000000000\")!"
+                ]
+            ),
+        ]
+
+        for (path, snippets) in auditedSnippets {
+            let content = try String(contentsOfFile: path, encoding: .utf8)
+            for snippet in snippets {
+                XCTAssertTrue(
+                    content.contains(snippet),
+                    "\(path) should keep the audited guardrail snippet documented: \(snippet)"
+                )
+            }
+        }
+    }
+
     func testMCPDispatchCategoryFilesUseTypedSerialization() throws {
         let files = [
             "Sources/OracleOS/MCP/MCPDispatch+Workflow.swift",

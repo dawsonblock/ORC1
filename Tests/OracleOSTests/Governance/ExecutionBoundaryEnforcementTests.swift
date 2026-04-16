@@ -52,6 +52,64 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
             "Compile-time guards must prevent re-introduction")
     }
 
+    /// ENFORCE: Crash-style runtime guards stay confined to explicit compile-time boundary guards.
+    func testRuntimeCrashStyleGuardsStayConfinedToRuntimeContext() throws {
+        let allowedPath = "Sources/OracleOS/Runtime/RuntimeContext.swift"
+        let patterns = ["fatalError(", "assertionFailure(", "preconditionFailure("]
+        let sourcesRoot = repositoryRoot().appendingPathComponent(
+            "Sources/OracleOS", isDirectory: true)
+
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: sourcesRoot,
+                includingPropertiesForKeys: nil
+            )
+        else {
+            XCTFail("Unable to enumerate Sources/OracleOS for crash-style guard audit")
+            return
+        }
+
+        var matchesByPath: [String: [String]] = [:]
+
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension == "swift" else { continue }
+
+            let relativePath = fileURL.path.replacingOccurrences(
+                of: repositoryRoot().path + "/",
+                with: ""
+            )
+            let lines = try String(contentsOf: fileURL, encoding: .utf8).components(
+                separatedBy: .newlines)
+
+            for (index, line) in lines.enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("//") {
+                    continue
+                }
+
+                for pattern in patterns where line.contains(pattern) {
+                    matchesByPath[relativePath, default: []].append("\(index + 1): \(pattern)")
+                }
+            }
+        }
+
+        let violatingPaths = matchesByPath.keys.filter { $0 != allowedPath }.sorted()
+        XCTAssertTrue(
+            violatingPaths.isEmpty,
+            "Crash-style runtime guards must stay confined to RuntimeContext compile-time guards. Found: \(violatingPaths)"
+        )
+        XCTAssertEqual(
+            matchesByPath[allowedPath]?.count,
+            3,
+            "RuntimeContext should remain the sole crash-style guard location in Sources/OracleOS"
+        )
+        XCTAssertEqual(
+            matchesByPath.keys.sorted(),
+            [allowedPath],
+            "No additional runtime crash-style guard files should exist"
+        )
+    }
+
     /// ENFORCE: UIRouter must NOT reference AutomationHost as an execution authority.
     /// UIRouter dispatches to Actions.perform* directly. AutomationHost is an
     /// observation/snapshot tool only; it must never appear in UIRouter's non-comment code.
@@ -78,12 +136,6 @@ final class ExecutionBoundaryEnforcementTests: XCTestCase {
 
     /// ENFORCE: Only approved files may create Process()
     func testProcessCreationOnlyInApprovedFiles() throws {
-        let sourcePath = "Sources"
-        let allowedFiles = Set([
-            "DefaultProcessAdapter.swift",
-            "DefaultProcessAdapter+Daemon.swift",
-        ])
-
         let forbiddenDirectories = [
             "Sources/OracleOS/Runtime",
             "Sources/OracleOS/Planning",

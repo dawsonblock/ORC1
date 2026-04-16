@@ -16,6 +16,7 @@ This file is the current truth ledger for the repository.
 - The controller bridge maps from typed runtime payload views instead of nested legacy dictionary probing for core action, trace, recipe, and code-execution truth.
 - Recipe, workflow, and project-memory persistence stay on explicit service-owned write authorities guarded by `scripts/execution_boundary_guard.py` instead of the main execution spine.
 - `oracle setup` and `oracle doctor` remain tooling-only exceptions outside the bootstrapped runtime authority path.
+- Crash-style runtime guards inside `Sources/OracleOS` are confined to the explicit compile-time boundary guards in `Sources/OracleOS/Runtime/RuntimeContext.swift`; the remaining audited force unwraps and casts stay documented as locally guarded control-flow or type-check cases.
 
 ## Bounded Exceptions
 
@@ -54,7 +55,8 @@ Verification notes:
 - Canonical CLI smoke in `scripts/verify-build.sh` and release packaging in `scripts/build-release.sh` now resolve the `oracle` binary through SwiftPM's reported bin path instead of assuming `.build/release/oracle`.
 - The Command Line Tools-selected `swift` toolchain on this machine does not satisfy the full SwiftPM test path for this checkout by itself.
 - The canonical local proof surface remains `local/verify/latest/`.
+- `.github/workflows/controller-release.yml` now exposes a manual `workflow_dispatch` signed proof path in addition to the tag-driven release path, and controller packaging scripts emit proof logs under `dist/controller-release-proof/`.
 
 ## Remaining Bounded Risks
 
-- The repository is verifier-clean on the supported source proof path, but this file does not claim tagged release certification, signed controller packaging, or notarization beyond what `docs/RELEASE_CHECKLIST.md` and `.github/workflows/controller-release.yml` verify.
+- The repository is verifier-clean on the supported source proof path, and the controller release workflow now defines an explicit signed/notarized proof path, but this file still does not claim completed signed controller packaging or notarization until a secrets-backed workflow run succeeds.
