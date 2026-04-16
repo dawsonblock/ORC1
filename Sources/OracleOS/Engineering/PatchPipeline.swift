@@ -217,6 +217,13 @@ public struct PatchPipeline: Sendable {
                     return candidateDependencyImpact(lhs.element)
                         < candidateDependencyImpact(rhs.element)
                 }
+                if lhs.element.faultLocationConfidence != rhs.element.faultLocationConfidence {
+                    return (lhs.element.faultLocationConfidence ?? 0)
+                        > (rhs.element.faultLocationConfidence ?? 0)
+                }
+                if lhs.element.complexity != rhs.element.complexity {
+                    return (lhs.element.complexity ?? 0) < (rhs.element.complexity ?? 0)
+                }
                 if lhs.element.workspaceRelativePath != rhs.element.workspaceRelativePath {
                     return lhs.element.workspaceRelativePath < rhs.element.workspaceRelativePath
                 }
@@ -234,13 +241,6 @@ public struct PatchPipeline: Sendable {
                 }
                 if lhs.element.strategyKind != rhs.element.strategyKind {
                     return (lhs.element.strategyKind ?? "") < (rhs.element.strategyKind ?? "")
-                }
-                if lhs.element.faultLocationConfidence != rhs.element.faultLocationConfidence {
-                    return (lhs.element.faultLocationConfidence ?? 0)
-                        > (rhs.element.faultLocationConfidence ?? 0)
-                }
-                if lhs.element.complexity != rhs.element.complexity {
-                    return (lhs.element.complexity ?? 0) < (rhs.element.complexity ?? 0)
                 }
                 if candidateOrigin(lhs.element) != candidateOrigin(rhs.element) {
                     return candidateOrigin(lhs.element) < candidateOrigin(rhs.element)

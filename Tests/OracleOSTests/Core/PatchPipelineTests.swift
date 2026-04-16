@@ -206,6 +206,72 @@ struct PatchPipelineTests {
         #expect(candidatePaths[firstBetaIndex...].allSatisfy { $0 == betaPath })
     }
 
+    @Test("PatchPipeline prefers higher-confidence candidates before path tie-breaks")
+    func rankingPrefersHigherConfidenceBeforePath() throws {
+        let workspaceRoot = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspaceRoot) }
+
+        let alphaPath = "Sources/Alpha.swift"
+        let betaPath = "Sources/Beta.swift"
+        let alphaContent = """
+            struct Alpha {
+                func handle(optionalValue: Int?) -> Int {
+                    return optionalValue ?? 0
+                }
+            }
+            """
+        let betaContent = """
+            struct Beta {
+                func handle(optionalValue: Int?) -> Int {
+                    return optionalValue ?? 0
+                }
+            }
+            """
+
+        try writeFile(
+            at: workspaceRoot.appendingPathComponent(alphaPath, isDirectory: false),
+            content: alphaContent + "\n"
+        )
+        try writeFile(
+            at: workspaceRoot.appendingPathComponent(betaPath, isDirectory: false),
+            content: betaContent + "\n"
+        )
+
+        let snapshot = makeSnapshot(
+            workspaceRoot: workspaceRoot,
+            files: [alphaPath, betaPath],
+            symbolNodes: [
+                SymbolNode(
+                    id: "\(alphaPath)|handle|function|2",
+                    name: "handle",
+                    kind: .function,
+                    file: alphaPath,
+                    lineStart: 2,
+                    lineEnd: 4
+                ),
+                SymbolNode(
+                    id: "\(betaPath)|handle|function|2",
+                    name: "handle",
+                    kind: .function,
+                    file: betaPath,
+                    lineStart: 2,
+                    lineEnd: 4
+                ),
+            ]
+        )
+
+        let evaluator: SandboxEvaluatorFn = { _, _, _ in
+            SandboxEvaluation(compiled: true, testsFixed: 1, regressions: 0)
+        }
+        let result = makePipeline(sandboxEvaluator: evaluator).run(
+            failureDescription: "compare fixes for failing handle assertion in Sources/Beta.swift",
+            snapshot: snapshot
+        )
+
+        #expect(result.candidates.first?.workspaceRelativePath == betaPath)
+        #expect((result.candidates.first?.faultLocationConfidence ?? 0) > 0)
+    }
+
     @Test("PatchPipeline feeds candidates into experiment planning")
     func pipelineFeedsCandidatesIntoExperimentPlan() throws {
         let workspaceRoot = try makeTemporaryDirectory()

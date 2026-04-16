@@ -144,6 +144,13 @@ public final class PatchExperimentRunner: @unchecked Sendable {
                     return planningDependencyImpact(lhs.element)
                         < planningDependencyImpact(rhs.element)
                 }
+                if lhs.element.faultLocationConfidence != rhs.element.faultLocationConfidence {
+                    return (lhs.element.faultLocationConfidence ?? 0)
+                        > (rhs.element.faultLocationConfidence ?? 0)
+                }
+                if lhs.element.complexity != rhs.element.complexity {
+                    return (lhs.element.complexity ?? 0) < (rhs.element.complexity ?? 0)
+                }
                 if lhs.element.workspaceRelativePath != rhs.element.workspaceRelativePath {
                     return lhs.element.workspaceRelativePath < rhs.element.workspaceRelativePath
                 }
@@ -161,13 +168,6 @@ public final class PatchExperimentRunner: @unchecked Sendable {
                 }
                 if lhs.element.strategyKind != rhs.element.strategyKind {
                     return (lhs.element.strategyKind ?? "") < (rhs.element.strategyKind ?? "")
-                }
-                if lhs.element.faultLocationConfidence != rhs.element.faultLocationConfidence {
-                    return (lhs.element.faultLocationConfidence ?? 0)
-                        > (rhs.element.faultLocationConfidence ?? 0)
-                }
-                if lhs.element.complexity != rhs.element.complexity {
-                    return (lhs.element.complexity ?? 0) < (rhs.element.complexity ?? 0)
                 }
                 if planningOrigin(lhs.element) != planningOrigin(rhs.element) {
                     return planningOrigin(lhs.element) < planningOrigin(rhs.element)

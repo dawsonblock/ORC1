@@ -77,6 +77,49 @@ struct PatchExperimentRunnerTests {
         #expect(plan.faultLocationConfidence == 0.6)
     }
 
+    @Test("Experiment runner prefers higher-confidence candidate before path tie-break")
+    func runnerPrefersHigherConfidenceBeforePathTieBreak() {
+        let runner = PatchExperimentRunner()
+        let plan = runner.plan(
+            errorSignature: "failing calculator assertion",
+            faultLocationConfidence: 0.2,
+            candidates: [
+                CandidatePatch(
+                    id: "candidate-alpha",
+                    title: "Alpha patch",
+                    summary: "alphabetically earlier path",
+                    workspaceRelativePath: "Package.swift",
+                    content: "// package guidance",
+                    faultLocationConfidence: 0.25,
+                    evaluation: CandidatePatchEvaluation(
+                        testsFixed: 1,
+                        regressions: 0,
+                        dependencyImpact: 0,
+                        origin: "configuration_fix on Package.swift"
+                    )
+                ),
+                CandidatePatch(
+                    id: "candidate-beta",
+                    title: "Beta patch",
+                    summary: "higher confidence source fix",
+                    workspaceRelativePath: "Sources/Example/Calculator.swift",
+                    content: "// source guidance",
+                    faultLocationConfidence: 0.9,
+                    evaluation: CandidatePatchEvaluation(
+                        testsFixed: 1,
+                        regressions: 0,
+                        dependencyImpact: 0,
+                        origin: "boundary_fix on Sources/Example/Calculator.swift"
+                    )
+                ),
+            ],
+            snapshot: nil as RepositorySnapshot? as RepositorySnapshot? as RepositorySnapshot?
+        )
+
+        #expect(plan.candidates.first?.workspaceRelativePath == "Sources/Example/Calculator.swift")
+        #expect(plan.faultLocationConfidence == 0.9)
+    }
+
     @Test("Experiment runner builds ExperimentSpec from plan and snapshot")
     func runnerBuildsExperimentSpecFromPlan() {
         let runner = PatchExperimentRunner()
