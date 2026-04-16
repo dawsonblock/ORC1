@@ -239,9 +239,13 @@ public final class CodePlanner: @unchecked Sendable {
         let pipeline = PatchPipeline(
             impactPredictor: PatchImpactPredictor(impactAnalyzer: impactAnalyzer)
         )
+        let localizedFailureDescription = augmentedFailureDescription(
+            for: taskContext.goal.description,
+            snapshot: snapshot
+        )
         let candidates = Array(
             pipeline.run(
-                failureDescription: taskContext.goal.description,
+                failureDescription: localizedFailureDescription,
                 snapshot: snapshot
             ).candidates.prefix(taskContext.maxExperimentCandidates)
         )
@@ -268,6 +272,60 @@ public final class CodePlanner: @unchecked Sendable {
             maxExperimentCandidates: taskContext.maxExperimentCandidates,
             experimentCandidates: candidates
         )
+    }
+
+    private func augmentedFailureDescription(
+        for description: String,
+        snapshot: RepositorySnapshot
+    ) -> String {
+        let strategyHint = fallbackStrategyHint(for: description, snapshot: snapshot)
+        let rankedCandidates = codeQueryEngine.findLikelyRootCause(
+            failureDescription: description,
+            in: snapshot
+        )
+        guard !rankedCandidates.isEmpty else {
+            return [description, strategyHint]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+
+        let locationHints = rankedCandidates.prefix(3).map { candidate in
+            let nearbySymbols = snapshot.symbolGraph.nodes(inFile: candidate.path)
+                .prefix(2)
+                .map(\.name)
+                .joined(separator: " ")
+            return [candidate.path, nearbySymbols]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+        .joined(separator: " ")
+        return [description, locationHints, strategyHint]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func fallbackStrategyHint(
+        for description: String,
+        snapshot: RepositorySnapshot
+    ) -> String {
+        guard PatchStrategyLibrary.shared.applicable(for: description, snapshot: snapshot).isEmpty
+        else {
+            return ""
+        }
+
+        let lowered = description.lowercased()
+        if lowered.contains("test") || lowered.contains("failing") || lowered.contains("compare") {
+            return "assertion failed expected mismatch"
+        }
+        if lowered.contains("build") || lowered.contains("compile") || lowered.contains("type") {
+            return "type mismatch expected type"
+        }
+        if lowered.contains("config") || lowered.contains("permission")
+            || lowered.contains("environment")
+        {
+            return "configuration environment setting"
+        }
+        return ""
     }
 
     private func graphDecision(

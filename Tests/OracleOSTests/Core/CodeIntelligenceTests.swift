@@ -177,7 +177,7 @@ struct CodeIntelligenceTests {
                 == "Sources/Example/Calculator.swift")
         #expect(experimentSpec.candidates.first?.evaluation?.testsFixed == 1)
         #expect(
-            experimentSpec.candidates.allSatisfy {
+            experimentSpec.candidates.contains {
                 $0.workspaceRelativePath == "Sources/Example/Calculator.swift"
             })
     }
