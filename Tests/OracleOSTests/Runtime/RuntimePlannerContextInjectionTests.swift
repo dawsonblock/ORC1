@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import OracleOS
 
 @MainActor
@@ -16,7 +17,8 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
                     CodeAction(
                         name: "searchRepository",
                         query: intent.objective,
-                        workspacePath: context.repositorySnapshot?.workspaceRoot ?? intent.workspaceRoot
+                        workspacePath: context.repositorySnapshot?.workspaceRoot
+                            ?? intent.workspaceRoot
                     )
                 ),
                 metadata: CommandMetadata(intentID: intent.id, source: "test.spy")
@@ -72,7 +74,9 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
         XCTAssertFalse(memories.isEmpty)
         XCTAssertLessThanOrEqual(memories.count, 5)
         XCTAssertTrue(
-            memories.contains(where: { $0.source.contains(".oracle") || $0.source.contains("ProjectMemory") }),
+            memories.contains(where: {
+                $0.source.contains(".oracle") || $0.source.contains("ProjectMemory")
+            }),
             "Expected workspace-scoped project memory sources"
         )
     }
@@ -84,11 +88,12 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
             objective: "edit calculator implementation",
             metadata: [
                 "filePath": "Sources/Example/Calculator.swift",
-                "patch": "public struct Calculator {}"
+                "patch": "public struct Calculator {}",
             ]
         )
 
-        let command = try await planner.plan(intent: intent, context: PlannerContext(state: WorldStateModel()))
+        let command = try await planner.plan(
+            intent: intent, context: PlannerContext(state: WorldStateModel()))
 
         switch command.payload {
         case .code(let action):
@@ -103,6 +108,79 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
         XCTAssertTrue(command.metadata.traceTags.contains("fail-closed"))
         XCTAssertTrue(command.metadata.traceTags.contains("missing-workspace-root"))
         XCTAssertTrue(command.metadata.traceTags.contains("edit-demoted-to-read"))
+    }
+
+    func testRepairIntentUsesGroundedCandidatePathFromRepositorySnapshot() async throws {
+        let workspace = try makeWorkspace()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+
+        let planner = MainPlanner()
+        let snapshot = RepositoryIndexer().index(workspaceRoot: workspace)
+        let intent = Intent(
+            domain: .code,
+            objective:
+                "compare fixes for failing doublesInput assertion in Sources/Example/Calculator.swift",
+            metadata: ["workspacePath": workspace.path]
+        )
+
+        let command = try await planner.plan(
+            intent: intent,
+            context: PlannerContext(
+                state: WorldStateModel(),
+                repositorySnapshot: snapshot
+            )
+        )
+
+        guard case .code(let action) = command.payload else {
+            XCTFail("Expected a code action payload")
+            return
+        }
+
+        XCTAssertEqual(action.name, "readFile")
+        XCTAssertEqual(action.filePath, "Sources/Example/Calculator.swift")
+        XCTAssertEqual(action.workspacePath, workspace.path)
+        XCTAssertTrue(
+            command.metadata.traceTags.contains(where: {
+                $0.hasPrefix("grounded-repair-candidates=")
+            })
+        )
+        XCTAssertTrue(command.metadata.traceTags.contains("repair-candidate-applied"))
+    }
+
+    func testPatchIntentWithoutExplicitFileUsesGroundedRepairPrimaryPath() async throws {
+        let workspace = try makeWorkspace()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+
+        let planner = MainPlanner()
+        let snapshot = RepositoryIndexer().index(workspaceRoot: workspace)
+        let intent = Intent(
+            domain: .code,
+            objective: "patch failing doublesInput assertion",
+            metadata: [
+                "workspacePath": workspace.path,
+                "patch":
+                    "public struct Calculator { public static func double(_ value: Int) -> Int { value * 3 } }",
+            ]
+        )
+
+        let command = try await planner.plan(
+            intent: intent,
+            context: PlannerContext(
+                state: WorldStateModel(),
+                repositorySnapshot: snapshot
+            )
+        )
+
+        guard case .file(let spec) = command.payload else {
+            XCTFail("Expected a file mutation payload")
+            return
+        }
+
+        XCTAssertEqual(spec.path, "Sources/Example/Calculator.swift")
+        XCTAssertEqual(spec.workspaceRoot, workspace.path)
+        XCTAssertTrue(
+            command.metadata.traceTags.contains(where: { $0.hasPrefix("grounded-repair-primary=") })
+        )
     }
 
     func testWorkspaceResolutionFallsBackToCommittedState() async throws {
@@ -125,8 +203,11 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
 
     private func makeSpyRuntime(
         initialSnapshot: WorldModelSnapshot = WorldModelSnapshot()
-    ) async throws -> (orchestrator: RuntimeOrchestrator, planner: PlannerSpy, container: RuntimeContainer) {
-        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(configuration: .test())
+    ) async throws -> (
+        orchestrator: RuntimeOrchestrator, planner: PlannerSpy, container: RuntimeContainer
+    ) {
+        let bootstrapped = try await RuntimeBootstrap.makeBootstrappedRuntime(
+            configuration: .test())
         let planner = PlannerSpy()
         let reducer = CompositeStateReducer(reducers: [
             MemoryStateReducer(),
@@ -193,41 +274,46 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
         try FileManager.default.createDirectory(at: tests, withIntermediateDirectories: true)
 
         let package = """
-        // swift-tools-version: 6.2
-        import PackageDescription
+            // swift-tools-version: 6.2
+            import PackageDescription
 
-        let package = Package(
-            name: "Example",
-            products: [
-                .library(name: "Example", targets: ["Example"]),
-            ],
-            targets: [
-                .target(name: "Example"),
-                .testTarget(name: "ExampleTests", dependencies: ["Example"]),
-            ]
-        )
-        """
+            let package = Package(
+                name: "Example",
+                products: [
+                    .library(name: "Example", targets: ["Example"]),
+                ],
+                targets: [
+                    .target(name: "Example"),
+                    .testTarget(name: "ExampleTests", dependencies: ["Example"]),
+                ]
+            )
+            """
 
         let source = """
-        public struct Calculator {
-            public static func double(_ value: Int) -> Int {
-                value * 2
+            public struct Calculator {
+                public static func double(_ value: Int) -> Int {
+                    value * 2
+                }
             }
-        }
-        """
+            """
 
         let test = """
-        import Testing
-        @testable import Example
+            import Testing
+            @testable import Example
 
-        @Test func doublesInput() {
-            #expect(Calculator.double(2) == 4)
-        }
-        """
+            @Test func doublesInput() {
+                #expect(Calculator.double(2) == 4)
+            }
+            """
 
-        try package.write(to: root.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
-        try source.write(to: sources.appendingPathComponent("Calculator.swift"), atomically: true, encoding: .utf8)
-        try test.write(to: tests.appendingPathComponent("CalculatorTests.swift"), atomically: true, encoding: .utf8)
+        try package.write(
+            to: root.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+        try source.write(
+            to: sources.appendingPathComponent("Calculator.swift"), atomically: true,
+            encoding: .utf8)
+        try test.write(
+            to: tests.appendingPathComponent("CalculatorTests.swift"), atomically: true,
+            encoding: .utf8)
 
         try runGit(["init"], in: root)
         try runGit(["config", "user.email", "tests@example.com"], in: root)
@@ -239,7 +325,8 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
     }
 
     private func makeTempDirectory() -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -254,7 +341,9 @@ final class RuntimePlannerContextInjectionTests: XCTestCase {
         try process.run()
         process.waitUntilExit()
         guard process.terminationStatus == 0 else {
-            let output = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "git failed"
+            let output =
+                String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
+                ?? "git failed"
             throw NSError(
                 domain: "RuntimePlannerContextInjectionTests",
                 code: Int(process.terminationStatus),

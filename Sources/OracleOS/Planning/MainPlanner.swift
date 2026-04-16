@@ -41,20 +41,25 @@ public final class MainPlanner: @unchecked Sendable {
     ) {
         let resolvedWorkflowIndex = workflowIndex ?? WorkflowIndex()
         let sharedWorkflowRetriever = WorkflowRetriever()
-        let sharedPlanEvaluator = planEvaluator ?? PlanEvaluator(workflowRetriever: sharedWorkflowRetriever)
-        let resolvedOSPlanner = osPlanner ?? OSPlanner(
-            workflowIndex: resolvedWorkflowIndex,
-            workflowRetriever: sharedWorkflowRetriever,
-            promptEngine: promptEngine
-        )
-        let resolvedCodePlanner = codePlanner ?? CodePlanner(
-            repositoryIndexer: repositoryIndexer,
-            impactAnalyzer: impactAnalyzer,
-            workflowIndex: resolvedWorkflowIndex,
-            workflowRetriever: sharedWorkflowRetriever,
-            promptEngine: promptEngine
-        )
-        
+        let sharedPlanEvaluator =
+            planEvaluator ?? PlanEvaluator(workflowRetriever: sharedWorkflowRetriever)
+        let resolvedOSPlanner =
+            osPlanner
+            ?? OSPlanner(
+                workflowIndex: resolvedWorkflowIndex,
+                workflowRetriever: sharedWorkflowRetriever,
+                promptEngine: promptEngine
+            )
+        let resolvedCodePlanner =
+            codePlanner
+            ?? CodePlanner(
+                repositoryIndexer: repositoryIndexer,
+                impactAnalyzer: impactAnalyzer,
+                workflowIndex: resolvedWorkflowIndex,
+                workflowRetriever: sharedWorkflowRetriever,
+                promptEngine: promptEngine
+            )
+
         self.planGenerator = PlanGenerator(
             reasoningEngine: reasoningEngine ?? ReasoningEngine(),
             planEvaluator: sharedPlanEvaluator,
@@ -82,6 +87,18 @@ public final class MainPlanner: @unchecked Sendable {
         Goal.interpret(description)
     }
 
+    func groundedRepairCandidates(
+        goalDescription: String,
+        snapshot: RepositorySnapshot,
+        maxCount: Int = 3
+    ) -> [CandidatePatch] {
+        codePlanner.synthesizedExperimentCandidates(
+            goalDescription: goalDescription,
+            maxCount: maxCount,
+            snapshot: snapshot
+        )
+    }
+
     public func goalReached(state: PlanningState) -> Bool {
         guard let currentGoal else { return false }
         return currentGoal.matchScore(state: state) >= 1
@@ -95,7 +112,9 @@ public final class MainPlanner: @unchecked Sendable {
     ) -> PlannerDecision? {
         guard let currentGoal else { return nil }
 
-        let workspaceRoot = currentGoal.workspaceRoot.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let workspaceRoot = currentGoal.workspaceRoot.map {
+            URL(fileURLWithPath: $0, isDirectory: true)
+        }
         let taskContext = TaskContext.from(goal: currentGoal, workspaceRoot: workspaceRoot)
 
         // ── Task-graph substrate: update the current node from world state ──
@@ -207,7 +226,7 @@ public final class MainPlanner: @unchecked Sendable {
             worldState: worldState,
             memoryInfluence: memoryInfluence
         )
-        
+
         let bestCandidate = planGenerator.bestPlan(
             state: reasoningState,
             taskContext: taskContext,
@@ -221,24 +240,28 @@ public final class MainPlanner: @unchecked Sendable {
         )
 
         guard let selectedPlan = bestCandidate,
-              let selectedOperator = selectedPlan.operators.first,
-              let actionContract = selectedOperator.actionContract(for: reasoningState, goal: currentGoal!)
+            let selectedOperator = selectedPlan.operators.first,
+            let actionContract = selectedOperator.actionContract(
+                for: reasoningState, goal: currentGoal!)
         else {
             return nil
         }
 
         if selectedPlan.sourceType == .workflow,
-           let fallbackDecision,
-           fallbackDecision.source == .workflow {
+            let fallbackDecision,
+            fallbackDecision.source == .workflow
+        {
             return fallbackDecision
         }
         if selectedPlan.sourceType == .stableGraph,
-           let fallbackDecision,
-           fallbackDecision.source == .stableGraph {
+            let fallbackDecision,
+            fallbackDecision.source == .stableGraph
+        {
             return fallbackDecision
         }
 
-        let fallbackReason = fallbackDecision?.fallbackReason
+        let fallbackReason =
+            fallbackDecision?.fallbackReason
             ?? "family planner had no viable workflow or graph-backed step"
 
         let selectedOperatorNames = selectedPlan.operators.map(\.name)
@@ -250,7 +273,7 @@ public final class MainPlanner: @unchecked Sendable {
                 simulatedSuccessProbability: selectedPlan.simulatedOutcome?.successProbability,
                 simulatedRiskScore: selectedPlan.simulatedOutcome?.riskScore,
                 simulatedFailureMode: selectedPlan.simulatedOutcome?.likelyFailureMode
-            ),
+            )
         ]
         let planDiagnostics = PlanDiagnostics(
             selectedOperatorNames: selectedOperatorNames,
@@ -317,8 +340,9 @@ public final class MainPlanner: @unchecked Sendable {
         )
 
         guard let bestPath = paths.first,
-              let bestEdge = bestPath.edges.first,
-              let contractID = bestEdge.actionContractID else {
+            let bestEdge = bestPath.edges.first,
+            let contractID = bestEdge.actionContractID
+        else {
             return nil
         }
 
@@ -376,7 +400,9 @@ public final class MainPlanner: @unchecked Sendable {
         memoryStore: UnifiedMemoryStore,
         selectedStrategy: SelectedStrategy
     ) -> ActionContract? {
-        nextStep(worldState: worldState, graphStore: graphStore, memoryStore: memoryStore, selectedStrategy: selectedStrategy)?.actionContract
+        nextStep(
+            worldState: worldState, graphStore: graphStore, memoryStore: memoryStore,
+            selectedStrategy: selectedStrategy)?.actionContract
     }
 
     public func plan(goal: String) -> Plan {
@@ -411,8 +437,8 @@ public final class MainPlanner: @unchecked Sendable {
     }
 }
 
-private extension PlanSourceType {
-    var plannerSource: PlannerSource {
+extension PlanSourceType {
+    fileprivate var plannerSource: PlannerSource {
         switch self {
         case .workflow: return .workflow
         case .stableGraph: return .stableGraph

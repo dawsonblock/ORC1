@@ -118,6 +118,39 @@ extension MainPlanner: Planner {
         return notes
     }
 
+    private func repairObjective(_ objective: String) -> Bool {
+        objective.contains("fix")
+            || objective.contains("patch")
+            || objective.contains("repair")
+            || objective.contains("refactor")
+            || objective.contains("failing")
+            || objective.contains("broken")
+            || objective.contains("error")
+            || objective.contains("compare")
+    }
+
+    private func groundedRepairCandidates(intent: Intent, context: PlannerContext)
+        -> [CandidatePatch]
+    {
+        guard let snapshot = context.repositorySnapshot else {
+            return []
+        }
+        return groundedRepairCandidates(
+            goalDescription: intent.objective,
+            snapshot: snapshot
+        )
+    }
+
+    private func repairTraceTags(for candidates: [CandidatePatch]) -> [String] {
+        guard let primaryPath = candidates.first?.workspaceRelativePath else {
+            return []
+        }
+        return [
+            "grounded-repair-candidates=\(candidates.count)",
+            "grounded-repair-primary=\(primaryPath.replacingOccurrences(of: " ", with: "_"))",
+        ]
+    }
+
     // MARK: - Domain Planners
 
     private func planUIIntent(_ intent: Intent, context: PlannerContext) async throws -> Command {
@@ -194,6 +227,9 @@ extension MainPlanner: Planner {
         let memoryTraceTags = memoryNotes(from: context.memories)
         let baseQuery = intent.metadata["query"] ?? intent.objective
         let searchQuery = moduleHint.map { "\($0) \(baseQuery)" } ?? baseQuery
+        let repairCandidates = groundedRepairCandidates(intent: intent, context: context)
+        let primaryRepairPath = repairCandidates.first?.workspaceRelativePath
+        let repairTraceTags = repairTraceTags(for: repairCandidates)
         let hintedPath = moduleHint.flatMap { hint -> String? in
             let trimmed = hint.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, trimmed.contains("/") || trimmed.contains(".") else {
@@ -218,7 +254,8 @@ extension MainPlanner: Planner {
         }
 
         if objective.contains("read") || objective.contains("open") || objective.contains("view") {
-            let path = intent.metadata["filePath"] ?? hintedPath ?? intent.objective
+            let path =
+                intent.metadata["filePath"] ?? primaryRepairPath ?? hintedPath ?? intent.objective
             return Command(
                 type: CommandType.code,
                 payload: .code(
@@ -226,7 +263,7 @@ extension MainPlanner: Planner {
                 metadata: CommandMetadata(
                     intentID: intent.id,
                     source: "planner.code",
-                    traceTags: memoryTraceTags
+                    traceTags: memoryTraceTags + repairTraceTags
                         + (hintedPath == nil || intent.metadata["filePath"] != nil
                             ? [] : ["memory-hint-applied"])
                 )
@@ -235,7 +272,7 @@ extension MainPlanner: Planner {
 
         if objective.contains("edit") || objective.contains("modify") || objective.contains("patch")
         {
-            let path = intent.metadata["filePath"] ?? ""
+            let path = intent.metadata["filePath"] ?? primaryRepairPath ?? hintedPath ?? ""
             let patch = intent.metadata["patch"] ?? intent.objective
             guard let workspacePath else {
                 // Cannot construct a FileMutationSpec without a workspace root.
@@ -261,7 +298,7 @@ extension MainPlanner: Planner {
                 metadata: CommandMetadata(
                     intentID: intent.id,
                     source: "planner.code",
-                    traceTags: memoryTraceTags
+                    traceTags: memoryTraceTags + repairTraceTags
                 )
             )
         }
@@ -296,6 +333,27 @@ extension MainPlanner: Planner {
                     intentID: intent.id,
                     source: "planner.code",
                     traceTags: memoryTraceTags
+                )
+            )
+        }
+
+        if repairObjective(objective),
+            let primaryRepairPath,
+            let workspacePath
+        {
+            return Command(
+                type: .code,
+                payload: .code(
+                    CodeAction(
+                        name: "readFile",
+                        filePath: primaryRepairPath,
+                        workspacePath: workspacePath
+                    )
+                ),
+                metadata: CommandMetadata(
+                    intentID: intent.id,
+                    source: "planner.code",
+                    traceTags: memoryTraceTags + repairTraceTags + ["repair-candidate-applied"]
                 )
             )
         }

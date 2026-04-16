@@ -223,6 +223,30 @@ public final class CodePlanner: @unchecked Sendable {
         )
     }
 
+    func synthesizedExperimentCandidates(
+        goalDescription: String,
+        maxCount: Int = 3,
+        snapshot: RepositorySnapshot
+    ) -> [CandidatePatch] {
+        guard repairGoal(goalDescription.lowercased()) else {
+            return []
+        }
+
+        let pipeline = PatchPipeline(
+            impactPredictor: PatchImpactPredictor(impactAnalyzer: impactAnalyzer)
+        )
+        let localizedFailureDescription = augmentedFailureDescription(
+            for: goalDescription,
+            snapshot: snapshot
+        )
+        return Array(
+            pipeline.run(
+                failureDescription: localizedFailureDescription,
+                snapshot: snapshot
+            ).candidates.prefix(maxCount)
+        )
+    }
+
     private func enrichedRepairTaskContext(
         from taskContext: TaskContext,
         snapshot: RepositorySnapshot
@@ -236,18 +260,10 @@ public final class CodePlanner: @unchecked Sendable {
             return taskContext
         }
 
-        let pipeline = PatchPipeline(
-            impactPredictor: PatchImpactPredictor(impactAnalyzer: impactAnalyzer)
-        )
-        let localizedFailureDescription = augmentedFailureDescription(
-            for: taskContext.goal.description,
+        let candidates = synthesizedExperimentCandidates(
+            goalDescription: taskContext.goal.description,
+            maxCount: taskContext.maxExperimentCandidates,
             snapshot: snapshot
-        )
-        let candidates = Array(
-            pipeline.run(
-                failureDescription: localizedFailureDescription,
-                snapshot: snapshot
-            ).candidates.prefix(taskContext.maxExperimentCandidates)
         )
         guard !candidates.isEmpty else {
             return taskContext
