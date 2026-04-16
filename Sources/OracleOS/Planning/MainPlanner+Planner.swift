@@ -181,6 +181,14 @@ extension MainPlanner: Planner {
             return explicitPath
         }
 
+        if let patchAlignedPath = patchAlignedRepairPath(
+            intent: intent,
+            context: context,
+            candidates: candidates
+        ) {
+            return patchAlignedPath
+        }
+
         let groupedByPath = Dictionary(grouping: candidates, by: \.workspaceRelativePath)
         return
             groupedByPath
@@ -220,6 +228,80 @@ extension MainPlanner: Planner {
             }
             .first?
             .path
+    }
+
+    private func patchAlignedRepairPath(
+        intent: Intent, context: PlannerContext, candidates: [CandidatePatch]
+    ) -> String? {
+        guard
+            let snapshot = context.repositorySnapshot,
+            let patch = intent.metadata["patch"]?.lowercased(),
+            !patch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return nil
+        }
+
+        let tokens = Set(
+            patch
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "_" })
+                .map(String.init)
+                .filter { $0.count > 2 }
+        )
+        guard !tokens.isEmpty else {
+            return nil
+        }
+
+        let candidatePaths = Set(candidates.map(\.workspaceRelativePath))
+        let rankedPaths = snapshot.files
+            .filter { !$0.isDirectory }
+            .map(\.path)
+            .map { path in
+                let symbolNames = snapshot.symbolGraph.nodes(inFile: path).map {
+                    $0.name.lowercased()
+                }
+                let symbolScore = symbolNames.reduce(into: 0) { partialResult, symbolName in
+                    if tokens.contains(symbolName) {
+                        partialResult += 3
+                    } else if tokens.contains(where: {
+                        $0.contains(symbolName) || symbolName.contains($0)
+                    }) {
+                        partialResult += 1
+                    }
+                }
+                let basename = URL(fileURLWithPath: path)
+                    .deletingPathExtension()
+                    .lastPathComponent
+                    .lowercased()
+                let basenameScore = tokens.contains(basename) ? 2 : 0
+                let confidence =
+                    candidates
+                    .filter { $0.workspaceRelativePath == path }
+                    .compactMap(\.faultLocationConfidence)
+                    .max() ?? 0
+                let candidateBonus = candidatePaths.contains(path) ? 1 : 0
+                let testPenalty = path.lowercased().contains("test") ? 2 : 0
+                let manifestPenalty = path == "Package.swift" ? 1 : 0
+                return (
+                    path: path,
+                    score: symbolScore + basenameScore + candidateBonus - testPenalty
+                        - manifestPenalty,
+                    confidence: confidence
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.score != rhs.score {
+                    return lhs.score > rhs.score
+                }
+                if lhs.confidence != rhs.confidence {
+                    return lhs.confidence > rhs.confidence
+                }
+                return lhs.path < rhs.path
+            }
+
+        guard let best = rankedPaths.first, best.score > 0 else {
+            return nil
+        }
+        return best.path
     }
 
     private func repairTraceTags(for candidates: [CandidatePatch], primaryPath: String?) -> [String]

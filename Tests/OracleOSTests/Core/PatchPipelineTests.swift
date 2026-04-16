@@ -264,7 +264,8 @@ struct PatchPipelineTests {
             SandboxEvaluation(compiled: true, testsFixed: 1, regressions: 0)
         }
         let result = makePipeline(sandboxEvaluator: evaluator).run(
-            failureDescription: "compare fixes for failing handle assertion in Sources/Beta.swift",
+            failureDescription:
+                "assertion failed expected mismatch in Sources/Beta.swift handle",
             snapshot: snapshot
         )
 
