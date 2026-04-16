@@ -775,7 +775,7 @@ struct TaskGraphTests {
     // MARK: - Full Cycle Test
 
     @Test("Full task-graph cycle: observe → abstract → expand → execute → update")
-    func fullTaskGraphCycle() {
+    func fullTaskGraphCycle() throws {
         let store = TaskLedgerStore()
 
         // Step 1: Observe environment → create initial node

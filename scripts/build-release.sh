@@ -72,6 +72,7 @@ cd "$PROJECT_ROOT"
 
 # Optimization flags for release
 declare -a SWIFT_FLAGS=()
+declare -a SWIFT_BUILD_CMD=("${ORACLE_SWIFT_CMD[@]}" build -c "$CONFIG")
 if [[ "$CONFIG" == "release" ]]; then
     echo "  Enabling Link-Time Optimization (LTO) and stripping..."
     # Apply LTO and stripping via compiler/linker flags
@@ -79,9 +80,10 @@ if [[ "$CONFIG" == "release" ]]; then
     # -Xswiftc -lto=llvm-full: Enable Full LTO
     # -Xlinker -dead_strip: Remove unreachable code
     SWIFT_FLAGS=("-Xswiftc" "-O" "-Xswiftc" "-lto=llvm-full" "-Xlinker" "-dead_strip")
+    SWIFT_BUILD_CMD+=("${SWIFT_FLAGS[@]}")
 fi
 
-"${ORACLE_SWIFT_CMD[@]}" build -c "$CONFIG" "${SWIFT_FLAGS[@]}" 2>&1
+"${SWIFT_BUILD_CMD[@]}" 2>&1
 
 BUILD_PRODUCTS_DIR="$(oracle_swift_build_bin_path "$CONFIG")"
 BINARY="$BUILD_PRODUCTS_DIR/oracle"

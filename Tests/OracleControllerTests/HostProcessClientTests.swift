@@ -75,19 +75,18 @@ struct HostProcessClientTests {
         let bundled = try makeExecutable(at: root.appendingPathComponent("bundled-host"))
         let missingOverride = root.appendingPathComponent("missing-host")
         var lifecycleStatuses: [HostConnectionStatus] = []
+        let resolutionContext = makeResolutionContext(
+            environment: ["ORACLE_CONTROLLER_HOST_PATH": missingOverride.path],
+            bundledHelperURL: bundled,
+            siblingHelperURL: root.appendingPathComponent("OracleControllerHost"),
+            developerFallbackURLs: [root.appendingPathComponent("fallback-host")],
+            launchCurrentDirectoryURL: root
+        )
 
         let client = HostProcessClient(
             eventHandler: { _ in },
             lifecycleHandler: { lifecycleStatuses.append($0) },
-            hostResolutionContext: {
-                makeResolutionContext(
-                    environment: ["ORACLE_CONTROLLER_HOST_PATH": missingOverride.path],
-                    bundledHelperURL: bundled,
-                    siblingHelperURL: root.appendingPathComponent("OracleControllerHost"),
-                    developerFallbackURLs: [root.appendingPathComponent("fallback-host")],
-                    launchCurrentDirectoryURL: root
-                )
-            }
+            hostResolutionContext: { resolutionContext }
         )
 
         do {
@@ -117,19 +116,18 @@ struct HostProcessClientTests {
                 """
         )
         var lifecycleStatuses: [HostConnectionStatus] = []
+        let resolutionContext = makeResolutionContext(
+            environment: ["ORACLE_CONTROLLER_HOST_PATH": helper.path],
+            bundledHelperURL: nil,
+            siblingHelperURL: root.appendingPathComponent("unused-sibling"),
+            developerFallbackURLs: [],
+            launchCurrentDirectoryURL: root
+        )
 
         let client = HostProcessClient(
             eventHandler: { _ in },
             lifecycleHandler: { lifecycleStatuses.append($0) },
-            hostResolutionContext: {
-                makeResolutionContext(
-                    environment: ["ORACLE_CONTROLLER_HOST_PATH": helper.path],
-                    bundledHelperURL: nil,
-                    siblingHelperURL: root.appendingPathComponent("unused-sibling"),
-                    developerFallbackURLs: [],
-                    launchCurrentDirectoryURL: root
-                )
-            }
+            hostResolutionContext: { resolutionContext }
         )
 
         let response = try await client.send(ControllerHostRequest(id: "ping-1", command: .ping))
