@@ -68,6 +68,54 @@ struct HostProcessClientTests {
     }
 
     @Test
+    func resolveHostURLUsesDeveloperFallbackWhenHigherPrecedenceHelpersAreMissing() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let fallback = try makeExecutable(at: root.appendingPathComponent("fallback-host"))
+
+        let resolved = try HostProcessClient.resolveHostURL(
+            using: makeResolutionContext(
+                bundledHelperURL: nil,
+                siblingHelperURL: root.appendingPathComponent("OracleControllerHost"),
+                developerFallbackURLs: [fallback],
+                launchCurrentDirectoryURL: root
+            )
+        )
+
+        #expect(resolved.path == fallback.path)
+    }
+
+    @Test
+    func resolveHostURLRejectsFirstNonRunnableCandidateWhenNoExecutableHelperExists() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let bundled = try makeExecutable(
+            at: root.appendingPathComponent("bundled-host"),
+            permissions: 0o644
+        )
+        _ = try makeExecutable(
+            at: root.appendingPathComponent("OracleControllerHost"),
+            permissions: 0o644
+        )
+
+        do {
+            _ = try HostProcessClient.resolveHostURL(
+                using: makeResolutionContext(
+                    bundledHelperURL: bundled,
+                    siblingHelperURL: root.appendingPathComponent("OracleControllerHost"),
+                    developerFallbackURLs: [root.appendingPathComponent("fallback-host")],
+                    launchCurrentDirectoryURL: root
+                )
+            )
+            Issue.record("Expected a non-runnable helper failure")
+        } catch let error as HostClientError {
+            #expect(error == .hostBinaryNotRunnable(path: bundled.path))
+        }
+    }
+
+    @Test
     func sendFailsFastForMissingExplicitOverride() async throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -100,6 +148,44 @@ struct HostProcessClientTests {
         #expect(lifecycleStatuses.first == .launching)
         #expect(lifecycleStatuses.last?.failureReason == .binaryNotFound)
         #expect(lifecycleStatuses.last?.detail?.contains(missingOverride.path) == true)
+    }
+
+    @Test
+    func sendFailsFastForNonExecutableExplicitOverride() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let nonRunnableOverride = try makeExecutable(
+            at: root.appendingPathComponent("override-host"),
+            permissions: 0o644
+        )
+        let bundled = try makeExecutable(at: root.appendingPathComponent("bundled-host"))
+        var lifecycleStatuses: [HostConnectionStatus] = []
+        let resolutionContext = makeResolutionContext(
+            environment: ["ORACLE_CONTROLLER_HOST_PATH": nonRunnableOverride.path],
+            bundledHelperURL: bundled,
+            siblingHelperURL: root.appendingPathComponent("OracleControllerHost"),
+            developerFallbackURLs: [root.appendingPathComponent("fallback-host")],
+            launchCurrentDirectoryURL: root
+        )
+
+        let client = HostProcessClient(
+            eventHandler: { _ in },
+            lifecycleHandler: { lifecycleStatuses.append($0) },
+            hostResolutionContext: { resolutionContext }
+        )
+
+        do {
+            _ = try await client.send(ControllerHostRequest(id: "ping-1", command: .ping))
+            Issue.record("Expected a non-runnable explicit override failure")
+        } catch let error as HostClientError {
+            #expect(error == .hostBinaryNotRunnable(path: nonRunnableOverride.path))
+        }
+
+        await waitForLifecycleEvents(&lifecycleStatuses, countAtLeast: 2)
+        #expect(lifecycleStatuses.first == .launching)
+        #expect(lifecycleStatuses.last?.failureReason == .binaryNotRunnable)
+        #expect(lifecycleStatuses.last?.detail?.contains(nonRunnableOverride.path) == true)
     }
 
     @Test
@@ -149,11 +235,16 @@ struct HostProcessClientTests {
     }
 
     @discardableResult
-    private func makeExecutable(at url: URL, contents: String = "#!/bin/bash\nexit 0\n") throws
+    private func makeExecutable(
+        at url: URL,
+        permissions: Int = 0o755,
+        contents: String = "#!/bin/bash\nexit 0\n"
+    ) throws
         -> URL
     {
         try Data(contents.utf8).write(to: url)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: permissions], ofItemAtPath: url.path)
         return url
     }
 
