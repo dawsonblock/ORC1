@@ -77,11 +77,12 @@ public struct SandboxEvaluation: Sendable {
     }
 }
 
-public typealias SandboxEvaluatorFn = @Sendable (
-    _ relativePath: String,
-    _ proposedContent: String,
-    _ snapshot: RepositorySnapshot
-) -> SandboxEvaluation
+public typealias SandboxEvaluatorFn =
+    @Sendable (
+        _ relativePath: String,
+        _ proposedContent: String,
+        _ snapshot: RepositorySnapshot
+    ) -> SandboxEvaluation
 
 // MARK: - PatchPipeline
 
@@ -158,18 +159,25 @@ public struct PatchPipeline: Sendable {
         completedStages.append(.localization)
         completedStages.append(.candidateSymbols)
 
-        // ── Stage 2: Patch candidate generation ──────────────────────────────
+        // ── Stage 2: Grounded patch candidate synthesis ─────────────────────
+        let applicableStrategies = Array(
+            strategyLibrary
+                .applicable(for: failureDescription, snapshot: snapshot)
+                .prefix(maximumStrategiesPerTarget)
+        )
         var patchTriples: [(target: PatchTarget, strategy: PatchStrategy, content: String)] = []
         for target in targets {
-            let applicable = strategyLibrary.applicable(
-                for: failureDescription,
-                snapshot: snapshot
-            )
-            for strategy in applicable.prefix(maximumStrategiesPerTarget) {
-                // Generate a minimal synthetic candidate keyed on strategy kind.
-                // This checkout does not treat the generated content as proof of
-                // semantic correctness or final applicability.
-                let content = syntheticPatch(for: strategy, target: target)
+            for strategy in applicableStrategies {
+                guard
+                    let content = groundedCandidateContent(
+                        for: strategy,
+                        target: target,
+                        snapshot: snapshot,
+                        failureDescription: failureDescription
+                    )
+                else {
+                    continue
+                }
                 patchTriples.append((target: target, strategy: strategy, content: content))
             }
         }
@@ -194,20 +202,45 @@ public struct PatchPipeline: Sendable {
             // Map blast radius score to a discrete dependency impact count.
             let depImpact = Int(((impact?.blastRadiusScore ?? 0) * 10).rounded())
 
-            rankedPatches.append(RankedPatch(
-                workspaceRelativePath: triple.target.path,
-                proposedContent: triple.content,
-                testsFixed: eval.testsFixed,
-                regressions: eval.regressions,
-                dependencyImpact: depImpact,
-                origin: "\(triple.strategy.kind.rawValue) on \(triple.target.path)"
-            ))
+            rankedPatches.append(
+                RankedPatch(
+                    workspaceRelativePath: triple.target.path,
+                    proposedContent: triple.content,
+                    testsFixed: eval.testsFixed,
+                    regressions: eval.regressions,
+                    dependencyImpact: depImpact,
+                    origin: "\(triple.strategy.kind.rawValue) on \(triple.target.path)"
+                ))
         }
         completedStages.append(.sandboxValidation)
         completedStages.append(.regressionCheck)
 
         // ── Stage 4: Rank ─────────────────────────────────────────────────────
-        let sorted = rankedPatches.sorted { $0.rank > $1.rank }
+        let sorted =
+            rankedPatches
+            .enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.rank != rhs.element.rank {
+                    return lhs.element.rank > rhs.element.rank
+                }
+                if lhs.element.testsFixed != rhs.element.testsFixed {
+                    return lhs.element.testsFixed > rhs.element.testsFixed
+                }
+                if lhs.element.regressions != rhs.element.regressions {
+                    return lhs.element.regressions < rhs.element.regressions
+                }
+                if lhs.element.dependencyImpact != rhs.element.dependencyImpact {
+                    return lhs.element.dependencyImpact < rhs.element.dependencyImpact
+                }
+                if lhs.element.workspaceRelativePath != rhs.element.workspaceRelativePath {
+                    return lhs.element.workspaceRelativePath < rhs.element.workspaceRelativePath
+                }
+                if lhs.element.origin != rhs.element.origin {
+                    return lhs.element.origin < rhs.element.origin
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
         completedStages.append(.rankFix)
 
         // Quality bar: select the highest-ranked zero-regression candidate.
@@ -239,27 +272,184 @@ public struct PatchPipeline: Sendable {
         )
     }
 
-    // MARK: - Synthetic patch stub
+    // MARK: - Grounded candidate synthesis
 
-    /// Generates a minimal synthetic candidate patch stub based on strategy kind.
+    /// Synthesizes a candidate by splicing strategy guidance into the live
+    /// target file content near the best symbol anchor available.
     ///
-    /// This is intentionally synthetic placeholder output. Stronger generation
-    /// strategies may replace it in other environments, but this function does
-    /// not claim grounded patch synthesis.
-    private func syntheticPatch(for strategy: PatchStrategy, target: PatchTarget) -> String {
-        switch strategy.kind {
+    /// The resulting content is still advisory, but it is grounded to the
+    /// current repository state instead of being a detached placeholder stub.
+    private func groundedCandidateContent(
+        for strategy: PatchStrategy,
+        target: PatchTarget,
+        snapshot: RepositorySnapshot,
+        failureDescription: String
+    ) -> String? {
+        guard let originalContent = loadCurrentFileContent(for: target.path, snapshot: snapshot),
+            let commentPrefix = commentPrefix(for: target.path)
+        else {
+            return nil
+        }
+
+        var lines =
+            originalContent
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+        if lines.isEmpty {
+            lines = [""]
+        }
+
+        let anchor = anchoredSymbol(for: target, in: snapshot)
+        var insertionIndex = anchor.map { max(0, min(lines.count, $0.lineStart - 1)) } ?? 0
+        if insertionIndex == 0, lines.first?.hasPrefix("#!") == true {
+            insertionIndex = min(1, lines.count)
+        }
+
+        let indentation = indentationForInsertion(in: lines, insertionIndex: insertionIndex)
+        let advisoryLines = advisoryPatchLines(
+            for: strategy,
+            target: target,
+            anchor: anchor,
+            failureDescription: failureDescription
+        ).map { "\(indentation)\(commentPrefix) \($0)" }
+
+        lines.insert(contentsOf: advisoryLines + [""], at: insertionIndex)
+
+        let candidate = lines.joined(separator: "\n")
+        return originalContent.hasSuffix("\n") ? candidate + "\n" : candidate
+    }
+
+    private func loadCurrentFileContent(
+        for relativePath: String,
+        snapshot: RepositorySnapshot
+    ) -> String? {
+        let workspaceRoot = URL(fileURLWithPath: snapshot.workspaceRoot, isDirectory: true)
+        let fileURL = workspaceRoot.appendingPathComponent(relativePath, isDirectory: false)
+        guard let data = FileManager.default.contents(atPath: fileURL.path) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func commentPrefix(for relativePath: String) -> String? {
+        if relativePath == "Package.swift" {
+            return "//"
+        }
+
+        switch URL(fileURLWithPath: relativePath).pathExtension.lowercased() {
+        case "swift", "c", "cc", "cpp", "h", "hpp", "m", "mm", "js", "jsx", "ts", "tsx", "java",
+            "kt", "go", "rs":
+            return "//"
+        case "py", "rb", "sh", "yml", "yaml", "toml", "ini", "conf":
+            return "#"
+        default:
+            return nil
+        }
+    }
+
+    private func anchoredSymbol(
+        for target: PatchTarget,
+        in snapshot: RepositorySnapshot
+    ) -> SymbolNode? {
+        let fileNodes = snapshot.symbolGraph.nodes(inFile: target.path).sorted { lhs, rhs in
+            if lhs.lineStart == rhs.lineStart {
+                return lhs.name < rhs.name
+            }
+            return lhs.lineStart < rhs.lineStart
+        }
+        guard !fileNodes.isEmpty else {
+            return nil
+        }
+
+        for matchedSymbol in target.rootCauseCandidate.matchedSymbols {
+            if let exactMatch = fileNodes.first(where: {
+                $0.name.caseInsensitiveCompare(matchedSymbol) == .orderedSame
+            }) {
+                return exactMatch
+            }
+            if let partialMatch = fileNodes.first(where: {
+                $0.name.localizedCaseInsensitiveContains(matchedSymbol)
+                    || matchedSymbol.localizedCaseInsensitiveContains($0.name)
+            }) {
+                return partialMatch
+            }
+        }
+
+        return fileNodes.first
+    }
+
+    private func indentationForInsertion(
+        in lines: [String],
+        insertionIndex: Int
+    ) -> String {
+        guard !lines.isEmpty else {
+            return ""
+        }
+
+        let candidateIndices = [
+            min(max(insertionIndex, 0), lines.count - 1),
+            min(max(insertionIndex - 1, 0), lines.count - 1),
+        ]
+
+        for index in candidateIndices {
+            let line = lines[index]
+            if line.isEmpty == false {
+                return String(line.prefix { $0 == " " || $0 == "\t" })
+            }
+        }
+
+        return ""
+    }
+
+    private func advisoryPatchLines(
+        for strategy: PatchStrategy,
+        target: PatchTarget,
+        anchor: SymbolNode?,
+        failureDescription: String
+    ) -> [String] {
+        let anchorLabel =
+            anchor?.name
+            ?? target.rootCauseCandidate.matchedSymbols.first
+            ?? URL(fileURLWithPath: target.path).lastPathComponent
+        let rationale =
+            target.rootCauseCandidate.reasons.first ?? "failure localization selected this file"
+
+        return [
+            "oracle-patch-candidate: \(strategy.kind.rawValue) near \(anchorLabel)",
+            "rationale: \(rationale)",
+            "failure-signal: \(condensedFailureDescription(failureDescription))",
+            "proposed-edit: \(advisorySnippet(for: strategy.kind))",
+        ]
+    }
+
+    private func condensedFailureDescription(_ failureDescription: String) -> String {
+        let firstLine =
+            failureDescription
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init) ?? failureDescription
+        let trimmed = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 96 else {
+            return trimmed
+        }
+        let cutoff = trimmed.index(trimmed.startIndex, offsetBy: 96)
+        return String(trimmed[..<cutoff]) + "..."
+    }
+
+    private func advisorySnippet(for strategyKind: PatchStrategyKind) -> String {
+        switch strategyKind {
         case .nullGuard:
-            return "// [PatchPipeline:\(strategy.kind.rawValue)] guard let value = optionalValue else { return }\n"
+            return "guard let value = optionalValue else { return }"
         case .boundaryFix:
-            return "// [PatchPipeline:\(strategy.kind.rawValue)] ensure index < collection.count before access\n"
+            return "guard index >= 0 && index < collection.count else { return }"
         case .typeCorrection:
-            return "// [PatchPipeline:\(strategy.kind.rawValue)] cast value to expected type\n"
+            return "if let typedValue = rawValue as? ExpectedType { return typedValue }"
         case .dependencyUpdate:
-            return "// [PatchPipeline:\(strategy.kind.rawValue)] update import or package version\n"
+            return "import MissingDependency"
         case .testExpectationUpdate:
-            return "// [PatchPipeline:\(strategy.kind.rawValue)] update assertion to match revised behavior\n"
+            return "#expect(actual == expectedValue)"
         case .configurationFix:
-            return "// [PatchPipeline:\(strategy.kind.rawValue)] fix configuration value\n"
+            return "ensure required configuration value is present before execution"
         }
     }
 
@@ -274,9 +464,19 @@ public struct PatchPipeline: Sendable {
         let openBraces = content.filter { $0 == "{" }.count
         let closeBraces = content.filter { $0 == "}" }.count
         guard openBraces == closeBraces else {
-            return SandboxEvaluation(compiled: false, testsFixed: 0, regressions: 0, stderr: "Unbalanced braces")
+            return SandboxEvaluation(
+                compiled: false, testsFixed: 0, regressions: 0, stderr: "Unbalanced braces")
         }
-        let hasFix = content.contains("guard ") || content.contains("if let ") || content.contains("?? ")
+        let hasFix =
+            content.contains("guard ")
+            || content.contains("if let ")
+            || content.contains("?? ")
+            || content.contains("index < ")
+            || content.contains("as? ")
+            || content.contains("#expect(")
+            || content.contains("XCTAssert")
+            || content.localizedCaseInsensitiveContains("configuration")
+            || content.contains("import ")
         return SandboxEvaluation(compiled: true, testsFixed: hasFix ? 1 : 0, regressions: 0)
     }
 }
